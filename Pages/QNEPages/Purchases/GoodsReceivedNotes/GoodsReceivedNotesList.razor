@@ -1,0 +1,204 @@
+﻿@page "/GoodsReceivedNotesList"
+@attribute [Authorize(Roles = "Admin,User")]
+
+
+<RadzenStack Gap="0.2rem">
+    <RadzenRow JustifyContent="JustifyContent.Start" AlignItems="AlignItems.Center" Gap="0.5rem">
+        <RadzenColumn Size="12" SizeSM="7">
+            <RadzenStack AlignItems="AlignItems.Center" Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.Normal">
+                <RadzenTextBox Disabled=@(filteredgoodsReceivedNotesList == null) @bind-Value="@searchText"
+                               Placeholder="Search..."
+                               Style="font-size:smaller; width:30rem;"
+                               Change="@(args => ApplyFilter())" />
+                <RadzenButton Disabled=@(filteredgoodsReceivedNotesList == null) Icon="search" Click="@ApplyFilter" Text="Find" />
+                <RadzenButton Disabled=@(filteredgoodsReceivedNotesList == null) Icon="delete" Click="@ClearFilter" Text="Clear" />
+            </RadzenStack>
+        </RadzenColumn>
+        <RadzenColumn Size="12" SizeSM="5">
+            <RadzenStack AlignItems="AlignItems.Center" Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End">
+                <RadzenButton Text="New" Click="@Navigate" ButtonStyle="ButtonStyle.Primary" Icon="add"></RadzenButton>
+            </RadzenStack>
+        </RadzenColumn>
+    </RadzenRow>
+
+    <RadzenDataGrid @ref="grids" @bind-Value=@selectedGoodsReceivedNotes RowDoubleClick="() => Edit(selectedGoodsReceivedNotes.FirstOrDefault().Id)"
+                    TItem="GoodsReceivedNotesModel"
+                    AllowColumnReorder="true" AllowAlternatingRows="false" ColumnWidth="200px"
+                    IsLoading=@isLoading Sort="@ShowLoading" Page="@ShowLoading" Group="@ShowLoading" Filter="@ShowLoading"
+                    Data="@filteredgoodsReceivedNotesList" AllowColumnPicking="true" Style="height: 84vh"
+                    ShowMultiColumnSortingIndex="true"
+                    KeyProperty="Id" AllowColumnResize="true" Density="@density"
+                    AllowSorting="true" AllowVirtualization=true AllowFiltering="true"
+                    FilterMode="FilterMode.CheckBoxList" FilterCaseSensitivity="@filter" LogicalFilterOperator="LogicalFilterOperator.Or">
+
+        <HeaderTemplate>
+            <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="1rem" Wrap="FlexWrap.Wrap">
+                <span>
+                    Purchase Orders
+                </span>
+            </RadzenStack>
+
+        </HeaderTemplate>
+
+        <Columns>
+            <RadzenDataGridColumn Filterable="false" Width="150px" Visible=true Title="Status">
+
+                <Template Context="data">
+                    @{
+                        var (text, style) = StatusHelper.Get(
+                        data.IsClosed,
+                        data.IsCancelled,
+                        data.TransferToInfo);
+                    }
+
+                    <RadzenBadge IsPill="true" Text="@text" BadgeStyle="@style" />
+                </Template>
+            </RadzenDataGridColumn>
+            <RadzenDataGridColumn Visible=true TItem="GoodsReceivedNotesModel" Property="@nameof(GoodsReceivedNotesModel.GoodsReceivedNoteDate)" FormatString="{0:d}" Title="Date"></RadzenDataGridColumn>
+            <RadzenDataGridColumn Visible=true TItem="GoodsReceivedNotesModel" Property="@nameof(GoodsReceivedNotesModel.GoodsReceivedNoteCode)" Title="GRN #">
+                @*    <Template Context="data">
+                            <span class="@(data.IsCancelled ? "rz-color-danger-dark" : "")">@data.PurchaseRequisitionCode</span>
+                        </Template> *@
+            </RadzenDataGridColumn>
+
+            <RadzenDataGridColumn Visible=true TItem="GoodsReceivedNotesModel" Property="@nameof(GoodsReceivedNotesModel.CompanyCode)" Title="Supplier">
+                <FooterTemplate>
+                    Total: <b>@totalGoodsReceivedNotes</b>
+                </FooterTemplate>
+            </RadzenDataGridColumn>
+
+            <RadzenDataGridColumn Visible=true Width="315px" TItem="GoodsReceivedNotesModel" Property="@nameof(GoodsReceivedNotesModel.CreditorName)" Title="Name"></RadzenDataGridColumn>
+
+            <RadzenDataGridColumn Visible=true TItem="GoodsReceivedNotesModel" Property="@nameof(GoodsReceivedNotesModel.Name)" Title="Purchaser"></RadzenDataGridColumn>
+
+            <RadzenDataGridColumn Property="@nameof(GoodsReceivedNotesModel.WTaxTotalAmountLocal)" Title="WTax Total Amount">
+                <Template Context="data">
+                    <span>@(data.WTaxTotalAmountLocal is null or 0 ? "" : data.WTaxTotalAmountLocal.Value.ToString("#,0.00"))</span>
+                </Template>
+            </RadzenDataGridColumn>
+
+            <RadzenDataGridColumn Visible=true TItem="GoodsReceivedNotesModel" Property="@nameof(GoodsReceivedNotesModel.CurrencyCode)" Title="Currency"></RadzenDataGridColumn>
+
+
+            <RadzenDataGridColumn Property="@nameof(GoodsReceivedNotesModel.TaxTotalAmountLocal)" Title="Tax">
+                <Template Context="data">
+                    <span>@(data.TaxTotalAmountLocal is null or 0 ? "" : data.TaxTotalAmountLocal.Value.ToString("#,0.00"))</span>
+                </Template>
+            </RadzenDataGridColumn>
+
+            <RadzenDataGridColumn Visible=true TItem="GoodsReceivedNotesModel" TextAlign="TextAlign.Right" Property="@nameof(GoodsReceivedNotesModel.NetTotalAmountLocal)" Title="Net Amount">
+                <Template Context="data">
+                    <span>@(data.NetTotalAmountLocal is null or 0 ? "" : data.NetTotalAmountLocal.Value.ToString("#,0.00"))</span>
+                </Template>
+            </RadzenDataGridColumn>
+
+        </Columns>
+    </RadzenDataGrid>
+</RadzenStack>
+
+@code {
+
+    string status = string.Empty;
+    private RadzenDataGrid<GoodsReceivedNotesModel> grids;
+    private IList<GoodsReceivedNotesModel> selectedGoodsReceivedNotes { get; set; }
+    private IEnumerable<GoodsReceivedNotesModel> goodsReceivedNotesList { get; set; }
+
+    FilterCaseSensitivity filter = FilterCaseSensitivity.CaseInsensitive;
+    Density density = Density.Compact;
+    AlignItems alignItems = AlignItems.Center;
+    Variant variant = Variant.Flat;
+
+    bool isLoading = true;
+    int totalGoodsReceivedNotes = 0;
+
+    [CascadingParameter]
+    public Task<AuthenticationState> authenticationState { get; set; }
+    protected async override Task OnInitializedAsync()
+    {
+        var authState = (await authenticationState).User;
+        if (authState.Identity.IsAuthenticated)
+        {
+            var RoleId = authState.FindFirst("RoleId").Value;
+            GetLoadMenuPermission(RoleId);
+        }
+
+    }
+
+
+    private SystemMenuObjectPermission? permission;
+    protected async void GetLoadMenuPermission(string RoleId)
+    {
+        permission = await permissionService.GetPermissionAsync(
+            RoleId,
+            "Goods Received Notes");  // ✅ match whatever the DB actually has
+
+        if (permission is null)
+            return;
+        await ShowLoading();
+        await loadAllData();
+        filteredgoodsReceivedNotesList = goodsReceivedNotesList;
+        StateHasChanged();
+    }
+
+
+    private string searchText = string.Empty;
+    private IEnumerable<GoodsReceivedNotesModel> filteredgoodsReceivedNotesList;
+    private void ApplyFilter()
+    {
+        if (string.IsNullOrWhiteSpace(searchText))
+        {
+            filteredgoodsReceivedNotesList = goodsReceivedNotesList;
+        }
+        else
+        {
+            filteredgoodsReceivedNotesList = goodsReceivedNotesList.Where(x =>
+                (!string.IsNullOrEmpty(x.GoodsReceivedNoteCode) && x.GoodsReceivedNoteCode.Contains(searchText, StringComparison.OrdinalIgnoreCase)) ||
+                (!string.IsNullOrEmpty(x.CompanyCode) && x.CompanyCode.Contains(searchText, StringComparison.OrdinalIgnoreCase)) ||
+                (!string.IsNullOrEmpty(x.Name) && x.Name.Contains(searchText, StringComparison.OrdinalIgnoreCase)) ||
+                (!string.IsNullOrEmpty(x.CreditorName) && x.CreditorName.Contains(searchText, StringComparison.OrdinalIgnoreCase)) ||
+                (!string.IsNullOrEmpty(x.Ref1) && x.Ref1.Contains(searchText, StringComparison.OrdinalIgnoreCase)) ||
+                (!string.IsNullOrEmpty(x.ReferenceNo) && x.ReferenceNo.Contains(searchText, StringComparison.OrdinalIgnoreCase))
+            );
+        }
+        StateHasChanged();
+    }
+    private void ClearFilter()
+    {
+        searchText = string.Empty;
+        filteredgoodsReceivedNotesList = goodsReceivedNotesList;
+        StateHasChanged();
+    }
+
+    async Task ShowLoading()
+    {
+        await Task.Yield();
+
+        isLoading = false;
+    }
+
+    private async Task loadAllData()
+    {
+        await GetGoodsReceivedNotesList();
+    }
+
+    private async Task GetGoodsReceivedNotesList()
+    {
+        var data = await goodsReceivedNotesService.GetGoodsReceivedNotesList();
+        goodsReceivedNotesList = data is not null ? data.ToList() : new List<GoodsReceivedNotesModel>();
+        totalGoodsReceivedNotes = goodsReceivedNotesList.Count();
+    }
+
+    protected void Edit(Guid Id)
+    {
+        navManager.NavigateTo($"/GoodsReceivedNotes/Edit/{Id}");
+    }
+
+
+    private void Navigate()
+    {
+        navManager.NavigateTo("/GoodsReceivedNotes");
+    }
+
+
+
+}

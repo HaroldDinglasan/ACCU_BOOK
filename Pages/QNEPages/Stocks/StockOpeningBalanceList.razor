@@ -1,0 +1,164 @@
+﻿@page "/StockOpeningBalanceList"
+@attribute [Authorize(Roles = "Admin,User")]
+<RadzenStack Gap="0.2rem">
+
+    <RadzenRow JustifyContent="JustifyContent.Start" AlignItems="AlignItems.Center" Gap="0.5rem">
+        <RadzenColumn Size="12" SizeSM="7">
+            <RadzenStack AlignItems="AlignItems.Center" Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.Normal">
+                <RadzenTextBox Disabled=@(filteredStockItemsList == null) @bind-Value="@searchText"
+                               Placeholder="Search..."
+                               Style="font-size:smaller; width:30rem;"
+                               Change="@(args => ApplyFilter())" />
+                <RadzenButton Disabled=@(filteredStockItemsList == null) Icon="search" Click="@ApplyFilter" Text="Find" />
+                <RadzenButton Disabled=@(filteredStockItemsList == null) Icon="delete" Click="@ClearFilter" Text="Clear" />
+            </RadzenStack>
+        </RadzenColumn>
+        <RadzenColumn Size="12" SizeSM="5">
+            <RadzenStack AlignItems="AlignItems.Center" Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End">
+                <RadzenButton Text="New" Click="@navigate" Size="ButtonSize.Small" ButtonStyle="ButtonStyle.Primary" Icon="add"></RadzenButton>
+            </RadzenStack>
+        </RadzenColumn>
+    </RadzenRow>
+
+    <RadzenDataGrid @ref="grids" @bind-Value=@selectedStockOpeningBalance RowDoubleClick="() => Edit(selectedStockOpeningBalance.FirstOrDefault().Id)" TItem="StockOpeningBalanceModel" AllowPaging="true" PageSize="30"
+                    AllowColumnReorder="true" AllowAlternatingRows="false"
+                    Data="@filteredStockItemsList" AllowColumnPicking="true" Style="height: 85vh; overflow: hidden;"
+                    KeyProperty="Id" PagerHorizontalAlign="HorizontalAlign.Center" AllowColumnResize="true" Density="@density"
+                    AllowSorting="true" ShowPagingSummary="true" AllowFiltering="true"
+                    FilterMode="FilterMode.CheckBoxList" FilterCaseSensitivity="@filter" LogicalFilterOperator="LogicalFilterOperator.Or">
+
+        <HeaderTemplate>
+            <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="1rem" Wrap="FlexWrap.Wrap">
+                <span>
+                    Stock Opening Balance <RadzenBadge Visible="@(status != string.Empty)" Shade="Shade.Dark" BadgeStyle="BadgeStyle.Danger" Text="@status" class="rz-ms-2" />
+                </span>
+            </RadzenStack>
+        </HeaderTemplate>
+
+        <Columns>
+
+            <RadzenDataGridColumn Visible=true Width="120px" TItem="StockOpeningBalanceModel" Property="@nameof(StockOpeningBalanceModel.StockOBDate)" FormatString="{0:d}" Title="Date"></RadzenDataGridColumn>
+
+            <RadzenDataGridColumn Visible=true Width="160px" TItem="StockOpeningBalanceModel" Property="@nameof(StockOpeningBalanceModel.StockOBCode)" Title="Stock OB#"></RadzenDataGridColumn>
+
+            <RadzenDataGridColumn Visible=true Width="160px" TItem="StockOpeningBalanceModel" Property="@nameof(StockOpeningBalanceModel.Description)" Title="Description"></RadzenDataGridColumn>
+
+            <RadzenDataGridColumn Visible=true Width="160px" TItem="StockOpeningBalanceModel" Property="@nameof(StockOpeningBalanceModel.ReferenceNo)" Title="Ref #"></RadzenDataGridColumn>
+
+            <RadzenDataGridColumn Visible="true" Width="160px"
+                                  TItem="StockOpeningBalanceModel"
+                                  Property="@nameof(StockOpeningBalanceModel.TotalAmount)"
+                                  Title="Total Amount">
+                <Template Context="data">
+                    @string.Format("{0:N2}", data.TotalAmount)
+                </Template>
+            </RadzenDataGridColumn>
+
+        </Columns>
+
+    </RadzenDataGrid>
+</RadzenStack>
+
+@code {
+    string status = string.Empty;
+    private RadzenDataGrid<StockOpeningBalanceModel> grids;
+    private IList<StockOpeningBalanceModel> selectedStockOpeningBalance { get; set; }
+
+    private IEnumerable<StockOpeningBalanceModel> stockOpeningBalanceList { get; set; }
+
+    FilterCaseSensitivity filter = FilterCaseSensitivity.CaseInsensitive;
+    Density density = Density.Compact;
+    AlignItems alignItems = AlignItems.Center;
+    Variant variant = Variant.Flat;
+
+    bool isloading;
+
+    protected async override Task OnInitializedAsync()
+    {
+        await loadAllData();
+    }
+
+    private async Task loadAllData()
+    {
+        await GetStockOpeningBalance();
+        isloading = false;
+    }
+
+    private async Task GetStockOpeningBalance()
+    {
+        var data = await stockItemsService.GetStockOpeningBalance();
+        stockOpeningBalanceList = data is not null ? data : new List<StockOpeningBalanceModel>();
+        filteredStockItemsList = stockOpeningBalanceList; // enable search filter
+    }
+
+    protected void Edit(Guid Id)
+    {
+        navManager.NavigateTo($"/StockOpeningBalanceList/Edit/{Id}");
+    }
+
+    //DoubleClick Cell Event
+    protected void OnCellContextMenu(DataGridCellMouseEventArgs<StockOpeningBalanceModel> stockItems)
+    {
+        selectedStockOpeningBalance = new List<StockOpeningBalanceModel>() { stockItems.Data };
+
+        var contextMenuItems = new List<ContextMenuItem>
+    {
+        new ContextMenuItem() { Text = "New", Value = 1, Icon = "add" },
+        new ContextMenuItem() { Text = "Edit", Value = 2, Icon = "edit" },
+        new ContextMenuItem() { Text = "Delete", Value = 3, Icon = "delete" }
+    };
+
+        contextMenuService.Open(stockItems, contextMenuItems, (e) =>
+        {
+            switch (e.Value)
+            {
+                case 1:
+                    navigate();
+                    break;
+                case 2:
+                    Edit(stockItems.Data.Id);
+                    // Edit(stockItems.Data.Id);
+
+                    //await AddUpdateGLAccountDialog(stockItems.Data.Id, false);
+                    break;
+                case 3:
+                    // Delete(stockItems.Data.Id);
+                    break;
+
+            }
+            contextMenuService.Close();
+
+        });
+    }
+
+    private void navigate()
+    {
+        navManager.NavigateTo("/StockOpeningBalance");
+    }
+
+    private string searchText = string.Empty;
+    private IEnumerable<StockOpeningBalanceModel> filteredStockItemsList;
+    private void ApplyFilter()
+    {
+        if (string.IsNullOrWhiteSpace(searchText))
+        {
+            filteredStockItemsList = stockOpeningBalanceList;
+        }
+        else
+        {
+            filteredStockItemsList = stockOpeningBalanceList.Where(x =>
+                (!string.IsNullOrEmpty(x.StockOBCode) && x.StockOBCode.Contains(searchText, StringComparison.OrdinalIgnoreCase)) ||
+                (!string.IsNullOrEmpty(x.Description) && x.Description.Contains(searchText, StringComparison.OrdinalIgnoreCase))
+            );
+        }
+        StateHasChanged();
+    }
+    private void ClearFilter()
+    {
+        searchText = string.Empty;
+        filteredStockItemsList = stockOpeningBalanceList;
+        StateHasChanged();
+    }
+
+
+}

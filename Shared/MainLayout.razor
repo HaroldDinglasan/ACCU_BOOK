@@ -1,0 +1,160 @@
+﻿@using Accounting_V4.Model.MenuModels
+@using Blazored.LocalStorage
+
+@inherits LayoutComponentBase
+@inject CookieThemeService CookieThemeService
+@inject ILocalStorageService localStorage;
+@inject NavigationManager NavigationManager
+@inject MenuService menuService
+
+
+<RadzenComponents />
+<SidePanelContainer />
+
+<RadzenLayout class="main-shell" Style="grid-template-columns: auto 1fr auto; grid-template-areas: 'rz-header rz-header rz-header' 'rz-sidebar rz-body rz-right-sidebar'">
+    <RadzenHeader>
+        <div class="rz-display-flex rz-row rz-align-items-center rz-justify-content-flex-start demos-nav">
+            <div class="rz-col-5">
+                <div class="rz-stack rz-display-flex rz-flex-row rz-align-items-center rz-justify-content-normal" style="gap:0.75rem;">
+                    <RadzenSidebarToggle Click="@(() => leftSidebarExpanded = !leftSidebarExpanded)" />
+                    <div class="main-book" role="img" aria-label="AccuBook">AB</div>
+                    <span class="main-brand">AccuBook</span>
+                    <RadzenBadge BadgeStyle="BadgeStyle.Light" Text="BETA" />
+                    @if (!string.IsNullOrEmpty(companyName) && companyName != "ERROR 404")
+                    {
+                        <span class="main-company" title="Current company">
+                            <RadzenIcon Icon="business" />@companyName
+                        </span>
+                    }
+
+                    <span class="main-company" title="Current company">
+                        @TimeService.ServerTime
+                    </span>
+                   
+@* 
+                    <Footer /> *@
+
+                   
+                </div>
+            </div>
+
+            <div class="rz-col-7">
+                <div class="rz-stack rz-display-flex rz-flex-row rz-align-items-center rz-justify-content-flex-end">
+
+                    <AuthorizeView Roles="Admin">
+                        <Maintenance />
+                    </AuthorizeView>
+
+                    <ProfileNavMenu />
+                    <RadzenSidebarToggle Icon="format_paint" Click="@(() => rightSidebarExpanded = !rightSidebarExpanded)" class="rz-m-0" />
+                </div>
+            </div>
+        </div>
+    </RadzenHeader>
+
+   
+    <RadzenSidebar Visible="@HasMenu" @bind-Expanded="@leftSidebarExpanded">
+        <RadzenPanelMenu DisplayStyle="@MenuItemDisplayStyle.IconAndText" ShowArrow=true Multiple=false>
+
+            <ChildContent>
+                @if (systemMenuObjectList == null)
+                {
+                    <MenuLoading />
+                }
+                else
+                {
+                    @foreach (var mn in systemMenuObjectList)
+                    {
+                        @if (mn.ParentMenuId == 0)
+                        {
+                            <RadzenPanelMenuItem Text="@mn.MenuName" Icon="@mn.IconNames">
+                                <ChildContent>
+                                    @foreach (var mn1 in systemMenuObjectList)
+                                    {
+                                        @if (mn.MenuId == mn1.ParentMenuId)
+                                        {
+                                            <RadzenPanelMenuItem Text="@mn1.MenuName" Path="@mn1.PageName" Icon="@mn1.IconNames" />
+                                        }
+                                    }
+                                </ChildContent>
+                            </RadzenPanelMenuItem>
+                        }
+                    }
+                }
+            </ChildContent>
+        </RadzenPanelMenu>
+    </RadzenSidebar>
+
+    <div class="rz-body">
+        @Body
+        <footer class="main-foot">
+            <span>AccuBook BETA &middot; Accounting System Under Development</span>
+        </footer>
+    </div>
+
+    <RadzenSidebar Responsive="false" @bind-Expanded="@rightSidebarExpanded" Style="width: 300px; grid-area: rz-right-sidebar; background-color: var(--rz-body-background-color);">
+        <div class="rz-p-4">
+            <ThemeSettings />
+        </div>
+    </RadzenSidebar>
+
+</RadzenLayout>
+
+
+
+@code {
+    bool leftSidebarExpanded = true;
+    bool rightSidebarExpanded = false;
+
+    string? companyName = "ERROR 404";
+    [CascadingParameter]
+    public Task<AuthenticationState> authenticationState { get; set; }
+
+    public IEnumerable<SystemMenuObjectPermissionResult> systemMenuObjectList;
+
+    string? FullName = "Loading User...";
+
+
+    protected override async Task OnInitializedAsync()
+    {
+        GetUserName();
+        companyName = await localStorage.GetItemAsync<string>("selectedCompanyName");
+
+        var authState = (await authenticationState).User;
+        if (authState.Identity.IsAuthenticated)
+        {
+            var UserId = authState.FindFirst(x => x.Type == System.Security.Claims.ClaimTypes.NameIdentifier);
+          //GetLoadMenu(Guid.Parse(UserId.Value));
+            GetLoadMenu(UserId.Value);
+        }
+        while (true)
+        {
+            await Task.Delay(1000);// Pilitin ang Blazor na i-update ang screen
+            StateHasChanged(); 
+        }
+    }
+
+    bool HasMenu => systemMenuObjectList?.Any() == true;
+    protected async void GetLoadMenu(string UserId)
+    {
+        var data = await menuService.GetSystemMenuObjectById(UserId);
+     
+        if (data != null)
+            systemMenuObjectList = data;
+        StateHasChanged();
+    }
+
+    protected async void GetUserName()
+    {
+        var authState = (await authenticationState).User;
+
+        if (authState.Identity.IsAuthenticated)
+        {
+            var claim = authState.FindFirst(x => x.Type == System.Security.Claims.ClaimTypes.GivenName);
+            FullName = claim.Value;
+        }
+
+    }
+
+
+}

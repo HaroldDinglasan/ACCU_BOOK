@@ -1,0 +1,199 @@
+﻿@page "/ValidPostingPeriod"
+@page "/ValidPostingPeriodList/Edit/{id:guid}"
+
+
+@attribute [Authorize(Roles = "Admin,User")]
+@inject HttpClient http
+@inject NavigationManager navManager
+@inject NotificationService notificationService
+@inject IJSRuntime JSRuntime
+
+<RadzenTemplateForm TItem="ValidPostingModel" Data="@validpostingperiodmodel" Submit="@OnSubmit" InvalidSubmit="@OnInvalidSubmit">
+    <RadzenStack Gap="0.5rem">
+        <RadzenCard Style="Padding: 0.5rem">
+            <RadzenRow JustifyContent="JustifyContent.Start" AlignItems="AlignItems.Center" Gap="0.5rem">
+
+                <RadzenColumn Size="12" SizeSM="5">
+                    <RadzenStack AlignItems="AlignItems.Center" Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.Normal">
+                        <RadzenButton Size="ButtonSize.Small" Disabled="@isDisable" IsBusy="@isBusy" ButtonType="ButtonType.Submit" Text="Save" Icon="save"></RadzenButton>
+                        @* <RadzenButton Size="ButtonSize.Small" Visible="@isVisible" ButtonStyle="ButtonStyle.Danger" Click="@navigate" Text="Cancel" Icon="cancel"></RadzenButton> *@
+                    </RadzenStack>
+                </RadzenColumn>
+
+                <RadzenColumn Size="12" SizeSM="7">
+                    <RadzenStack AlignItems="AlignItems.Center" Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End">
+                        <RadzenButton Size="@smallbtn" ButtonStyle="ButtonStyle.Light" Click="@OnPrint" Text="Print" Icon="print"></RadzenButton>
+                        <RadzenButton Size="@smallbtn" ButtonStyle="ButtonStyle.Light" Click="@Navigate" Text="Search" Icon="search"></RadzenButton>
+                    </RadzenStack>
+                </RadzenColumn>
+
+            </RadzenRow>
+        </RadzenCard>
+
+        <RadzenCard>
+
+            <RadzenCard Style="padding: 1rem; margin-bottom: 1rem; border-left: 6px solid #588157; border-radius: 10px;">
+                <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.75rem">
+                    <RadzenHeading Size="H4" Text="Valid Posting Periods" Style="margin: 0; font-weight: 600; color: #3A5A40;" />
+                </RadzenStack>
+            </RadzenCard>
+
+            <RadzenStack Gap="0.5rem">
+                <RadzenRow AlignItems="AlignItems.Center">
+
+                    <RadzenColumn Size="12" SizeMD="6">
+                        <RadzenFormField Style="width:100%" Text="User*" AllowFloatingLabel="false">
+                            <RadzenDropDownDataGrid class="@redtext"
+                                                    @bind-Value="validpostingperiodmodel.UserName" Style="width: 100%;"
+                                                    PageSize=10 Data="@userList" AllowVirtualization="true"
+                                                    AllowColumnResize="true"
+                                                    AllowClear="true" FilterCaseSensitivity="@filter"
+                                                    AllowFilteringByAllStringColumns="true"
+                                                    Density="@density"
+                                                    TextProperty="UserName"
+                                                    Name="UserName"
+                                                    ValueProperty="UserName">
+                                <Columns>
+                                    <RadzenDropDownDataGridColumn Width="4%" Property="UserName" Title="User Name"></RadzenDropDownDataGridColumn>
+                                    <RadzenDropDownDataGridColumn Width="10%" Property="FullName" Title="Full Name"></RadzenDropDownDataGridColumn>
+                                </Columns>
+                            </RadzenDropDownDataGrid>
+                        </RadzenFormField>
+                        <RadzenRequiredValidator Component="UserName" Text="User must not be empty" Popup="false" />
+                    </RadzenColumn>
+
+                    <RadzenColumn Size="12" SizeMD="6" Style="display:flex; align-items:center;">
+                        <RadzenCheckBox Style="margin-left:20px;" @bind-Value="validpostingperiodmodel.IsActive" />
+                        <label style="margin-left:5px;">Active</label>
+                    </RadzenColumn>
+
+                    <RadzenColumn Size="12" SizeMD="6">
+                        <RadzenFormField Style="width:100%" Text="Valid Date From*" AllowFloatingLabel="false">
+                            <RadzenDatePicker @bind-Value="validpostingperiodmodel.ValidDateFrom"
+                                              Name="ValidDateFrom"
+                                              Style="width:100%;"
+                                              DateFormat="MM-dd-yyyy"
+                                              ShowTime="false" />
+                        </RadzenFormField>
+                        <RadzenRequiredValidator Component="ValidDateFrom" Text="Valid Date From is required" Popup="false" />
+                    </RadzenColumn>
+
+                    <RadzenColumn Size="12" SizeMD="6">
+                        <RadzenFormField Style="width:100%" Text="Valid Date To*" AllowFloatingLabel="false">
+                            <RadzenDatePicker @bind-Value="validpostingperiodmodel.ValidDateTo"
+                                              Name="ValidDateTo"
+                                              Style="width:100%;"
+                                              DateFormat="MM-dd-yyyy"
+                                              ShowTime="false" />
+                        </RadzenFormField>
+                        <RadzenRequiredValidator Component="ValidDateTo" Text="Valid Date To is required" Popup="false" />
+                    </RadzenColumn>
+
+                </RadzenRow>
+
+
+
+            </RadzenStack>
+
+
+        </RadzenCard>
+
+    </RadzenStack>
+</RadzenTemplateForm>
+
+@code {
+
+    [Parameter]
+    public Guid? Id { get; set; }
+
+    AlignItems alignItems = AlignItems.Center;
+    Density density = Density.Compact;
+    ButtonSize smallbtn = ButtonSize.Small;
+    FilterCaseSensitivity filter = FilterCaseSensitivity.CaseInsensitive;
+
+    bool isLoading = false;
+    bool isDisable = false;
+    bool isVisible = false;
+    bool isBusy;
+
+    async Task ShowLoading()
+    {
+        StateHasChanged();
+        isLoading = true;
+
+        await Task.Yield();
+        StateHasChanged();
+        isLoading = false;
+    }
+
+    //FOR PROPERTY SET VALUE OF OBJECT
+    string btnText = "Save";
+    string redtext;
+
+
+    // MODEL
+    private ValidPostingModel validpostingperiodmodel { get; set; } = new ValidPostingModel();
+    private SecuritySystemUser systemsecuritymodel { get; set; } = new SecuritySystemUser();
+
+
+    protected IEnumerable<SecuritySystemUser> userList { get; set; }
+
+
+
+    // Page Initialization
+    protected async override Task OnInitializedAsync()
+    {
+        await loadAllData(); // loads all data
+        if (Id is not null)
+        {
+            await loadAllDataById();
+        }
+    }
+
+    private async Task loadAllDataById()
+    {
+    }
+
+    private async Task loadAllData()
+    {
+        await GetUserList();
+    }
+
+    protected async Task GetUserList()
+    {
+        var data = await validPostingServices.GetUserList();
+        userList = data is not null ? data : new List<SecuritySystemUser>();
+    }
+
+
+    private async Task OnSubmit()
+    {
+
+    }
+
+    private bool showValidationErrors = false;
+
+
+    private void OnInvalidSubmit(FormInvalidSubmitEventArgs args)
+    {
+        notificationService.Notify(new NotificationMessage
+        {
+            Severity = NotificationSeverity.Error,
+            Summary = "Validation",
+            Detail = "User must not be empty.",
+            Duration = 4000
+        });
+    }
+
+
+    private void OnPrint()
+    {
+        CustomNotificationMessage.Message(notificationService, true);
+    }
+
+    private void Navigate()
+    {
+        navManager.NavigateTo("/ValidPostingPeriodList");
+    }
+
+}

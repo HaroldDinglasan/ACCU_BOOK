@@ -1,0 +1,213 @@
+﻿@page "/Classes"
+@page "/ClassesList/Edit/{id:guid}"
+@attribute [Authorize(Roles = "Admin,User")]
+
+
+<RadzenTemplateForm TItem="StockClassesModel" Data="@stockclassesmodel" Submit="@OnSubmit" InvalidSubmit="@OnInvalidSubmit">
+    <RadzenStack Gap="0.5rem">
+        <RadzenCard Style="Padding: 0.5rem">
+            <RadzenRow JustifyContent="JustifyContent.Start" AlignItems="AlignItems.Center" Gap="0.5rem">
+
+                <RadzenColumn Size="12" SizeSM="5">
+                    <RadzenStack AlignItems="AlignItems.Center" Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.Normal">
+                        <RadzenButton Size="ButtonSize.Small" Disabled="@isDisable" IsBusy="@isBusy" ButtonType="ButtonType.Submit" Text="Save" Icon="save"></RadzenButton>
+                        @* <RadzenButton Size="ButtonSize.Small" Visible="@isVisible" ButtonStyle="ButtonStyle.Danger" Click="@navigate" Text="Cancel" Icon="cancel"></RadzenButton> *@
+                    </RadzenStack>
+                </RadzenColumn>
+
+                <RadzenColumn Size="12" SizeSM="7">
+                    <RadzenStack AlignItems="AlignItems.Center" Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End">
+                        <RadzenButton Size="@smallbtn" ButtonStyle="ButtonStyle.Light" Click="@Navigate" Text="Search" Icon="search"></RadzenButton>
+                    </RadzenStack>
+                </RadzenColumn>
+
+            </RadzenRow>
+        </RadzenCard>
+
+        <RadzenCard>
+
+            <RadzenCard Style="padding: 1rem; margin-bottom: 1rem; border-left: 6px solid #588157; border-radius: 10px;">
+                <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.75rem">
+                    <RadzenHeading Size="H4" Text="Stock Classes" Style="margin: 0; font-weight: 600; color: #3A5A40;" />
+                </RadzenStack>
+            </RadzenCard>
+
+            <RadzenStack Gap="0.5rem">
+                <RadzenRow AlignItems="AlignItems.Center">
+
+                    <RadzenColumn Size="12" SizeMD="6">
+                        <RadzenFormField Style="width:100%" Text="Class Code*" AllowFloatingLabel="false">
+                            <RadzenTextBox @bind-Value="stockclassesmodel.ClassCode"
+                                           Name="ClassCode"
+                                           class="@GetClassesCodeClass()"
+                                           Style="width:100%;" />
+                        </RadzenFormField>
+                        <RadzenRequiredValidator Component="ClassCode" Text="Class Code is required" Popup="false" />
+                    </RadzenColumn>
+
+                    <RadzenColumn Size="12" SizeMD="6" Style="display:flex; align-items:center;">
+                        <RadzenCheckBox Style="margin-left:20px;" @bind-Value="stockclassesmodel.IsActive" />
+                        <label style="margin-left:5px;">Active</label>
+                    </RadzenColumn>
+
+                </RadzenRow>
+
+                <RadzenRow>
+
+                    <RadzenColumn Size="12">
+                        <RadzenFormField Style="width:100%" Text="Description" AllowFloatingLabel="false">
+                            <RadzenTextBox @bind-Value="stockclassesmodel.Description" Style="width:100%;" />
+                        </RadzenFormField>
+                    </RadzenColumn>
+
+                </RadzenRow>
+
+            </RadzenStack>
+
+
+        </RadzenCard>
+    </RadzenStack>
+</RadzenTemplateForm>
+
+@code {
+
+    [Parameter]
+    public Guid? Id { get; set; }
+
+    AlignItems alignItems = AlignItems.Center;
+    Density density = Density.Compact;
+    ButtonSize smallbtn = ButtonSize.Small;
+
+    bool isLoading = false;
+    bool isDisable = false;
+    bool isVisible = false;
+    bool isBusy;
+
+    async Task ShowLoading()
+    {
+        StateHasChanged();
+        isLoading = true;
+
+        await Task.Yield();
+        StateHasChanged();
+        isLoading = false;
+    }
+
+    //FOR PROPERTY SET VALUE OF OBJECT
+    string btnText = "Save";
+    string redtext;
+
+    // STOCK CLASSES MODEL
+    private StockClassesModel stockclassesmodel { get; set; } = new StockClassesModel();
+
+    // Page Initialization
+    protected async override Task OnInitializedAsync()
+    {
+        await ShowLoading();
+        await loadAllData();
+        if (Id is not null)
+        {
+            await loadAllDataById();
+        }
+    }
+
+    private async Task loadAllDataById()
+    {
+        await GetStockClassesById();
+
+    }
+
+    private async Task loadAllData()
+    {
+
+    }
+
+    protected async Task GetStockClassesById()
+    {
+        var data = await stockItemsService.GetStockClassesById(Id.ToString());
+        stockclassesmodel = data is not null ? data : new StockClassesModel();
+    }
+
+    private async Task OnSubmit()
+    {
+        try
+        {
+            isBusy = true;
+
+            
+            var id = await stockItemsService.SaveStockClasses(stockclassesmodel);
+
+            if (id != Guid.Empty)
+            {
+                notificationService.Notify(new NotificationMessage
+                {
+                    Severity = NotificationSeverity.Success,
+                    Summary = "Success",
+                    Detail = "Stock Classes saved successfully!"
+                });
+            }
+            else
+            {
+                notificationService.Notify(new NotificationMessage
+                {
+                    Severity = NotificationSeverity.Info,
+                    Summary = "Info",
+                    Detail = "Failed to save classes"
+                });
+            }
+        }
+        catch (Exception ex)
+        {
+            notificationService.Notify(new NotificationMessage
+            {
+                Severity = NotificationSeverity.Error,
+                Summary = "Error",
+                Detail = $"An unexpected error occurred: {ex.Message}"
+            });
+        }
+        finally
+        {
+            isBusy = false;
+        }
+    }
+
+    private bool showValidationErrors = false;
+
+    private string GetClassesCodeClass()
+    {
+        if (showValidationErrors && string.IsNullOrWhiteSpace(stockclassesmodel.ClassCode))
+            return "invalid-input"; // already defined for red background
+        return "";
+    }
+
+    private void OnInvalidSubmit(FormInvalidSubmitEventArgs args)
+    {
+        notificationService.Notify(new NotificationMessage
+        {
+            Severity = NotificationSeverity.Error,
+            Summary = "Validation",
+            Detail = "Class Code must not be empty.",
+            Duration = 4000
+        });
+    }
+
+    private void OnPrint()
+    {
+        CustomNotificationMessage.Message(notificationService, true);
+    }
+
+    private void Navigate()
+    {
+        navManager.NavigateTo("/ClassesList");
+    }
+
+    private async Task AppState_StateChanged(ComponentBase Source, string Property)
+    {
+        if (Source != this)
+        {
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+
+}

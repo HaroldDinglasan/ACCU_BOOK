@@ -1,0 +1,84 @@
+﻿@page "/"
+@using Microsoft.AspNetCore.Components.Web
+@using Radzen.Blazor
+@namespace Accounting_V4.Pages
+@addTagHelper *, Microsoft.AspNetCore.Mvc.TagHelpers
+
+<!DOCTYPE html>
+<html lang="en" data-theme="software">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <base href="~/" />
+    <link href="css/site.css" rel="stylesheet" />
+    <link href="css/welcomebegin.css" rel="stylesheet" />
+    <link href="css/mainlayout.css" rel="stylesheet" />
+    <link href="css/overview.css" rel="stylesheet" />
+    <link href="css/index.css" rel="stylesheet" />
+    <link href="css/login.css" rel="stylesheet" />
+    <link href="css/changeparphase.css" rel="stylesheet" />
+    <link href="css/abmenu.css" rel="stylesheet" />
+    <link href="css/systemrole.css" rel="stylesheet" />
+    <link href="css/chartofaccount.css" rel="stylesheet" />
+    <link href="css/customer.css" rel="stylesheet" />
+    <link href="css/glaccount.css" rel="stylesheet" />
+    <link href="css/allgeneralledger.css" rel="stylesheet" />
+
+
+
+    <link href="Accounting_V4.styles.css" rel="stylesheet" />
+    <link rel="icon" type="image/png" href="favicon.png" />
+   
+    <component type="typeof(RadzenTheme)" render-mode="Server" param-Theme="@("software")" /> 
+   
+</head>
+<body>
+    <component type="typeof(App)" render-mode="Server" />
+
+    <div id="blazor-error-ui">
+        <environment include="Staging,Production">
+            An error has occurred. This application may no longer respond until reloaded.
+        </environment>
+        <environment include="Development">
+            An unhandled exception has occurred. See browser dev tools for details.
+        </environment>
+        <a href="" class="reload">Reload</a>
+        <a class="dismiss">🗙</a>
+    </div>
+
+<script>
+    (function () {
+
+        function getCookie(name) {
+            let match = document.cookie.match(new RegExp('(^| )' + name + '=([^;]+)'));
+            return match ? decodeURIComponent(match[2]) : null;
+        }
+
+        var theme = getCookie("MyApplicationTheme");
+        if (theme) {
+            document.documentElement.setAttribute("data-theme", theme);
+        }
+
+        var wcag = getCookie("MyApplicationWCAG");
+        if (wcag === "true") {
+            document.documentElement.setAttribute("data-wcag", "true");
+        }
+        else {
+            document.documentElement.removeAttribute("data-wcag");
+        }
+
+
+    })();
+
+
+
+
+
+</script>
+
+    <script src="_framework/blazor.server.js"></script>
+    <script src="_content/Radzen.Blazor/Radzen.Blazor.js?v=@(typeof(Radzen.Colors).Assembly.GetName().Version)"></script>
+
+    <persist-component-state />
+</body>
+</html>

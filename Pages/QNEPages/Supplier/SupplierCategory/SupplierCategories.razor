@@ -1,0 +1,133 @@
+﻿@page "/SupplierCategories"
+@page "/SupplierCategories/Edit/{id:int}"
+@attribute [Authorize(Roles = "Admin,User")]
+
+<RadzenTemplateForm TItem="CreditorCategory" Data="creditorCategory" Submit="@OnSubmit">
+    <RadzenStack Gap="0.5rem">
+        <!-- TOOLBAR ACTION CARD -->
+        <CrudToolbar Title="@(Id.HasValue ? "Edit Supplier Category" : "Create Supplier Category")"
+                     Subtitle="Manage supplier category information"
+                     Icon="badge"
+                     ButtonSize="@smallbtn"
+                     SaveText="Save"
+                     SaveBusy="@busy"
+                     SaveDisabled="@btnDiseabled"
+                     BackText="Back to Search"
+                     OnBackSearch="@Navigate">
+        </CrudToolbar>
+
+        <!-- Form Fields Container -->
+        <RadzenCard>
+            <RadzenText TextStyle="TextStyle.H6" Style="color: var(--rz-primary);">Supplier Categories</RadzenText>
+
+            <RadzenRow Gap="1rem" AlignItems="AlignItems.End">
+                <!-- Category Code Input -->
+                <RadzenColumn Size="12" SizeMD="4">
+                    <RadzenFormField Text="Category Code" AllowFloatingLabel="false" Style="width: 100%;">
+                        <ChildContent>
+                            <RadzenTextBox Name="CategoryCode" @bind-Value="@creditorCategory.CategoryCode" Style="width: 100%;" />
+                        </ChildContent>
+                        <Helper>
+                            <RadzenRequiredValidator Component="CategoryCode" Text="Required." />
+                        </Helper>
+                    </RadzenFormField>
+                </RadzenColumn>
+
+                <!-- Description Input -->
+                <RadzenColumn Size="12" SizeMD="5">
+                    <RadzenFormField Text="Description" AllowFloatingLabel="false" Style="width: 100%;">
+                        <ChildContent>
+                            <RadzenTextBox Name="Description" @bind-Value="@creditorCategory.Description" Style="width: 100%;" />
+                        </ChildContent>
+                        <Helper>
+                            <RadzenRequiredValidator Component="Description" Text="Required." />
+                        </Helper>
+                    </RadzenFormField>
+                </RadzenColumn>
+
+                <!-- Is Default Switch Alignment -->
+                <RadzenColumn Size="12" SizeMD="3">
+                    <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.5rem" Style="height: 100%; padding-bottom: 0.5rem;">
+                        <RadzenLabel Text="Is Default" Component="IsDefaultSwitch" />
+                        <RadzenSwitch Name="IsDefaultSwitch" Style="transform: scale(0.8);" @bind-Value="@creditorCategory.IsDefault" />
+                    </RadzenStack>
+                </RadzenColumn>
+            </RadzenRow>
+        </RadzenCard>
+    </RadzenStack>
+</RadzenTemplateForm>
+
+@code {
+    [Parameter] public int? Id { get; set; }
+    [CascadingParameter] public Task<AuthenticationState> authenticationState { get; set; }
+
+    bool isLoading = true;
+    bool busy = false;
+    bool btnDiseabled = false;
+    ButtonSize smallbtn = ButtonSize.Small;
+    InputSize inputSize = InputSize.Small;
+    AlignItems alignItems = AlignItems.Center;
+
+    protected CreditorCategory creditorCategory { get; set; } = new CreditorCategory();
+
+   
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = (await authenticationState).User;
+        if (authState.Identity.IsAuthenticated)
+        {
+            var RoleId = authState.FindFirst("RoleId").Value;
+            GetLoadMenuPermission(RoleId);
+        }
+    }
+    private SystemMenuObjectPermission? permission;
+    protected async void GetLoadMenuPermission(string RoleId)
+    {
+        isLoading = true;
+        permission = await permissionService.GetPermissionAsync(RoleId, "Supplier Categories");
+
+        if (permission is null) return;
+
+        if (Id is not null)
+        {
+            await loadAllDataById();
+        }
+        StateHasChanged();
+    }
+
+    protected async Task OnSubmit()
+    {
+        busy = true;
+        var data = await supplierServices.SaveCreditorCategory(creditorCategory);
+        if (data is not null)
+        {
+            if (data.Contains("Success"))
+            {
+                await DialogService.Alert(data);
+                btnDiseabled = true;
+                busy = false;
+            }
+            else
+            {
+                await DialogService.Alert(data);
+                busy = false;
+            }
+        }
+    }
+
+    protected async Task loadAllDataById()
+    {
+        await GetCreditorCategoryById();
+    }
+
+    protected async Task GetCreditorCategoryById()
+    {
+        var data = await supplierServices.GetCreditorCategoryById(Id);
+        creditorCategory = data is not null ? data : new CreditorCategory();
+    }
+
+    protected void Navigate()
+    {
+        navManager.NavigateTo("/SupplierCategoriesList");
+    }
+}

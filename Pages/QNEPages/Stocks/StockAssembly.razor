@@ -1,0 +1,2293 @@
+﻿@page "/StockAssembly"
+@page "/StockAssemblyList/Edit/{id:guid}"
+@inject StockItemsService stockItemsService
+@inject ProjectService projectService
+@inject DescriptionsService descriptionsService
+@inject RunningNumberService runningNumberService
+@inject TransactionCodeService transactionCodeService
+
+@using Accounting_V4.Model.QNEModels.StocksForTransferModels
+@using Microsoft.AspNetCore.Components.Authorization
+@using Radzen.Blazor.Rendering
+@attribute [Authorize(Roles = "Admin,User")]
+@inject HttpClient http
+@inject NavigationManager navManager
+@inject DialogService DialogService
+@inject NotificationService notificationService
+@inject IJSRuntime JSRuntime
+
+<RadzenTemplateForm TItem="StockAssemblyModel" Data="stockassemblymodel" Submit="@OnSubmit" InvalidSubmit="@OnInvalidSubmit">
+    <RadzenStack Gap="0.2rem">
+        <RadzenCard Style="Padding: 0.5rem">
+            <RadzenRow JustifyContent="JustifyContent.Start" AlignItems="AlignItems.Center" Gap="0.5rem">
+                <RadzenColumn Size="12" SizeSM="5">
+
+                    <RadzenStack AlignItems="AlignItems.Center" Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.Normal">
+
+                        @*MODIFIED 10/02/2026*@
+                        <RadzenButton Size="@smallbtn" Icon="save" BusyText="Saving..." IsBusy=@busy
+                                      Disabled="@btnDiseabled"
+                                      ButtonStyle="ButtonStyle.Primary"
+                                      Text="@btnText"
+                                      ButtonType="@Radzen.ButtonType.Submit" />
+
+                        <RadzenButton Visible="@btnDiseabled" Text="New" Icon="add" Size="@smallbtn"
+                                      ButtonStyle="ButtonStyle.Success"
+                                      ButtonType="@Radzen.ButtonType.Button"
+                                      Click="@OnNew" />
+
+                        <RadzenButton Text="Transfer" Size="@smallbtn" ButtonStyle="ButtonStyle.Primary" @ref="@transferbutton" Icon="compare_arrows" Click="@(async args => { await GetStockAssemblyOrderTransferList(); await popuptransfer.ToggleAsync(transferbutton.Element); })" />
+                    </RadzenStack>
+
+                </RadzenColumn>
+                <RadzenColumn Size="12" SizeSM="7">
+                    <RadzenStack AlignItems="AlignItems.Center" Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End">
+                        <RadzenButton Size="@smallbtn" ButtonStyle="ButtonStyle.Light" Click="@Navigate" Text="Seach" Icon="search"></RadzenButton>
+                    </RadzenStack>
+                </RadzenColumn>
+            </RadzenRow>
+        </RadzenCard>
+
+        <RadzenCard>
+
+            <div style="margin-bottom: 0.5rem">
+                <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.SpaceBetween">
+                    <RadzenStack Orientation="Orientation.Horizontal">
+                        Stock Assembly @stockassemblymodel.AssemblyCode <RadzenBadge Visible="@(status != string.Empty)" Shade="Shade.Dark" BadgeStyle="BadgeStyle.Danger" Text="@status" class="rz-ms-2" />
+                    </RadzenStack>
+                    <RadzenButton ButtonStyle="ButtonStyle.Light" Icon="info" Click="@OpenDocumentInfoDialog"></RadzenButton>
+                </RadzenStack>
+            </div>
+
+            <RadzenTabs RenderMode="TabRenderMode.Client">
+                <Tabs>
+                    <RadzenTabsItem Text="Details">
+                        <RadzenRow>
+                            <!-- LEFT SIDE -->
+                            <RadzenColumn Size="12" SizeMD="4">
+                                <RadzenStack Gap="0.2rem">
+
+                                    <RadzenRow AlignItems="@alignItems">
+                                        <RadzenColumn Size="12">
+
+                                            <RadzenFormField Style="width:100%" Text="Stock" AllowFloatingLabel="false">
+                                                <RadzenDropDownDataGrid class="@redtext"
+                                                                        @bind-Value="stockassemblymodel.StockId"
+                                                                        Change="OnHeaderStockChanged"
+                                                                        AllowSorting="false"
+                                                                        Style="width: 100%;"
+                                                                        PageSize="10"
+                                                                        Data="@stockList"
+                                                                        AllowVirtualization="true"
+                                                                        AllowColumnResize="true"
+                                                                        AllowClear="true"
+                                                                        FilterCaseSensitivity="@filter"
+                                                                        AllowFilteringByAllStringColumns="true"
+                                                                        TextProperty="StockCode"
+                                                                        Density="@density"
+                                                                        ValueProperty="Id">
+
+                                                    <Columns>
+                                                        <RadzenDropDownDataGridColumn Width="6%" Property="StockCode" Title="Stock #" />
+                                                        <RadzenDropDownDataGridColumn Width="10%" Property="StockName" Title="Stock Name" />
+                                                    </Columns>
+
+                                                </RadzenDropDownDataGrid>
+
+                                            </RadzenFormField>
+
+                                            <RadzenFormField Style="width:100%" Text="BOM" AllowFloatingLabel="false">
+                                                <RadzenDropDownDataGrid AllowClear="true"
+                                                                        @bind-Value="stockassemblymodel.BOMId"
+                                                                        Change="OnBOMChanged"
+                                                                        Data="@stockBOMList"
+                                                                        TextProperty="BOMCode"
+                                                                        ValueProperty="Id"
+                                                                        AllowVirtualization="true"
+                                                                        AllowFiltering="true">
+                                                    <Columns>
+                                                        <RadzenDropDownDataGridColumn Property="BOMCode" Title="BOM Code" />
+                                                        <RadzenDropDownDataGridColumn Property="Description" Title="Description" />
+                                                    </Columns>
+
+                                                </RadzenDropDownDataGrid>
+
+                                            </RadzenFormField>
+
+
+                                            <RadzenFormField Style="width:100%" Text="Location" AllowFloatingLabel="false">
+                                                <RadzenDropDownDataGrid class="@redtext"
+                                                                        @bind-Value="@stockassemblymodel.StockLocationId"
+                                                                        AllowSorting="false"
+                                                                        Style="width: 100%;"
+                                                                        PageSize="10"
+                                                                        Data="@stocklocationList"
+                                                                        AllowVirtualization="true"
+                                                                        AllowColumnResize="true"
+                                                                        AllowClear="true"
+                                                                        FilterCaseSensitivity="@filter"
+                                                                        AllowFilteringByAllStringColumns="true"
+                                                                        TextProperty="LocationCode"
+                                                                        Density="@density"
+                                                                        ValueProperty="Id">
+
+
+                                                    <Columns>
+                                                        <RadzenDropDownDataGridColumn Width="15%" Property="LocationCode" Title="Location #" />
+                                                        <RadzenDropDownDataGridColumn Width="15%" Property="Description" Title="Description" />
+                                                        <RadzenDropDownDataGridColumn Width="8%" Property="IsActive" Title="Active">
+                                                            <Template Context="data">
+                                                                <RadzenCheckBox TValue="bool" Value="data.IsActive" />
+                                                            </Template>
+                                                        </RadzenDropDownDataGridColumn>
+                                                    </Columns>
+                                                </RadzenDropDownDataGrid>
+                                            </RadzenFormField>
+
+
+
+                                            <RadzenFormField Style="width:100%" Text="Project" AllowFloatingLabel="false">
+                                                <RadzenDropDownDataGrid class="@redtext" @bind-Value=@stockassemblymodel.ProjectId AllowSorting="false" Style="width: 100%;" PageSize=10 Data="@projectList" AllowVirtualization="true" AllowColumnResize="true"
+                                                                        AllowClear="true" FilterCaseSensitivity="@filter" AllowFilteringByAllStringColumns="true"
+                                                                        TextProperty="ProjectCode" Density="@density" ValueProperty="Id">
+                                                    <Columns>
+                                                        <RadzenDropDownDataGridColumn Width="15%" Property="ProjectCode" Title="Project Code"></RadzenDropDownDataGridColumn>
+                                                        <RadzenDropDownDataGridColumn Width="15%" Property="Description" Title="Description"></RadzenDropDownDataGridColumn>
+                                                        <RadzenDropDownDataGridColumn Width="8%" Property="IsActive" Title="Active">
+                                                            <Template Context="data2"><RadzenCheckBox TValue="bool" Value="data2.IsActive"></RadzenCheckBox></Template>
+                                                        </RadzenDropDownDataGridColumn>
+                                                    </Columns>
+                                                </RadzenDropDownDataGrid>
+                                            </RadzenFormField>
+
+                                        </RadzenColumn>
+                                    </RadzenRow>
+
+                                    <RadzenRow AlignItems="@alignItems">
+                                        <RadzenColumn Size="12">
+                                            <RadzenFormField Style="width:100%" Text="Description" AllowFloatingLabel="false">
+                                                <RadzenTextBox @bind-Value="stockassemblymodel.Description"
+                                                               Style="width:100%;" />
+                                            </RadzenFormField>
+                                        </RadzenColumn>
+                                    </RadzenRow>
+
+                                    <RadzenColumn Size="12" SizeMD="2">
+                                        <small>Use Standard Unit Cost</small>
+                                        <RadzenSwitch TValue="bool"
+                                                      Value="@stockassemblymodel.UseStandardUnitCost.GetValueOrDefault()"
+                                                      Change="@(args => stockassemblymodel.UseStandardUnitCost = (bool)args)"
+                                                      Name="UseStandardUnitCost" />
+                                    </RadzenColumn>
+
+                                </RadzenStack>
+                            </RadzenColumn>
+
+                            <!-- MIDDLE -->
+                            <RadzenColumn Size="12" SizeMD="4">
+                                <RadzenStack Gap="0.2rem">
+
+                                    <RadzenFormField Style="width:100%" Text="Batch No" AllowFloatingLabel="false">
+                                        <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.25rem">
+                                            <RadzenDropDownDataGrid @bind-Value="stockassemblymodel.StockBatchNumberId"
+                                                                    Change="OnHeaderBatchNoChanged"
+                                                                    Data="@headerBatchNoList"
+                                                                    TextProperty="BatchNo"
+                                                                    ValueProperty="Id"
+                                                                    AllowFiltering="true"
+                                                                    AllowClear="true"
+                                                                    Style="flex:1"
+                                                                    AllowVirtualization="true">
+                                                <Columns>
+                                                    <RadzenDropDownDataGridColumn Property="BatchNo" Title="Batch No" />
+                                                    <RadzenDropDownDataGridColumn Property="Description" Title="Description" />
+                                                    <RadzenDropDownDataGridColumn Property="BatchNoManufacturingDate" Title="Mfg Date" FormatString="{0:MM/dd/yyyy}" />
+                                                    <RadzenDropDownDataGridColumn Property="BatchNoExpiryDate" Title="Expiry Date" FormatString="{0:MM/dd/yyyy}" />
+                                                    <RadzenDropDownDataGridColumn Property="BalanceQty" Title="Balance" />
+                                                </Columns>
+                                            </RadzenDropDownDataGrid>
+                                            <RadzenButton Icon="add" Size="ButtonSize.Small" ButtonStyle="ButtonStyle.Success"
+                                                          Click="@NewHeaderBatch" title="New Batch No" />
+                                            <RadzenButton Icon="edit" Size="ButtonSize.Small" ButtonStyle="ButtonStyle.Secondary"
+                                                          Disabled="@(stockassemblymodel.StockBatchNumberId == null)"
+                                                          Click="@EditHeaderBatch" title="Edit Batch No" />
+                                        </RadzenStack>
+                                    </RadzenFormField>
+
+                                    <RadzenFormField Style="width:100%"
+                                                     Text="UOM"
+                                                     AllowFloatingLabel="false">
+
+                                        <RadzenDropDownDataGrid @bind-Value="stockassemblymodel.UOMId"
+                                                                Data="@headerUOMCodeList"
+                                                                TextProperty="UOMCode"
+                                                                ValueProperty="Id"
+                                                                AllowFiltering="true"
+                                                                AllowClear="true"
+                                                                AllowVirtualization="true">
+
+                                            <Columns>
+
+                                                <RadzenDropDownDataGridColumn Property="UOMCode"
+                                                                              Title="UOM Code" />
+                                            </Columns>
+                                        </RadzenDropDownDataGrid>
+                                    </RadzenFormField>
+
+                                    <RadzenFormField Style="width:100%" Text="Qty" AllowFloatingLabel="false">
+                                        <RadzenNumeric @bind-Value="stockassemblymodel.Qty"
+                                                       TValue="decimal?"
+                                                       Change="@(args => OnHeaderQtyChanged())"
+                                                       Style="width:100%"
+                                                       Format="N4" />
+                                    </RadzenFormField>
+
+                                    <RadzenFormField Style="width:100%" Text="Cost" AllowFloatingLabel="false">
+                                        <RadzenNumeric @bind-Value="stockassemblymodel.Cost"
+                                                       TValue="decimal?"
+                                                       Change="@(args => OnHeaderCostChanged())"
+                                                       Style="width:100%"
+                                                       Format="N4" />
+                                    </RadzenFormField>
+
+                                </RadzenStack>
+                            </RadzenColumn>
+
+                            <!-- RIGHT SIDE -->
+                            <RadzenColumn Size="12" SizeMD="4" Style="text-align:right">
+                                <RadzenStack Gap="0.2rem">
+
+                                    <RadzenRow AlignItems="@alignItems">
+                                        <RadzenColumn Size="12">
+                                            <RadzenFormField Style="width:100%" Text="Doc Date" AllowFloatingLabel="false">
+                                                <RadzenDatePicker Change="SetStockAssemblyNo"
+                                                                  @bind-Value="@stockassemblymodel.AssemblyDate"
+                                                                  DateFormat="MM/dd/yyyy"
+                                                                  Style="width:100%" />
+                                            </RadzenFormField>
+                                        </RadzenColumn>
+                                    </RadzenRow>
+
+                                    <RadzenRow AlignItems="@alignItems">
+                                        <RadzenColumn Size="12" Style="display:flex; align-items:center;">
+                                            <RadzenFormField Style="flex:1" Text="Assembly #" AllowFloatingLabel="false">
+                                                <RadzenTextBox class="@redtext" @bind-Value="@stockassemblymodel.AssemblyCode" Style="width: 100%;" />
+                                            </RadzenFormField>
+                                            <RadzenFormField Style="margin-left:5px" AllowFloatingLabel="false">
+                                                <RadzenButton @ref=@button Icon="list" Click="@(args => popup.ToggleAsync(button.Element))" />
+                                            </RadzenFormField>
+                                        </RadzenColumn>
+                                    </RadzenRow>
+
+                                    <RadzenRow AlignItems="@alignItems">
+                                        <RadzenColumn Size="12">
+                                            <RadzenFormField Style="width:100%" Text="Total Cost" AllowFloatingLabel="false">
+                                                <RadzenNumeric @bind-Value="stockassemblymodel.TotalCost"
+                                                               TValue="decimal?"
+                                                               Disabled="true"
+                                                               Style="width:100%"
+                                                               Format="N4" />
+                                            </RadzenFormField>
+                                        </RadzenColumn>
+                                    </RadzenRow>
+
+                                    <RadzenRow AlignItems="@alignItems">
+                                        <RadzenColumn Size="12">
+                                            <RadzenFormField Style="width:100%" Text="Reference No." AllowFloatingLabel="false">
+                                                <RadzenTextBox class="@redtext" @bind-Value="@stockassemblymodel.ReferenceNo" Style="width: 100%;" />
+                                            </RadzenFormField>
+                                        </RadzenColumn>
+                                    </RadzenRow>
+
+                                    <RadzenRow AlignItems="@alignItems">
+                                        <RadzenColumn Size="12">
+                                            <RadzenFormField Style="width:100%" Text="Transfer From" AllowFloatingLabel="false">
+                                                <RadzenTextBox class="@redtext" @bind-Value="@stockassemblymodel.TransferFromInfo" Style="width: 100%;" />
+                                            </RadzenFormField>
+                                        </RadzenColumn>
+                                    </RadzenRow>
+
+                                </RadzenStack>
+                            </RadzenColumn>
+                        </RadzenRow>
+                    </RadzenTabsItem>
+
+                    <RadzenTabsItem Text="Info">
+                        @documentInfo.Id
+                        @documentInfo.DocumentId
+                        @documentInfo.DocType
+                    </RadzenTabsItem>
+
+                </Tabs>
+            </RadzenTabs>
+
+            @* TABLE DETAILS*@
+            <br />
+            <RadzenDataGrid EditMode="@editMode" @ref="stockassemblyDetailsGrid"
+                            Style="width: 100%; height:45vh; font-size:12px;"
+                            AllowVirtualization="true"
+                            Data="@stockAssemblyDetails"
+                            KeyProperty="Id"
+                            AllowColumnResize=true
+                            RowCreate="@OnCreateRow"
+                            TItem="StockAssemblyDetail"
+                            Density="@density"
+                            RowUpdate="@OnUpdateRow">
+
+                @*JUNE 17 2026*@
+                <HeaderTemplate>
+                    <RadzenButton ButtonStyle="ButtonStyle.Success" Icon="add" Text="Add New" Size="ButtonSize.ExtraSmall" Click="@(() => InsertAfterRow(stockAssemblyDetails.LastOrDefault()))" title="Add new row after this row" Disabled="@(stockassemblyDetailsToInsert.Any() || stockassemblyDetailsToUpdate.Any())" />
+                </HeaderTemplate>
+
+                <Columns>
+
+                    <RadzenDataGridColumn Width="45px" TextAlign="TextAlign.Center" Property="Action" Frozen="true" FrozenPosition="FrozenColumnPosition.Left">
+                        <Template Context="stockassemblydetails">
+                            <RadzenButton Icon="edit" ButtonStyle="ButtonStyle.Secondary" Variant="Variant.Text" Size="ButtonSize.ExtraSmall" Click="@(args => EditRow(stockassemblydetails))" title="Edit this row" />
+
+                        </Template>
+                        <EditTemplate Context="stockassemblydetails">
+                            <RadzenButton Icon="check" ButtonStyle="ButtonStyle.Success" Variant="Variant.Text" Size="ButtonSize.ExtraSmall" Click="@((args) => SaveRow(stockassemblydetails))" title="Save" />
+                        </EditTemplate>
+                    </RadzenDataGridColumn>
+
+
+                    <RadzenDataGridColumn Visible=false Width="5rem" TItem="StockAssemblyDetail" Property="@nameof(StockAssemblyDetail.Pos)" Title="Pos" TextAlign="TextAlign.Center" />
+
+                    <RadzenDataGridColumn Width="9rem" TItem="StockAssemblyDetail" Property="@nameof(StockAssemblyDetail.StockId)" Title="Stock Code" TextAlign="TextAlign.Center">
+                        <Template Context="stockassemblydetails">
+                            @{
+                                var stock = stockList?.FirstOrDefault(s => s.Id == stockassemblydetails.StockId);
+                            }
+                            @stock?.StockCode
+                        </Template>
+                        <EditTemplate Context="stockassemblydetails">
+                            <RadzenDropDownDataGrid @bind-Value="stockassemblydetails.StockId"
+                                                    Change="@(args => OnStockChanged(args, stockassemblydetails))"
+                                                    Style="width: 100%; font-size:12px" PageSize="10" Data="@stockList"
+                                                    AllowVirtualization="true" AllowColumnResize="true"
+                                                    AllowClear="true" AllowSorting="false"
+                                                    FilterCaseSensitivity="@filter" AllowFilteringByAllStringColumns="true"
+                                                    TextProperty="StockCode" Density="@density" ValueProperty="Id">
+                                <Columns>
+                                    <RadzenDropDownDataGridColumn Width="6%" Property="StockCode" Title="Stock #" />
+                                    <RadzenDropDownDataGridColumn Width="10%" Property="StockName" Title="StockName" />
+                                </Columns>
+                            </RadzenDropDownDataGrid>
+                        </EditTemplate>
+                    </RadzenDataGridColumn>
+
+                    @* BATCH NO DROPDOWN *@
+                    <RadzenDataGridColumn Width="160px" TItem="StockAssemblyDetail" Property="@nameof(StockAssemblyDetail.StockBatchNumberId)" Title="Batch No" TextAlign="TextAlign.Center">
+                        <Template Context="stockassemblydetails">
+                            @{
+                                var batchNumber = stockbatchnumberList?.FirstOrDefault(x => x.Id == stockassemblydetails.StockBatchNumberId);
+                            }
+                            @batchNumber?.BatchNo
+                        </Template>
+                        <EditTemplate Context="stockassemblydetails">
+                            <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center">
+                                <RadzenTextBox @ref="textBox" Value="@stockbatchnumbercode" Style="width:100%; font-size:12px"
+                                               @onclick="@(args => batchnumberpopup.ToggleAsync(textBox.Element))" />
+
+                                <RadzenPopup @ref="batchnumberpopup" id="batchnumberpopup" AutoFocusFirstElement="false" class="batchnumber-popup">
+                                    <RadzenDataGrid @ref="stockbatchnumbergrid" Density="Density.Compact"
+                                                    Data="@GetBatchNumberForStock(stockassemblydetails.StockId)"
+                                                    TItem="StockBatchNumbersModel"
+                                                    RowSelect="@(item => OnBatchRowSelect(item, stockassemblydetails))"
+                                                    AllowSorting="true" Style="height:360px">
+
+                                        <HeaderTemplate>
+                                            <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.SpaceBetween">
+                                                <span>Stock Batch Numbers</span>
+                                                <RadzenButton Icon="add" Text="New" Size="ButtonSize.ExtraSmall"
+                                                              ButtonStyle="ButtonStyle.Success"
+                                                              Click="@(() => NewDetailBatch(stockassemblydetails))" />
+                                            </RadzenStack>
+                                        </HeaderTemplate>
+
+                                        <EmptyTemplate>
+                                            <p class="rz-m-4">No batch numbers for this stock yet. Click <b>New</b> to create one.</p>
+                                        </EmptyTemplate>
+
+                                        <Columns>
+                                            <RadzenDataGridColumn Width="45px" Sortable="false" Filterable="false" TextAlign="TextAlign.Center">
+                                                <Template Context="batch">
+                                                    <RadzenButton Icon="edit" Variant="Variant.Text" Size="ButtonSize.ExtraSmall"
+                                                                  ButtonStyle="ButtonStyle.Secondary" title="Edit batch"
+                                                                  Click="@(args => EditDetailBatch(batch, stockassemblydetails))"
+                                                                  @onclick:stopPropagation="true" />
+                                                </Template>
+                                            </RadzenDataGridColumn>
+                                            <RadzenDataGridColumn Property="BatchNo" Width="100px" Title="Batch #" />
+                                            <RadzenDataGridColumn Property="Description" Width="150px" Title="Description" />
+                                            <RadzenDataGridColumn Property="BatchNoManufacturingDate" Width="120px" Title="Manufacturing Date" FormatString="{0:MM/dd/yyyy}" />
+                                            <RadzenDataGridColumn Property="BatchNoExpiryDate" Width="120px" Title="Expiry Date" FormatString="{0:MM/dd/yyyy}" />
+                                            <RadzenDataGridColumn Property="BalanceQty" Width="100px" Title="Balance">
+                                                <Template Context="item">
+                                                    @(item.BalanceQty == 0 ? "" : item.BalanceQty?.ToString("N4"))
+                                                </Template>
+                                            </RadzenDataGridColumn>
+                                        </Columns>
+                                    </RadzenDataGrid>
+                                </RadzenPopup>
+
+                                <RadzenButton Icon="more_horiz" ButtonStyle="ButtonStyle.Primary" />
+                            </RadzenStack>
+                        </EditTemplate>
+                    </RadzenDataGridColumn>
+
+                    <RadzenDataGridColumn Width="10rem" TItem="StockAssemblyDetail" Property="@nameof(StockAssemblyDetail.Description)" Title="Description" TextAlign="TextAlign.Center">
+                        <EditTemplate Context="stockassemblydetails">
+                            <RadzenTextBox Disabled="@IsDisable" Style="width: 100%; font-size:12px" @bind-Value="stockassemblydetails.Description"></RadzenTextBox>
+                        </EditTemplate>
+                    </RadzenDataGridColumn>
+
+                    <RadzenDataGridColumn TItem="StockAssemblyDetail"
+                                          Width="7rem"
+                                          Property="@nameof(StockAssemblyDetail.Qty)"
+                                          Title="Qty"
+                                          TextAlign="TextAlign.Center">
+
+                        @* Show both positive and negative numbers *@
+                        <Template Context="stockassemblydetails">
+                            @(stockassemblydetails.Qty?.ToString("N4"))
+                        </Template>
+
+                        <EditTemplate Context="stockassemblydetails">
+                            <RadzenNumeric Disabled="@(stockassemblydetails.StockId == null)"
+                                           Style="width: 100%; font-size:12px"
+                                           TValue="decimal?"
+                                           Min="0"
+                                           @bind-Value="stockassemblydetails.Qty"
+                                           Change="@(args => RecalculateTotalCost())"
+                                           Format="N4" />
+                        </EditTemplate>
+                    </RadzenDataGridColumn>
+
+                    <RadzenDataGridColumn Width="5rem" TItem="StockAssemblyDetail" Property="@nameof(StockAssemblyDetail.UOMId)" Title="UOM" TextAlign="TextAlign.Center">
+                        <Template Context="stockassemblydetails">
+                            @{
+                                var uoms = uomsList?.FirstOrDefault(u => u.Id == stockassemblydetails.UOMId);
+                            }
+                            @uoms?.UOMCode
+                        </Template>
+                        <EditTemplate Context="stockassemblydetails">
+                            <RadzenDropDownDataGrid @bind-Value="stockassemblydetails.UOMId"
+                                                    Style="width:100%; font-size:12px"
+                                                    PageSize="10"
+                                                    Data="@GetUOMsForStock(stockassemblydetails.StockId)"
+                                                    AllowVirtualization="true"
+                                                    AllowColumnResize="true"
+                                                    AllowClear="true"
+                                                    AllowSorting="false"
+                                                    FilterCaseSensitivity="@filter"
+                                                    AllowFilteringByAllStringColumns="true"
+                                                    TextProperty="UOMCode"
+                                                    Density="@density"
+                                                    ValueProperty="Id">
+                                <Columns>
+                                    <RadzenDropDownDataGridColumn Width="6%" Property="UOMCode" Title="UOM #" />
+                                    <RadzenDropDownDataGridColumn Width="10%" Property="Description" Title="Description" />
+                                </Columns>
+
+                            </RadzenDropDownDataGrid>
+                        </EditTemplate>
+                    </RadzenDataGridColumn>
+
+                    <RadzenDataGridColumn TItem="StockAssemblyDetail"
+                                          Width="7rem"
+                                          Property="@nameof(StockAssemblyDetail.UnitCost)"
+                                          Title="UnitCost"
+                                          TextAlign="TextAlign.Center">
+
+                        @* Show both positive and negative numbers *@
+                        <Template Context="stockassemblydetails">
+                            @(stockassemblydetails.UnitCost?.ToString("N4"))
+                        </Template>
+
+                        <EditTemplate Context="stockassemblydetails">
+                            <RadzenNumeric Style="width: 100%; font-size:12px"
+                                           TValue="decimal?"
+                                           @bind-Value="stockassemblydetails.UnitCost"
+                                           Change="@(args => RecalculateTotalCost())"
+                                           Format="N4" />
+                        </EditTemplate>
+                    </RadzenDataGridColumn>
+
+                    <RadzenDataGridColumn Width="7rem" TItem="StockAdjustmentDetails" Property="@nameof(StockAdjustmentDetails.UOMId)" Title="UOM" TextAlign="TextAlign.Center">
+                        <Template Context="stockadjustmentdetails">
+                            @{
+                                var uoms = uomsList?.FirstOrDefault(u => u.Id == stockadjustmentdetails.UOMId);
+                            }
+                            @uoms?.UOMCode
+                        </Template>
+                        <EditTemplate Context="stockadjustmentdetails">
+                            <RadzenDropDownDataGrid Disabled="@IsDisable" @bind-Value="stockadjustmentdetails.UOMId" Style="width: 100%; font-size:12px" PageSize="10" Data="@GetUOMsForStock(stockadjustmentdetails.StockId)" AllowVirtualization="true" AllowColumnResize="true"
+                                                    AllowClear="true" AllowSorting="false" FilterCaseSensitivity="@filter" AllowFilteringByAllStringColumns="true"
+                                                    TextProperty="UOMCode" Density="@density" ValueProperty="Id">
+                                <Columns>
+                                    <RadzenDropDownDataGridColumn Width="6%" Property="UOMCode" Title="UOM #" />
+                                    <RadzenDropDownDataGridColumn Width="10%" Property="Description" Title="Description" />
+                                </Columns>
+                            </RadzenDropDownDataGrid>
+                        </EditTemplate>
+                    </RadzenDataGridColumn>
+
+                    <RadzenDataGridColumn Width="7rem" TItem="StockAssemblyDetail" Property="@nameof(StockAssemblyDetail.SerialNumber)" Title="Serial No" TextAlign="TextAlign.Center">
+                        <EditTemplate Context="stockassemblydetails">
+                            <RadzenTextBox Disabled="@IsDisable" Style="width: 100%; font-size:12px" @bind-Value="stockassemblydetails.SerialNumber"></RadzenTextBox>
+                        </EditTemplate>
+                    </RadzenDataGridColumn>
+
+
+                    <RadzenDataGridColumn Width="45px" TextAlign="TextAlign.Center" Property="Action" Title="Action">
+                        <Template Context="stockassemblydetails">
+                            <RadzenButton Icon="delete" Text="Delete" ButtonStyle="ButtonStyle.Danger" Variant="Variant.Flat" Size="ButtonSize.ExtraSmall" Shade="Shade.Lighter" class="rz-my-1 rz-ms-1" Click="@(args => DeleteRow(stockassemblydetails))" />
+                        </Template>
+                    </RadzenDataGridColumn>
+
+                </Columns>
+            </RadzenDataGrid>
+            @* END OF TABLE DETAILS*@
+
+        </RadzenCard>
+
+    </RadzenStack>
+
+</RadzenTemplateForm>
+
+<RadzenPopup @ref=popup Lazy=true class="my-popup">
+    <RadzenDataGrid RowDoubleClick="() => SetStockAssemblyNoPopup(selectedtransactionCodesList.FirstOrDefault().Id)"
+                    TItem="TransactionsCode"
+                    @ref=transactionsCodeGrid
+                    @bind-Value="@selectedtransactionCodesList"
+                    Data=@transactionCodesList>
+        <Columns>
+            <RadzenDataGridColumn TItem="TransactionsCode" Property="@nameof(TransactionsCode.Format)" Title="Format" TextAlign="TextAlign.Center" Width="100px">
+                <Template Context="transactionCode">
+                    @transactionCode.Format
+                </Template>
+            </RadzenDataGridColumn>
+        </Columns>
+    </RadzenDataGrid>
+
+</RadzenPopup>
+
+
+@* FOR TRANSFER MODAL *@
+<RadzenPopup @ref=popuptransfer Lazy=true class="popuptransfer">
+
+    <RadzenCard>
+        <RadzenStack Gap="0.2rem">
+            <RadzenRow JustifyContent="JustifyContent.Start" AlignItems="AlignItems.Center" Gap="0.5rem">
+                <RadzenColumn Size="12" SizeSM="7">
+                    <RadzenStack AlignItems="AlignItems.Center" Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.Normal">
+                        <RadzenTextBox Disabled=@(filteredStockAsseblyOrderTransferList == null) @bind-Value="@searchText"
+                                       Placeholder="Search..."
+                                       Style="font-size:smaller; width:30rem;"
+                                       Change="@(args => ApplyFilter())" />
+                        <RadzenButton Disabled=@(filteredStockAsseblyOrderTransferList == null) Icon="search" Click="@ApplyFilter" Text="Find" />
+                        <RadzenButton Disabled=@(filteredStockAsseblyOrderTransferList == null) Icon="delete" Click="@ClearFilter" Text="Clear" />
+                    </RadzenStack>
+                </RadzenColumn>
+
+            </RadzenRow>
+
+
+
+            <RadzenDataGrid @ref="grids" @bind-Value=@selectedStockAssemblyOrderTransferList SelectionMode="DataGridSelectionMode.Multiple" TItem="StockAssemblyOrderTransferListModel"
+                            IsLoading=@isloading Sort="@ShowLoading" Page="@ShowLoading" Group="@ShowLoading" Filter="@ShowLoading"
+                            AllowColumnReorder="true" AllowAlternatingRows="false" ColumnWidth="200px"
+                            Data="@filteredStockAsseblyOrderTransferList" AllowColumnPicking="true" Style="height: 60vh"
+                            KeyProperty="Id" PagerHorizontalAlign="HorizontalAlign.Center" AllowColumnResize="true" Density="@density"
+                            AllowVirtualization="true"
+                            AllowSorting="true" AllowFiltering="true"
+                            FilterMode="FilterMode.CheckBoxList" FilterCaseSensitivity="@filter" LogicalFilterOperator="LogicalFilterOperator.Or">
+                <HeaderTemplate>
+                    <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="1rem" Wrap="FlexWrap.Wrap">
+                        <span>
+                            Stock Assembly Order Transfer List <RadzenBadge Visible="@(status != string.Empty)" Shade="Shade.Dark" BadgeStyle="BadgeStyle.Danger" Text="@status" class="rz-ms-2" />
+                        </span>
+                    </RadzenStack>
+
+                </HeaderTemplate>
+                <Columns>
+                    <RadzenDataGridColumn Width="60px" Sortable="false" Filterable="false">
+                        <HeaderTemplate>
+                            <RadzenCheckBox TriState="false" TValue="bool?" InputAttributes="@(new Dictionary<string, object>() { { "aria-label", "Select all items" } })"
+                                            Value="@(selectedStockAssemblyOrderTransferList == null || selectedStockAssemblyOrderTransferList?.Any() != true ? false : !filteredStockAsseblyOrderTransferList.All(i => selectedStockAssemblyOrderTransferList.Select(e => e.Id).Contains(i.Id)) ? null : filteredStockAsseblyOrderTransferList.Any(i => selectedStockAssemblyOrderTransferList.Select(e => e.Id).Contains(i.Id)))"
+                                            Change="@(args => selectedStockAssemblyOrderTransferList = args == true ? (selectedStockAssemblyOrderTransferList ?? Enumerable.Empty<StockAssemblyOrderTransferListModel>()).Union(filteredStockAsseblyOrderTransferList.Where(i => !(selectedStockAssemblyOrderTransferList ?? Enumerable.Empty<StockAssemblyOrderTransferListModel>()).Select(e => e.Id).Contains(i.Id))).ToList() : null)" />
+                        </HeaderTemplate>
+                        <Template Context="data">
+                            <RadzenCheckBox TriState="false" Value="@(selectedStockAssemblyOrderTransferList != null && selectedStockAssemblyOrderTransferList.Select(e => e.Id).Contains(data.Id))" TValue="bool" />
+                        </Template>
+                    </RadzenDataGridColumn>
+
+                    <RadzenDataGridColumn Visible=true Width="8rem" Property="@nameof(StockAssemblyOrderTransferListModel.AssemblyOrderCode)" Title="Assembly Order No" />
+
+                    <RadzenDataGridColumn Visible=true Width="8rem" Property="@nameof(StockAssemblyOrderTransferListModel.AssemblyOrderDate)" FormatString="{0:MM/dd/yyyy}" Title="Date" />
+
+                    <RadzenDataGridColumn Visible=true Property="@nameof(StockAssemblyOrderTransferListModel.Description)" Title="Description" />
+
+                    <RadzenDataGridColumn Visible=true Property="@nameof(StockAssemblyOrderTransferListModel.ReferenceNo)" Title="Reference No" />
+
+                    <RadzenDataGridColumn Visible=true Width="10rem" TextAlign="TextAlign.Right" Property="@nameof(StockAssemblyOrderTransferListModel.UnitCost)" Title="Unit Cost" />
+
+                    <RadzenDataGridColumn Visible=true Width="10rem" TextAlign="TextAlign.Right" Property="@nameof(StockAssemblyOrderTransferListModel.SAOQty)" Title="SAO Qty" />
+
+                    <RadzenDataGridColumn Visible=true Width="10rem" TextAlign="TextAlign.Right" Property="@nameof(StockAssemblyOrderTransferListModel.RemainingQty)" Title="Remaining Qty" />
+
+                </Columns>
+            </RadzenDataGrid>
+
+            <RadzenRow JustifyContent="JustifyContent.Start" AlignItems="AlignItems.Center" Gap="0.5rem">
+                <RadzenColumn Size="12" SizeSM="7">
+                    <RadzenStack AlignItems="AlignItems.Center" Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.Normal">
+                        Test Data:
+                    </RadzenStack>
+                </RadzenColumn>
+                <RadzenColumn Size="12" SizeSM="5">
+                    <RadzenStack AlignItems="AlignItems.Center" Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.Right">
+
+                        <RadzenButton Icon="check" Click=@OnOkClicked Text="Ok" /> @* dito is magrereturn sya ng mga naselect na check na data papunt dito NavManager.NavigateTo($"/PurchaseOrders/Transfer/{PRId}"); *@
+                        <RadzenButton Icon="cancel" Text="Cancel" Click="async args => { await popuptransfer.CloseAsync(); }" /> @* then dito magcclose yung dialog *@
+                    </RadzenStack>
+                </RadzenColumn>
+
+            </RadzenRow>
+        </RadzenStack>
+    </RadzenCard>
+
+</RadzenPopup>
+
+@* //FOR POP UP TRANSFER DIALOG *@
+<style type="text/css">
+
+    .popuptransfer {
+        display: none;
+        position: absolute;
+        overflow: hidden;
+        height: auto;
+        width: auto;
+        max-height: 90vh; /* optional para di lumagpas sa screen */
+        max-width: 90vw; /* optional din, para responsive */
+        border: var(--rz-panel-border);
+        background-color: #f0f0f0; /* light grey */
+        box-shadow: 0 4px 20px rgba(0,0,0,0.3); /* mas malalim na shadow */
+        border-radius: var(--rz-border-radius);
+    }
+
+</style>
+
+<style type="text/css">
+    .negative-inventory-popup {
+        display: none;
+        position: fixed !important;
+        top: 50% !important;
+        left: 50% !important;
+        transform: translate(-50%, -50%);
+        min-width: 480px;
+        max-width: 90vw;
+        max-height: 85vh;
+        overflow: auto;
+        border-radius: 10px;
+        box-shadow: 0 12px 40px rgba(0,0,0,0.35);
+        z-index: 2000;
+        background: #fff;
+    }
+
+    .negative-inventory-header {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.9rem 1.25rem;
+        background: linear-gradient(135deg, #fdecea, #fbe0dd);
+        border-bottom: 1px solid #f3c6c1;
+        border-top-left-radius: 10px;
+        border-top-right-radius: 10px;
+    }
+
+        .negative-inventory-header .rz-icon {
+            color: #d9412f;
+            font-size: 1.5rem;
+        }
+
+        .negative-inventory-header b {
+            font-size: 1.05rem;
+            color: #7a2018;
+        }
+
+    .negative-inventory-body {
+        padding: 1rem 1.25rem;
+    }
+
+    .negative-inventory-footer {
+        padding: 0.75rem 1.25rem 1.1rem;
+    }
+</style>
+
+<RadzenButton @ref="negativeInventoryAnchor" Style="display:none" />
+
+@* FOR STOCK QUANTITY CONTROL (NEGATIVE INVENTORY) WARNING *@
+<RadzenPopup @ref=negativeInventoryPopup Lazy=true class="negative-inventory-popup">
+    <div class="negative-inventory-header">
+        <RadzenIcon Icon="warning" />
+        <b>Negative Inventory</b>
+    </div>
+
+    <div class="negative-inventory-body">
+        <RadzenDataGrid Data="@negativeInventoryLines" TItem="NegativeInventoryLine" Style="height:auto" Density="Density.Compact">
+            <Columns>
+                <RadzenDataGridColumn TItem="NegativeInventoryLine" Property="StockName" Title="Stock Name" />
+                <RadzenDataGridColumn TItem="NegativeInventoryLine" Property="StockCode" Title="Stock" Width="100px" />
+                <RadzenDataGridColumn TItem="NegativeInventoryLine" Property="LocationCode" Title="Location" Width="140px" />
+                <RadzenDataGridColumn TItem="NegativeInventoryLine" Property="OnHand" Title="On Hand" TextAlign="TextAlign.Right" FormatString="{0:N4}" Width="100px" />
+                <RadzenDataGridColumn TItem="NegativeInventoryLine" Property="OutQty" Title="Out Qty" TextAlign="TextAlign.Right" FormatString="{0:N4}" Width="100px" />
+                <RadzenDataGridColumn TItem="NegativeInventoryLine" Property="StockBalance" Title="Stock Balance" TextAlign="TextAlign.Right" FormatString="{0:N4}" Width="120px">
+                    <Template Context="line">
+                        <span style="color:#d9412f; font-weight:600">@line.StockBalance.ToString("N4")</span>
+                    </Template>
+                </RadzenDataGridColumn>
+            </Columns>
+        </RadzenDataGrid>
+    </div>
+
+    <div class="negative-inventory-footer" style="text-align:right">
+        <RadzenButton Text="Cancel" ButtonStyle="ButtonStyle.Secondary" Click="@(async () => await negativeInventoryPopup.CloseAsync())" />
+    </div>
+</RadzenPopup>
+
+
+<style type="text/css">
+    .negative-batchno-popup {
+        display: none;
+        position: fixed !important;
+        top: 50% !important;
+        left: 50% !important;
+        transform: translate(-50%, -50%);
+        min-width: 480px;
+        max-width: 90vw;
+        max-height: 85vh;
+        overflow: auto;
+        border-radius: 10px;
+        box-shadow: 0 12px 40px rgba(0,0,0,0.35);
+        z-index: 2000;
+        background: #fff;
+    }
+</style>
+
+<RadzenButton @ref="negativeBatchNoAnchor" Style="display:none" />
+
+@* FOR NEGATIVE BATCH NO WARNING *@
+<RadzenPopup @ref=negativeBatchNoPopup Lazy=true class="negative-batchno-popup">
+    <div class="negative-inventory-header">
+        <RadzenIcon Icon="warning" />
+        <b>Negative Batch No</b>
+    </div>
+
+    <div class="negative-inventory-body">
+        <RadzenDataGrid Data="@negativeBatchNoLines" TItem="NegativeBatchNoLine" Style="height:auto" Density="Density.Compact">
+            <Columns>
+                <RadzenDataGridColumn TItem="NegativeBatchNoLine" Property="StockCode" Title="Stock" Width="100px" />
+                <RadzenDataGridColumn TItem="NegativeBatchNoLine" Property="BatchNo" Title="Batch No" Width="120px" />
+                <RadzenDataGridColumn TItem="NegativeBatchNoLine" Property="Available" Title="Available" TextAlign="TextAlign.Right" FormatString="{0:N4}" Width="100px" />
+                <RadzenDataGridColumn TItem="NegativeBatchNoLine" Property="OutQty" Title="Out Qty" TextAlign="TextAlign.Right" FormatString="{0:N4}" Width="100px" />
+                <RadzenDataGridColumn TItem="NegativeBatchNoLine" Property="BatchNoBalance" Title="Batch No Balance" TextAlign="TextAlign.Right" FormatString="{0:N4}" Width="120px">
+                    <Template Context="line">
+                        <span style="color:#d9412f; font-weight:600">@line.BatchNoBalance.ToString("N4")</span>
+                    </Template>
+                </RadzenDataGridColumn>
+                <RadzenDataGridColumn TItem="NegativeBatchNoLine" Property="LocationCode" Title="Location" Width="140px" />
+            </Columns>
+        </RadzenDataGrid>
+    </div>
+
+    <div class="negative-inventory-footer" style="text-align:right">
+        <RadzenButton Text="Cancel" ButtonStyle="ButtonStyle.Secondary" Click="@(async () => await negativeBatchNoPopup.CloseAsync())" />
+    </div>
+</RadzenPopup>
+
+@code {
+
+    RadzenButton transferbutton;
+    RadzenPopup popuptransfer;
+    private string searchText = string.Empty;
+
+    public List<Guid> selectedIds = new();
+
+    private RadzenDataGrid<StockAssemblyOrderTransferListModel> grids;
+    private IEnumerable<StockAssemblyOrderTransferListModel> filteredStockAsseblyOrderTransferList;
+    private IList<StockAssemblyOrderTransferListModel> selectedStockAssemblyOrderTransferList { get; set; }
+    private IEnumerable<StockAssemblyOrderTransferListModel> stockassemblyorderTransferList { get; set; }
+
+
+    // FOR TRANSFER - SOURCE DATA
+    protected StockAssemblyOrderModel stockAssemblyOrderHeader { get; set; } = new StockAssemblyOrderModel();
+    protected List<StockAssemblyOrderDetail> stockAssemblyOrderDetailsForTransfer { get; set; } = new();
+
+    // TRANSFER LINK TRACKING - BUILT AT TRANSFER TIME, USED BY ONSUBMIT
+    protected StockAssemblyOrderForTransferHeader stockAssemblyOrderForTransferHeader { get; set; } = new();
+    protected List<StockAssemblyOrderForTransferDetails> stockAssemblyOrderForTransferDetailsList { get; set; } = new();
+
+    [Parameter]
+    public Guid? Id { get; set; }
+    bool rightSidebarExpanded = false;
+
+    // JUNE 5, 2026
+    // ADDED
+    [CascadingParameter]
+    public Task<AuthenticationState> authenticationState { get; set; }
+    // JUNE 5, 2026
+    private Guid CurrentUserId;
+
+    // STOCK QUANTITY CONTROL
+    // SEPT 9, 2026
+    RadzenPopup negativeInventoryPopup;
+    RadzenButton negativeInventoryAnchor;
+    protected List<NegativeInventoryLine> negativeInventoryLines = new();
+
+    RadzenPopup negativeBatchNoPopup;
+    RadzenButton negativeBatchNoAnchor;
+    protected List<NegativeBatchNoLine> negativeBatchNoLines = new();
+
+
+    AlignItems alignItems = AlignItems.Center;
+    Density density = Density.Compact;
+    TextStyle textStyle = TextStyle.Body2;
+    FilterCaseSensitivity filter = FilterCaseSensitivity.CaseInsensitive;
+    Variant btnVariantText = Variant.Text;
+    ButtonSize smallbtn = ButtonSize.Small;
+
+    //FOR POP UP DIALOG
+    RadzenButton button;
+    RadzenPopup popup;
+
+    //FOR PROPERTY SET VALUE OF OBJECT
+    Guid defaultvalue;
+    string btnText = "Save";
+    string value = "N/A";
+    bool busy = false;
+    bool istrue = true;
+    string status = string.Empty;
+    bool IsDisable = true;
+    string redtext;
+
+    //for loading data
+    bool isloading = true;
+    bool btnDiseabled = false;
+
+    RadzenTextBox textBox;
+    RadzenPopup batchnumberpopup;
+    private string stockbatchnumbercode = string.Empty;
+    RadzenDataGrid<StockBatchNumbersModel> stockbatchnumbergrid;
+
+    //FORM MODEL
+    protected StockAssemblyModel stockassemblymodel { get; set; } = new StockAssemblyModel();
+    RadzenDataGrid<StockAssemblyDetail> stockassemblyDetailsGrid;
+    protected List<StockAssemblyDetail> stockAssemblyDetails = new List<StockAssemblyDetail>();
+
+
+    private Dictionary<Guid, bool> stockBatchRequirements = new Dictionary<Guid, bool>();
+    private Dictionary<Guid, List<StockBatchNumbersModel>> stockBatchNumbers = new Dictionary<Guid, List<StockBatchNumbersModel>>();
+
+    bool isAddingNew = false;
+
+    DataGridEditMode editMode = DataGridEditMode.Single;
+    List<StockAssemblyDetail> stockassemblyDetailsToInsert = new List<StockAssemblyDetail>();
+    List<StockAssemblyDetail> stockassemblyDetailsToUpdate = new List<StockAssemblyDetail>();
+
+    //ALL LIST FOR DROPDOWN BOX INPUT
+    protected IEnumerable<StockLocations> stocklocationList { get; set; }
+    protected IEnumerable<Projects> projectList { get; set; }
+    protected IEnumerable<Stocks> stockList { get; set; }
+    protected IEnumerable<UOMs> uomsList { get; set; }
+    protected IEnumerable<Descriptions> descriptionsList { get; set; }
+    protected IEnumerable<TransactionsCode> transactionCodesList { get; set; }
+
+    // MODIFIED 10/02/2026
+    protected List<StockBatchNumbersModel> stockbatchnumberList = new();
+    protected List<StockBatchNumbersModel> headerBatchNoList = new();
+
+    // ADDED 10/02/2026
+    private List<StockBatchNumbersModel> pendingBatchNumbers = new();
+
+
+    // JULY 1, 2026
+    protected IEnumerable<StockBOMModel> stockBOMList { get; set; } = new List<StockBOMModel>();
+    protected IEnumerable<UOMs> headerUOMCodeList = new List<UOMs>();
+
+
+    protected IList<TransactionsCode> selectedtransactionCodesList { get; set; }
+    RadzenDataGrid<TransactionsCode> transactionsCodeGrid;
+
+    //FOR DATAGRID STAGGING
+    protected StockAssemblyDetail stockadjustmentDetail { get; set; } = new StockAssemblyDetail();
+    protected StockAssemblyDetail editstockadjustmentDetail = null;
+
+    // DTO for header save request
+    public class SaveStockAdjustmentHeaderRequest
+    {
+        public StockAdjustmentsModel Header { get; set; }
+        public string CompanyCode { get; set; }
+    }
+    // DTO for details save request
+    public class SaveStockAdjustmentDetailsRequest
+    {
+        public List<StockAdjustmentDetails> Details { get; set; }
+        public string CompanyCode { get; set; }
+    }
+    // DTO for response from the API
+    public class SaveStockAdjustmentResponse
+    {
+        public Guid Id { get; set; }
+    }
+
+    protected UOMs UOMsCode { get; set; } = new UOMs();
+    protected DescriptionFilter descriptionFilter { get; set; } = new DescriptionFilter();
+    protected TransactionCodesFilter transactionCodesFilter = new TransactionCodesFilter();
+    protected List<StockAdjustmentDetails> stockItems = new List<StockAdjustmentDetails>();
+
+    // JUNE 9, 2026
+    // USER GUID
+    string? userId;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = (await authenticationState).User;
+
+        var username = authState.Identity?.Name;
+
+        if (!string.IsNullOrEmpty(username))
+        {
+            CurrentUserId =
+                await stockItemsService
+                .GetSecurityUserOid(username);
+        }
+
+        //USER GUID
+        var userguid = authState.FindFirst(x => x.Type == System.Security.Claims.ClaimTypes.NameIdentifier);
+        userId = userguid.Value;
+
+        SetTransactionCodeData();
+
+        await loadAllData();
+        SetDocumentInfo(); // JUNE 9, 2026
+
+
+        if (Id is not null)
+        {
+            await loadAllDataById();
+        }
+        else
+        {
+            // JUNE 17, 2026
+            InitializeStockAdjustmentRows();
+        }
+    }
+
+    // PAG SET NG TRANSACTION CODE NUMBER
+    protected void SetTransactionCodeData()
+    {
+        transactionCodesFilter.TableId = 112;
+        isloading = true;
+    }
+
+    private async Task GetStockAssemblyOrderTransferList()
+    {
+        isloading = true;
+
+        var data = await stockItemsService.GetStockAssemblyOrderTransferList();
+
+        stockassemblyorderTransferList = data ?? Enumerable.Empty<StockAssemblyOrderTransferListModel>();
+        filteredStockAsseblyOrderTransferList = stockassemblyorderTransferList;
+
+        isloading =  false;
+        StateHasChanged();
+    }
+
+    private IEnumerable<StockBatchNumbersModel> GetBatchNumberForStock(Guid? stockId)
+    {
+        if (stockId == null)
+            return Enumerable.Empty<StockBatchNumbersModel>();
+
+        return stockbatchnumberList
+            .Where(x => x.StockId == stockId);
+    }
+
+    private async Task OnBatchRowSelect(StockBatchNumbersModel batch, StockAssemblyDetail detail)
+    {
+        if (batch?.BatchNoExpiryDate != null
+            && stockassemblymodel.AssemblyDate != null
+            && batch.BatchNoExpiryDate.Date < stockassemblymodel.AssemblyDate.Date)
+        {
+            var confirmed = await DialogService.Confirm(
+                "Expiry Date is earlier than transaction date. Do you want to continue?",
+                "Batch No Validation",
+            new ConfirmOptions { OkButtonText = "Yes", CancelButtonText = "No" });
+
+            if (confirmed != true)
+            {
+                // Don't apply this batch — close the popup and leave the row as-is
+                await batchnumberpopup.CloseAsync();
+                StateHasChanged();
+                return;
+            }
+        }
+
+        detail.StockBatchNumberId = batch.Id;
+
+        stockbatchnumbercode = batch.BatchNo;
+
+        // Keep the values synchronized
+        detail.Qty = batch.BalanceQty;
+        detail.StockLocationId = batch.StockLocationId;
+        detail.UOMId = batch.UOMId;
+
+        await batchnumberpopup.CloseAsync();
+        StateHasChanged();
+    }
+
+    private async Task OnHeaderStockChanged(object value)
+    {
+        if (value is Guid stockId)
+        {
+            // Load BOMs for the selected stock
+            stockBOMList =
+                await stockItemsService.GetStockBOMByStock(stockId);
+
+            // Load Batch Numbers
+            // MODIFIED 10/02/2026
+            headerBatchNoList = (await stockItemsService.GetBatchNumbersByStock(stockId)).ToList();
+
+            // Load UOM
+            headerUOMCodeList =
+                await stockItemsService.GetUOMCodeByStock(stockId);
+
+            // Find the selected stock
+            var selectedStock = stockList?.FirstOrDefault(x => x.Id == stockId);
+
+            if (selectedStock != null)
+            {
+                // Auto fill Description with the Stock Name (still editable)
+                stockassemblymodel.Description = selectedStock.StockName;
+
+                // Find the Base UOM
+                var baseUOM = headerUOMCodeList.FirstOrDefault(u => u.UOMCode == selectedStock.BaseUOM);
+
+                if (baseUOM != null)
+                {
+                    stockassemblymodel.UOMId = baseUOM.Id;
+                }
+            }
+
+            // Clear previous BOM selection
+            stockassemblymodel.BOMId = null;
+            stockassemblymodel.StockBatchNumberId = null;
+
+            StateHasChanged();
+        }
+        else
+        {
+            stockBOMList = new List<StockBOMModel>();
+            headerBatchNoList = new List<StockBatchNumbersModel>();
+            headerUOMCodeList = new List<UOMs>();
+
+            stockassemblymodel.BOMId = null;
+            stockassemblymodel.StockBatchNumberId = null;
+            stockassemblymodel.UOMId = null;
+
+            // clear Description too when stock is cleared
+            stockassemblymodel.Description = string.Empty;
+        }
+    }
+
+    protected string GetStockCode(Guid stockId)
+    {
+        var stock = stockList.FirstOrDefault(s => s.Id == stockId);
+        return stock?.StockCode ?? string.Empty;
+    }
+
+    // JUNE 9, 2026
+    DialogPosition position;
+    bool closeDialogOnOverlayClick;
+    bool showMask;
+    bool resizable;
+
+    protected DocumentInfo documentInfo { get; set; } = new DocumentInfo();
+
+    async Task OpenDocumentInfoDialog()
+    {
+        // await DialogService.OpenSideAsync<DocumentInfoPage>("Document Info", new Dictionary<string, object?> { "Id" , (Guid?)Id }, options: new SideDialogOptions { CloseDialogOnOverlayClick = closeDialogOnOverlayClick, Resizable = resizable, Position = position, ShowMask = showMask, MinHeight = 250.0, MinWidth = 350.0 });
+        await DialogService.OpenSideAsync<DocumentInfoPage>(
+            "Document Info",
+            new Dictionary<string, object?>
+            {
+            { "Id", (Guid?)Id }
+            },
+            options: new SideDialogOptions
+            {
+                CloseDialogOnOverlayClick = closeDialogOnOverlayClick,
+                Resizable = resizable,
+                Position = position,
+                ShowMask = showMask,
+                MinHeight = 250.0,
+                MinWidth = 350.0
+            });
+    }
+
+    // JUNE 9, 2026
+    protected void SetDocumentInfo()
+    {
+        documentInfo.DocumentId = stockassemblymodel.Id.ToString();
+        documentInfo.FirstCreatedUserId = userId;
+        documentInfo.LastModifiedUserId = userId;
+        documentInfo.DocType = "StockAssembly";
+    }
+
+    protected async Task loadAllData()
+    {
+        await GetTransactionNo();
+        await GetLocationList();
+        await GetProjectList();
+        await GetStockList();
+        await GetUOMSList();
+        await GetDescriptions();
+        await SetStockAssemblyNo();
+
+        await GetStockBatchNumberList();
+
+        isloading = false;
+
+    }
+
+    protected async Task loadAllDataById()
+    {
+        await GetStockAssemblyById();
+
+        // TO DISPLAY BATCH NO AND UOM CODE
+        if (stockassemblymodel.StockId != null)
+        {
+            stockBOMList = await stockItemsService.GetStockBOMByStock(stockassemblymodel.StockId.Value);
+
+            // MODIFIED 10/02/2026
+            headerBatchNoList = (await stockItemsService.GetBatchNumbersByStock(stockassemblymodel.StockId.Value)).ToList();
+
+            headerUOMCodeList = await stockItemsService.GetUOMCodeByStock(stockassemblymodel.StockId.Value);
+        }
+
+        await GetStockAssemblyDetailById();
+        RecalculateTotalCost();
+
+        LoadAssemblyStatus();
+
+        SetDocumentInfo();
+
+        isloading = false;
+    }
+
+    // ADDED 10/02/2026
+    private string GetBatchNo(Guid? batchId) =>
+        batchId == null ? string.Empty
+        : stockbatchnumberList?.FirstOrDefault(b => b.Id == batchId)?.BatchNo ?? string.Empty;
+
+    // ADDED 10/02/2026
+    private static void Upsert(List<StockBatchNumbersModel> list, StockBatchNumbersModel batch)
+    {
+        var i = list.FindIndex(b => b.Id == batch.Id);
+        if (i >= 0) list[i] = batch; else list.Add(batch);
+    }
+
+    // ADDED 10/02/2026
+    private bool IsDuplicateBatchNo(List<StockBatchNumbersModel> list, StockBatchNumbersModel batch)
+    {
+        var duplicate = list.Any(b =>
+            b.Id != batch.Id &&
+            b.StockId == batch.StockId &&
+            string.Equals(b.BatchNo?.Trim(), batch.BatchNo?.Trim(), StringComparison.OrdinalIgnoreCase));
+
+        if (duplicate)
+        {
+            notificationService.Notify(new NotificationMessage
+            {
+                Severity = NotificationSeverity.Warning,
+                Summary = "Batch No",
+                Detail = $"Batch No '{batch.BatchNo}' already exists for this stock."
+            });
+        }
+        return duplicate;
+    }
+
+    // ADDED 10/02/2026
+    private async Task NewHeaderBatch()
+    {
+        if (stockassemblymodel.StockId is not Guid stockId)
+        {
+            notificationService.Notify(new NotificationMessage
+            {
+                Severity = NotificationSeverity.Warning,
+                Summary = "Batch No",
+                Detail = "Select a stock first."
+            });
+            return;
+        }
+        await OpenHeaderBatchDialog(stockId);
+    }
+
+    // ADDED 10/02/2026
+    private async Task EditHeaderBatch()
+    {
+        if (stockassemblymodel.StockId is not Guid stockId ||
+            stockassemblymodel.StockBatchNumberId is not Guid batchId) return;
+
+        var existing = headerBatchNoList.FirstOrDefault(b => b.Id == batchId);
+        await OpenHeaderBatchDialog(stockId, existing);
+    }
+
+    // ADDED 10/02/2026
+    private async Task OpenHeaderBatchDialog(Guid stockId, StockBatchNumbersModel? existing = null)
+    {
+        var parameters = new Dictionary<string, object> { { "StockId", stockId } };
+        if (existing != null) parameters.Add("ExistingBatch", existing);
+
+        var result = await DialogService.OpenAsync<StockBatchNoInModal>(
+            existing == null ? "New Batch No" : "Edit Batch No",
+            parameters,
+            new DialogOptions { Width = "900px", Height = "600px", Resizable = true, Draggable = true, CloseDialogOnOverlayClick = false });
+
+        if (result is StockBatchNumbersModel batch && !IsDuplicateBatchNo(headerBatchNoList, batch))
+        {
+            Upsert(headerBatchNoList, batch);
+            Upsert(stockbatchnumberList, batch);
+            Upsert(pendingBatchNumbers, batch);
+            stockassemblymodel.StockBatchNumberId = batch.Id;
+            previousHeaderBatchNoId = batch.Id;   // keep your revert-tracking field in sync
+        }
+
+        StateHasChanged();
+    }
+
+    // ADDED 10/05/2026
+    private async Task NewDetailBatch(StockAssemblyDetail detail)
+    {
+        if (detail.StockId is not Guid stockId)
+        {
+            notificationService.Notify(new NotificationMessage
+            {
+                Severity = NotificationSeverity.Warning,
+                Summary = "Batch No",
+                Detail = "Select a stock code first."
+            });
+            return;
+        }
+
+        await batchnumberpopup.CloseAsync();
+        await OpenDetailBatchDialog(stockId, detail, "New");
+    }
+
+    // ADDED 10/05/2026
+    private async Task EditDetailBatch(StockBatchNumbersModel batch, StockAssemblyDetail detail)
+    {
+        if (detail.StockId is not Guid stockId) return;
+
+        await batchnumberpopup.CloseAsync();
+        await OpenDetailBatchDialog(stockId, detail, "Edit", batch);
+    }
+
+    // ADDDED 10/05/2026
+    // mode: "New" / "Edit" (popup grid buttons) or "AutoChain" (fired right after selecting a stock —
+    // opens Stock In create form; Cancel there opens Stock Out select grid)
+    private async Task OpenDetailBatchDialog(Guid stockId, StockAssemblyDetail detail, string mode, StockBatchNumbersModel? existing = null)
+    {
+        if (mode == "AutoChain")
+        {
+            var inResult = await DialogService.OpenAsync<StockBatchNoInModal>(
+                "Stock Batch No In Out",
+                new Dictionary<string, object> { { "StockId", stockId } },
+                new DialogOptions { Width = "900px", Height = "600px", Resizable = true, Draggable = true, CloseDialogOnOverlayClick = false });
+
+            if (inResult is StockBatchNumbersModel newBatch)
+            {
+                if (!IsDuplicateBatchNo(stockbatchnumberList, newBatch))
+                {
+                    Upsert(stockbatchnumberList, newBatch);
+                    Upsert(pendingBatchNumbers, newBatch);
+
+                    detail.StockBatchNumberId = newBatch.Id;
+                    stockbatchnumbercode = newBatch.BatchNo;
+                }
+
+                StateHasChanged();
+                return;
+            }
+
+            // Cancelled Stock In -> fall through to Stock Out (pick an existing batch)
+            var outResult = await DialogService.OpenAsync<StockBatchNoOutModal>(
+                "Stock Batch No In Out",
+                new Dictionary<string, object>
+                {
+                    { "StockId", stockId },
+                    { "StockLocationId", detail.StockLocationId ?? Guid.Empty },
+                    { "UOMId", detail.UOMId ?? Guid.Empty }
+                },
+                new DialogOptions { Width = "900px", Height = "600px", Resizable = true, Draggable = true, CloseDialogOnOverlayClick = false });
+
+            if (outResult is StockBatchNumbersModel pickedBatch)
+            {
+                Upsert(stockbatchnumberList, pickedBatch);
+
+                detail.StockBatchNumberId = pickedBatch.Id;
+                detail.Qty = pickedBatch.BalanceQty;
+                detail.StockLocationId = pickedBatch.StockLocationId;
+                detail.UOMId = pickedBatch.UOMId;
+                stockbatchnumbercode = pickedBatch.BatchNo;
+            }
+
+            StateHasChanged();
+            return;
+        }
+
+        // "New" / "Edit" from the popup grid buttons
+        var parameters = new Dictionary<string, object> { { "StockId", stockId } };
+        if (existing != null) parameters.Add("ExistingBatch", existing);
+
+        var result = await DialogService.OpenAsync<StockBatchNoInModal>(
+            mode == "New" ? "New Batch No" : "Edit Batch No",
+            parameters,
+            new DialogOptions { Width = "900px", Height = "600px", Resizable = true, Draggable = true, CloseDialogOnOverlayClick = false });
+
+        if (result is StockBatchNumbersModel batch && !IsDuplicateBatchNo(stockbatchnumberList, batch))
+        {
+            Upsert(stockbatchnumberList, batch);
+            Upsert(pendingBatchNumbers, batch);
+            detail.StockBatchNumberId = batch.Id;
+            stockbatchnumbercode = batch.BatchNo;
+        }
+
+        StateHasChanged();
+    }
+
+    protected void LoadAssemblyStatus()
+    {
+        var statusList = new List<string>();
+
+        if (stockassemblymodel.IsCancelled == true)
+            statusList.Add("Cancelled");
+
+        if (statusList.Any())
+        {
+            status = $"({string.Join(", ", statusList)})";
+        }
+        else if (!string.IsNullOrWhiteSpace(stockassemblymodel.TransferFromMasterInfo))
+        {
+            status = "(Transferred)";
+        }
+
+        StateHasChanged();
+    }
+
+    // MODIFIED 10/02/2026
+    protected async Task GetStockBatchNumberList()
+    {
+        var data = await stockItemsService.GetStockBatchNumberList();
+        stockbatchnumberList = data?.ToList() ?? new List<StockBatchNumbersModel>();
+    }
+
+    //GET ALL UOMLIST PER STOCK
+    protected async Task GetUOMSList()
+    {
+        var data = await stockItemsService.GetUOMsList();
+        uomsList = data is not null ? data : new List<UOMs>();
+    }
+
+    //LOAD DIFFERENT UOMS PER STOCK
+    private IEnumerable<UOMs> GetUOMsForStock(Guid? stockId)
+    {
+        if (stockId == null || uomsList == null)
+            return Enumerable.Empty<UOMs>();
+        return uomsList.Where(u => u.StockId == stockId);
+    }
+
+    protected async Task GetLocationList()
+    {
+        var data = await stockItemsService.GetStockLocationList();
+        stocklocationList = data is not null ? data : new List<StockLocations>();
+    }
+
+    protected async Task GetProjectList()
+    {
+        var data = await projectService.GetProjectsLists();
+        projectList = data is not null ? data : new List<Projects>();
+    }
+
+    //Get Stock List From db.Stocks
+    protected async Task GetStockList()
+    {
+        var data = await stockItemsService.GetStockList();
+        stockList = data is not null ? data : new List<Stocks>();
+    }
+
+    protected async Task GetStockAssemblyById()
+    {
+        var data = await stockItemsService.GetStockAssemblyById(Id.ToString());
+        stockassemblymodel = data is not null ? data : new StockAssemblyModel();
+    }
+
+    protected async Task GetStockAssemblyDetailById()
+    {
+        var data = await stockItemsService.GetStockAssemblyDetailById(Id.ToString());
+        stockAssemblyDetails = data is not null ? data.ToList() : new List<StockAssemblyDetail>();
+    }
+
+    protected async Task GetDescriptions()
+    {
+        var data = await descriptionsService.GetDescriptions(descriptionFilter);
+        descriptionsList = data is not null ? data : new List<Descriptions>();
+    }
+
+    //GETTING REQUISITION NUMBER FORMAT FROM db.TransactionCodes
+    protected async Task GetTransactionNo()
+    {
+        var data = await transactionCodeService.GetTransactionNo(transactionCodesFilter);
+        transactionCodesList = data is not null ? data : new List<TransactionsCode>();
+    }
+
+    //FOR RUNNING NUMBERS
+    protected TransactionsCode selectedTransacCode => transactionCodesList.FirstOrDefault(sa => sa.IsDefault == true);
+    protected RunningNumbers runningNumbers { get; set; } = new RunningNumbers();
+
+    protected async Task SetStockAssemblyNoPopup(int Id)
+    {
+        await SetStockAssemblyNo();
+    }
+
+    protected async Task SetStockAssemblyNo()
+    {
+        runningNumbers.DocDate = stockassemblymodel.AssemblyDate;
+        runningNumbers.Format = selectedTransacCode?.Format;
+        runningNumbers.ColumnName = "AssemblyCode";
+        runningNumbers.TableName = "StockAssembly";
+        await GetNextStockAdjustmentCodeAsync();
+        await popup.CloseAsync();
+    }
+
+    private async Task GetNextStockAdjustmentCodeAsync()
+    {
+        var data = await runningNumberService.GetNextRunningNumber(runningNumbers);
+        stockassemblymodel.AssemblyCode = data is not null ? data : string.Empty;
+    }
+
+    private async Task OnStockChanged(object stockId, StockAssemblyDetail stockassemblydetails)
+    {
+        if (stockId != null && stockId is Guid selectedStockId)
+        {
+            var selectedStock = stockList?.FirstOrDefault(s => s.Id == selectedStockId);
+
+            if (selectedStock != null)
+            {
+
+                // ADDED 10/05/2026
+                stockassemblydetails.StockBatchNumberId = null;
+                stockbatchnumbercode = string.Empty;
+
+                // Populate Description
+                stockassemblydetails.Description = selectedStock.StockName;
+
+                if (selectedStock.ItemTypeCode is "T" or "D")
+                {
+                    stockassemblydetails.Qty = 0.00m;
+                }
+                else
+                {
+                    stockassemblydetails.Qty = 1.00m;
+                }
+
+                // Set the base UOM
+                var baseUOM = uomsList?
+                    .FirstOrDefault(u =>
+                        u.StockId == selectedStockId &&
+                        u.UOMCode == selectedStock.BaseUOM);
+                if (baseUOM != null)
+                {
+                    stockassemblydetails.UOMId = baseUOM.Id;
+                }
+
+                // Auto fill Location when selecting stock code
+                if (selectedStock.DefaultLocationId != null)
+                {
+                    stockassemblydetails.StockLocationId = selectedStock.DefaultLocationId;
+                }
+
+                // ADDED SEPT 4, 2026
+                RecalculateTotalCost();
+
+                // ADDED 10/05/2026
+                // ADDED — opens Stock In create form; Cancel opens Stock Out select grid
+                await OpenDetailBatchDialog(selectedStockId, stockassemblydetails, "AutoChain");
+
+                // Just trigger state change, don't reload grid
+                StateHasChanged();
+            }
+        }
+        else
+        {
+            IsDisable = true;
+
+            // Clear fields if no stock is selected
+            stockassemblydetails.Description = string.Empty;
+            stockassemblydetails.Qty = 0;
+            stockassemblydetails.UOMId = null;
+
+            RecalculateTotalCost();
+
+            StateHasChanged();
+        }
+    }
+
+    // Tracks the last valid header Batch No selection so we can revert if the
+    // user cancels the expiry-date confirmation.
+    private Guid? previousHeaderBatchNoId = null;
+
+    private async Task OnHeaderBatchNoChanged(object value)
+    {
+        if (value is Guid batchId)
+        {
+            var batch = headerBatchNoList?.FirstOrDefault(b => b.Id == batchId);
+
+            if (batch?.BatchNoExpiryDate != null
+                && stockassemblymodel.AssemblyDate != null
+                && batch.BatchNoExpiryDate.Date < stockassemblymodel.AssemblyDate.Date)
+            {
+                var confirmed = await DialogService.Confirm(
+                    "Expire Date is earlier than transaction date. Do you want to continue?",
+                    "Batch No Validation",
+                    new ConfirmOptions { OkButtonText = "Yes", CancelButtonText = "No" });
+
+                if (confirmed != true)
+                {
+                    // Revert to the previous selection (or clear it)
+                    stockassemblymodel.StockBatchNumberId = previousHeaderBatchNoId;
+                    StateHasChanged();
+                    return;
+                }
+            }
+
+            previousHeaderBatchNoId = batchId;
+        }
+        else
+        {
+            // Cleared
+            previousHeaderBatchNoId = null;
+        }
+    }
+
+    protected async Task OpenDialog(int dialogId)
+    {
+
+    }
+
+    private void OnInvalidSubmit(FormInvalidSubmitEventArgs args)
+    {
+        notificationService.Notify(new NotificationMessage
+        {
+            Severity = NotificationSeverity.Error,
+            Summary = "Validation",
+            Detail = "The Date is not in valid posting period",
+            Duration = 4000
+        });
+    }
+
+    private bool showValidationErrors = false;
+
+
+    private string GetAccountPresetClass()
+    {
+        if (showValidationErrors && string.IsNullOrWhiteSpace(stockassemblymodel.AssemblyCode))
+            return "invalid-input";
+        return "";
+    }
+
+    // Helper to reset Pos index after any add/delete
+    private void ResetPosIndexes()
+    {
+        for (int i = 0; i < stockAssemblyDetails.Count; i++)
+        {
+            stockAssemblyDetails[i].Pos = i + 1;
+        }
+    }
+
+    private StockBatchNumbersModel GetBatchNumberForDetail(Guid? batchNumberId)
+    {
+        if (batchNumberId == null) return null;
+
+        foreach (var stockBatches in stockBatchNumbers.Values)
+        {
+            var batch = stockBatches.FirstOrDefault(b => b.Id == batchNumberId.Value);
+            if (batch != null) return batch;
+        }
+
+        return null;
+    }
+
+    private bool IsBatchNoDisabled(Guid? stockId)
+    {
+        if (stockId == null) return true;
+
+        if (stockBatchRequirements.ContainsKey(stockId.Value))
+        {
+            return !stockBatchRequirements[stockId.Value]; // Disabled if UseBatchNo is false
+        }
+        return true; // Default to disabled if not checked yet
+    }
+
+    private void OnBatchNumberChanged(object value, StockAdjustmentDetails stockoadjustmentdetails)
+    {
+        if (value != null && Guid.TryParse(value.ToString(), out Guid batchId))
+        {
+            var selectedBatch = GetBatchNumberForDetail(batchId);
+            if (selectedBatch != null)
+            {
+                stockoadjustmentdetails.StockBatchNumberId = batchId;
+
+            }
+        }
+        else
+        {
+            stockoadjustmentdetails.StockBatchNumberId = null;
+        }
+    }
+
+    private List<StockBatchNumbersModel> GetBatchNumbersForStock(Guid? stockId)
+    {
+        if (stockId == null) return new List<StockBatchNumbersModel>();
+
+        if (stockBatchNumbers.ContainsKey(stockId.Value))
+        {
+            return stockBatchNumbers[stockId.Value];
+        }
+
+        return new List<StockBatchNumbersModel>();
+    }
+
+    protected void OnPrint()
+    {
+        CustomNotificationMessage.Message(notificationService, true);
+    }
+
+    protected void Navigate()
+    {
+        navManager.NavigateTo("/StockAssemblyList");
+    }
+
+    // CREATE ROW
+    void OnCreateRow(StockAssemblyDetail stockassemblyDetails)
+    {
+        // This method is called * after * the new row has been added to purchase requisition DetailsList
+        stockassemblyDetailsToInsert.Remove(stockassemblyDetails);
+    }
+
+    //UPDATE ROW
+    void OnUpdateRow(StockAssemblyDetail stockassemblyDetails)
+    {
+        // This method is called *after* the row has been updated in purchase requisition DetailsList
+        Reset(stockassemblyDetails);
+    }
+
+    // JUNE 17, 2026
+    protected void InitializeStockAdjustmentRows()
+    {
+        // Initialize with 5 rows and set default Pos index
+        stockAssemblyDetails = Enumerable.Range(1, 5)
+            .Select(i => new StockAssemblyDetail
+            {
+                Id = Guid.NewGuid(),
+                Pos = i,
+                StockAssemblyId = Id ?? stockassemblymodel.Id,
+            })
+            .ToList();
+    }
+
+    // JUNE 17, 2026
+    async Task InsertAfterRow(StockAssemblyDetail currentRow)
+    {
+        if (stockassemblyDetailsToInsert.Any() || stockassemblyDetailsToUpdate.Any())
+        {
+            NotificationHelper.ShowWarning(notificationService,
+                "Unsaved Details",
+                "Save current row first.");
+            return;
+        }
+
+        var newRow = new StockAssemblyDetail
+        {
+            Id = Guid.NewGuid(),
+            StockAssemblyId = Id ?? stockassemblymodel.Id,
+            Pos = currentRow?.Pos + 1 ?? 1
+        };
+
+        // 🔥 IMPORTANT: insert into actual grid source
+        if (currentRow != null)
+        {
+            var index = stockAssemblyDetails.IndexOf(currentRow);
+
+            if (index >= 0)
+                stockAssemblyDetails.Insert(index + 1, newRow);
+            else
+                stockAssemblyDetails.Add(newRow);
+        }
+        else
+        {
+            stockAssemblyDetails.Add(newRow);
+        }
+
+        stockassemblyDetailsToInsert.Add(newRow);
+
+        await stockassemblyDetailsGrid.Reload();
+
+        // ADDED 10/5/2026
+        stockbatchnumbercode = string.Empty;
+
+        await stockassemblyDetailsGrid.EditRow(newRow);
+
+        StateHasChanged();
+
+    }
+
+    // JUNE 17, 2026
+    async Task EditRow(StockAssemblyDetail stockassemblyDetails)
+    {
+        if (!stockassemblyDetailsGrid.IsValid)
+            return;
+
+        if (stockassemblyDetails.UnitCost == null)
+        {
+            stockassemblyDetails.UnitCost = 0.0000m;
+        }
+
+        bool anotherRowActive =
+            stockassemblyDetailsToInsert.Any(x => x != stockassemblyDetails) ||
+            stockassemblyDetailsToUpdate.Any(x => x != stockassemblyDetails);
+
+        if (anotherRowActive)
+        {
+            notificationService.Notify(new NotificationMessage
+            {
+                Severity = NotificationSeverity.Warning,
+                Summary = "Unsaved Row",
+                Detail = "Please save or cancel the current active row before editing another."
+            });
+            return;
+        }
+
+        if (!stockassemblyDetailsToUpdate.Contains(stockassemblyDetails))
+        {
+            stockassemblyDetailsToUpdate.Add(stockassemblyDetails);
+        }
+
+        // ADDED 10/05/2026
+        stockbatchnumbercode = GetBatchNo(stockassemblyDetails.StockBatchNumberId);
+
+        await stockassemblyDetailsGrid.EditRow(stockassemblyDetails);
+        StateHasChanged();
+    }
+
+    void CancelEdit(StockAssemblyDetail stockassemblyDetails)
+    {
+        // If it's a new row that was cancelled, remove it from the list
+        if (stockassemblyDetailsToInsert.Contains(stockassemblyDetails))
+        {
+            stockAssemblyDetails.Remove(stockassemblyDetails);
+        }
+        Reset(stockassemblyDetails);
+
+        stockassemblyDetailsGrid.CancelEditRow(stockassemblyDetails);
+        // Reload the grid to reflect the removal of a new cancelled row or revert changes visually
+        stockassemblyDetailsGrid.Reload();
+        StateHasChanged();
+
+    }
+
+    async Task SaveRow(StockAssemblyDetail stockassemblyDetails)
+    {
+        // This method is called when the user clicks the 'Save' (checkmark) button for a row in the grid.
+        await stockassemblyDetailsGrid.UpdateRow(stockassemblyDetails);
+        await stockassemblyDetailsGrid.Reload();
+        RecalculateTotalCost();
+        StateHasChanged();
+    }
+
+    void Reset(StockAssemblyDetail stockassemblyDetails)
+    {
+        stockassemblyDetailsToInsert.Remove(stockassemblyDetails);
+        stockassemblyDetailsToUpdate.Remove(stockassemblyDetails);
+    }
+
+    void Reset()
+    {
+        stockassemblyDetailsToInsert.Clear();
+        stockassemblyDetailsToUpdate.Clear();
+    }
+
+    async Task DeleteRow(StockAssemblyDetail stockassemblyDetails)
+    {
+        Reset(stockassemblyDetails);
+        stockAssemblyDetails.Remove(stockassemblyDetails);
+        ResetPosIndexes();
+        await stockassemblyDetailsGrid.Reload();
+        RecalculateTotalCost();
+        StateHasChanged();
+    }
+
+    protected async Task RefreshGrid()
+    {
+        // Refresh the grid
+        await stockassemblyDetailsGrid.Reload();
+    }
+
+    async Task ShowLoading()
+    {
+        isloading = true;
+
+        await Task.Yield();
+    }
+
+    private void ApplyFilter()
+    {
+        if (string.IsNullOrWhiteSpace(searchText))
+        {
+            filteredStockAsseblyOrderTransferList = stockassemblyorderTransferList;
+        }
+        else
+        {
+            filteredStockAsseblyOrderTransferList = stockassemblyorderTransferList.Where(x =>
+                (!string.IsNullOrEmpty(x.AssemblyOrderDate.ToString()) && x.AssemblyOrderDate.ToString().Contains(searchText, StringComparison.OrdinalIgnoreCase)) ||
+                (!string.IsNullOrEmpty(x.AssemblyOrderCode) && x.AssemblyOrderCode.Contains(searchText, StringComparison.OrdinalIgnoreCase)) ||
+                (!string.IsNullOrEmpty(x.Description) && x.Description.Contains(searchText, StringComparison.OrdinalIgnoreCase))
+            );
+        }
+        StateHasChanged();
+    }
+
+    private void ClearFilter()
+    {
+        searchText = string.Empty;
+        filteredStockAsseblyOrderTransferList = stockassemblyorderTransferList;
+        StateHasChanged();
+    }
+
+    private async void OnOkClicked()
+    {
+        if (selectedStockAssemblyOrderTransferList != null && selectedStockAssemblyOrderTransferList.Any())
+        {
+            var SAODetailsId = string.Join(",", selectedStockAssemblyOrderTransferList.Select(x => x.Id));
+
+            if (!string.IsNullOrWhiteSpace(SAODetailsId))
+            {
+                selectedIds = SAODetailsId.Split(',', StringSplitOptions.RemoveEmptyEntries)
+                                       .Select(Guid.Parse)
+                                       .ToList();
+
+                // pick a representative row to source the header from
+                var primaryItem = selectedStockAssemblyOrderTransferList
+                    .OrderByDescending(x => x.RemainingQty)
+                    .FirstOrDefault();
+
+                await GetStockAssemblyOrderHeaderById(primaryItem.Id.ToString());
+                await GetStockAssemblyOrderDetailsForTransfer();
+            }
+        }
+        else
+        {
+            status = "Please select at least one";
+            StateHasChanged();
+        }
+    }
+
+    protected async Task GetStockAssemblyOrderHeaderById(string SAOId)
+    {
+        var header = await stockItemsService.GetStockAssemblyOrderById(SAOId);
+        stockAssemblyOrderHeader = header is not null ? header : new StockAssemblyOrderModel();
+    }
+
+    protected async Task GetStockAssemblyOrderDetailsForTransfer()
+    {
+        var details = new List<StockAssemblyOrderDetail>();
+
+        foreach (var SAOId in selectedIds)
+        {
+            var fortransferDetails = await stockItemsService.GetStockAssemblyOrderDetailById(SAOId.ToString());
+            if (fortransferDetails != null)
+                details.AddRange(fortransferDetails);
+        }
+
+        stockAssemblyOrderDetailsForTransfer = details;
+
+        await LoadStockAssemblyOrderTransferDetails();
+    }
+
+    protected async Task OnSubmit()
+    {
+        if (stockassemblyDetailsToInsert.Any() || stockassemblyDetailsToUpdate.Any())
+        {
+            NotificationHelper.ShowWarning(
+                notificationService,
+                "Unsaved Details",
+                "Please click the 'Save' (checkmark) button for any active or newly added detail rows in the grid before saving.");
+            return;
+        }
+
+        if (stockassemblymodel.StockId is null)
+        {
+            NotificationHelper.ShowWarning(
+                notificationService,
+                "Validation",
+                "Stock is required.");
+            return;
+        }
+
+        if (!stockAssemblyDetails.Any(d => d.StockId != null))
+        {
+            NotificationHelper.ShowWarning(
+                notificationService,
+                "Validation",
+                "At least one detail row with a Stock must be entered.");
+            return;
+        }
+
+        // Block save if any detail row has a negative Qty
+        if (stockAssemblyDetails.Any(d => d.StockId != null && d.Qty is decimal q && q < 0))
+        {
+            NotificationHelper.ShowWarning(
+                notificationService,
+                "Validation",
+                "Negative quantity is not allowed. Please correct the Qty in the detail rows.");
+            return;
+        }
+
+        // ADDED 10/05/2026
+        // ADDED — save new/edited batch numbers (header + details) actually used
+        var usedBatchIds = stockAssemblyDetails
+            .Where(d => d.StockBatchNumberId != null)
+            .Select(d => d.StockBatchNumberId!.Value)
+            .ToHashSet();
+
+        if (stockassemblymodel.StockBatchNumberId != null)
+            usedBatchIds.Add(stockassemblymodel.StockBatchNumberId.Value);
+
+        var batchesToSave = pendingBatchNumbers.Where(b => usedBatchIds.Contains(b.Id)).ToList();
+
+        if (batchesToSave.Any())
+        {
+            var batchResult = await stockItemsService.SaveStockBatchNumbers(batchesToSave);
+
+            if (batchResult.StartsWith("Error"))
+            {
+                await DialogService.Alert(batchResult);
+                return;
+            }
+
+            pendingBatchNumbers.RemoveAll(b => usedBatchIds.Contains(b.Id));
+        }
+
+        // STOCK QUANTITY CONTROL - block the save if any component would go negative
+        negativeInventoryLines = await stockItemsService.CheckNegativeInventory(stockassemblymodel, stockAssemblyDetails);
+
+        if (negativeInventoryLines.Any())
+        {
+            StateHasChanged();
+            await negativeInventoryPopup.ToggleAsync(negativeInventoryAnchor.Element);
+            return; // // hindi tuloy yung save
+        }
+
+        // STOCK QUANTITY CONTROL - block the save if any batch would go negative
+        negativeBatchNoLines = await stockItemsService.CheckNegativeBatchNo(stockassemblymodel, stockAssemblyDetails);
+
+        if (negativeBatchNoLines.Any())
+        {
+            StateHasChanged();
+            await negativeBatchNoPopup.ToggleAsync(negativeBatchNoAnchor.Element);
+            return;
+        }
+
+        busy = true;
+
+        // Ensure header/detail ids exist before saving
+        if (stockassemblymodel.Id == Guid.Empty)
+            stockassemblymodel.Id = Id ?? Guid.NewGuid();
+
+        foreach (var detail in stockAssemblyDetails)
+        {
+            if (detail.Id == Guid.Empty)
+                detail.Id = Guid.NewGuid();
+
+            detail.StockAssemblyId = stockassemblymodel.Id;
+        }
+
+        // Only treat as a transfer save if we actually loaded a source order
+        var isTransfer = stockAssemblyOrderHeader?.Id != null
+            && stockAssemblyOrderHeader.Id != Guid.Empty
+            && !string.IsNullOrWhiteSpace(stockassemblymodel.TransferFromInfo);
+
+        var headerForTransfer = isTransfer ? stockAssemblyOrderForTransferHeader : null;
+        var detailsForTransfer = isTransfer ? stockAssemblyOrderForTransferDetailsList : new List<StockAssemblyOrderForTransferDetails>();
+
+        var data = await stockItemsService.SaveStockAssemblyWithTransfer(stockassemblymodel, stockAssemblyDetails, headerForTransfer, detailsForTransfer);
+
+        if (data is not null && data.Contains("Success"))
+        {
+            var syncResult = await stockItemsService.SaveStockAssemblyTransactions(stockassemblymodel, stockAssemblyDetails);
+
+            if (syncResult is null || !syncResult.Contains("Success"))
+            {
+                // Header/details saved, but ledger sync failed — surface it instead of hiding it
+                await DialogService.Alert($"Saved, but ledger sync failed: {syncResult}");
+            }
+
+            await DialogService.Alert(data);
+            btnDiseabled = true;
+            Id ??= stockassemblymodel.Id;
+            SetDocumentInfo();
+            LoadAssemblyStatus();
+        }
+        else
+        {
+            await DialogService.Alert(data);
+        }
+
+        busy = false;
+        StateHasChanged();
+
+    }
+
+    async Task LoadStockAssemblyOrderTransferDetails()
+    {
+        // TRANSFER HEADER
+        stockassemblymodel.StockId = stockAssemblyOrderHeader.StockId;
+        stockassemblymodel.StockLocationId = stockAssemblyOrderHeader.StockLocationId;
+        stockassemblymodel.ProjectId = stockAssemblyOrderHeader.ProjectId;
+        stockassemblymodel.Description = stockAssemblyOrderHeader.Description;
+        stockassemblymodel.ReferenceNo = stockAssemblyOrderHeader.ReferenceNo;
+
+        // Combine the codes of every selected assembly order for traceability
+        var codes = selectedStockAssemblyOrderTransferList?.Select(x => x.AssemblyOrderCode);
+        stockassemblymodel.TransferFromInfo = string.Join(", ", codes ?? Enumerable.Empty<string>());
+
+        // Re-trigger the same cascade the dropdown's Change handler does,
+        // so BOM/Batch/UOM lists get loaded for the transferred stock
+        if (stockassemblymodel.StockId is Guid stockId)
+        {
+            await OnHeaderStockChanged(stockId);
+
+            // OnHeaderStockChanged clears BOM/Batch after loading the lists — restore from source
+            stockassemblymodel.BOMId = stockAssemblyOrderHeader.BOMId;
+            stockassemblymodel.StockBatchNumberId = stockAssemblyOrderHeader.StockBatchNumberId;
+
+            if (stockAssemblyOrderHeader.UOMId != null)
+                stockassemblymodel.UOMId = stockAssemblyOrderHeader.UOMId;
+        }
+
+        // TRANSFER DETAILS
+        // Every detail row's Qty is set to the source order's batch Qty
+        // (not the per-ingredient recipe amount), matching QNE's behavior.
+        stockAssemblyDetails = stockAssemblyOrderDetailsForTransfer.Select((item, index) => new StockAssemblyDetail
+        {
+            Id = Guid.NewGuid(),
+            StockAssemblyId = Id ?? stockassemblymodel.Id,
+            Pos = index + 1,
+            StockId = item.StockId,
+            Description = item.Description,
+            Qty = item.Qty,      // AUG 13, 2026 — use the original per-ingredient Qty from StockAssemblyOrderDetail, not the header batch Qty
+            // Qty = stockAssemblyOrderHeader.Qty,      ← now uses the batch Qty, same on every row
+            UOMId = item.UOMId,
+            UnitCost = item.UnitCost,
+            StockLocationId = item.StockLocationId,
+            StockBatchNumberId = item.StockBatchNumberId,
+            SerialNumber = item.SerialNumber
+        })
+        .ToList();
+
+        // BUILD TRANSFER LINK OBJECTS — paired by index with the source order details
+        // AUG 13, 2026
+        stockAssemblyOrderForTransferDetailsList = stockAssemblyOrderDetailsForTransfer
+            .Select((sourceItem, index) => new StockAssemblyOrderForTransferDetails
+            {
+                Id = Guid.NewGuid(),
+                SourceKey = sourceItem.Id,
+                StockAssemblyOrderDetailId = sourceItem.Id,
+                StockAssemblyDetailId = stockAssemblyDetails[index].Id,
+                TransferredBaseUnit = stockAssemblyOrderHeader.Qty ?? 0,
+                Transferred = stockAssemblyOrderHeader.Qty ?? 0
+            })
+            .ToList();
+
+        // HEADER TRANSFER LINK OBJECT
+        // AUG 13, 2026
+        stockAssemblyOrderForTransferHeader = new StockAssemblyOrderForTransferHeader
+        {
+            Id = Guid.NewGuid(),
+            StockAssemblyOrderHeaderId = stockAssemblyOrderHeader.Id,
+            TransferToInfo = stockassemblymodel.AssemblyCode,
+            TransferToMasterInfo = stockassemblymodel.AssemblyCode,
+            TransferQty = stockAssemblyOrderHeader.Qty
+        };
+
+        // RECOMPUTE HEADER TOTAL FROM DETAILS
+        // Qty must come from the SOURCE ORDER HEADER's batch quantity —
+        // NOT summed from the ingredient rows, which is meaningless (mixes different units of raw materials)
+        stockassemblymodel.Qty = stockAssemblyOrderHeader.Qty;
+
+        RecalculateTotalCost();
+
+        // Reset any pending row edits so the grid isn't left in a stale insert/update state
+        Reset();
+
+        await popuptransfer.CloseAsync();
+        isloading = false;
+
+        if (stockassemblyDetailsGrid is not null)
+            await stockassemblyDetailsGrid.Reload();
+
+        StateHasChanged();
+    }
+
+    // HELPER TO RECOMPUTE WHEN THE QTY HEADER CHANGE REFLECT ON TOTAL COST
+    // AUG 12, 2026
+    // private void OnHeaderQtyOrCostChanged()
+    // {
+    //     stockassemblymodel.TotalCost = (stockassemblymodel.Qty ?? 0) * (stockassemblymodel.Cost ?? 0);
+    //     StateHasChanged();
+    // }
+
+    // AUG 12, 2026
+    // Header Qty changed -> propagate to every detail row's Qty, then recompute TotalCost from the rows
+    private async Task OnHeaderQtyChanged()
+    {
+        foreach (var detail in stockAssemblyDetails)
+        {
+            detail.Qty = stockassemblymodel.Qty;
+        }
+
+        RecalculateTotalCost();
+
+        if (stockassemblyDetailsGrid is not null)
+            await stockassemblyDetailsGrid.Reload();
+
+        StateHasChanged();
+    }
+
+    // Header Cost changed -> simple multiply, doesn't touch detail rows
+    private void OnHeaderCostChanged()
+    {
+        stockassemblymodel.TotalCost = (stockassemblymodel.Qty ?? 0) * (stockassemblymodel.Cost ?? 0);
+        StateHasChanged();
+    }
+
+    private async Task OnBOMChanged(object value)
+    {
+        // Don't allow replacing the grid while a row is mid-edit
+        if (stockassemblyDetailsToInsert.Any() || stockassemblyDetailsToUpdate.Any())
+        {
+            NotificationHelper.ShowWarning(notificationService, "Unsaved Details",
+                "Please save or cancel the current row before selecting a BOM.");
+            return;
+        }
+
+        // ADDED 10/05/2026
+        // ADDED — auto fill Location from the selected BOM
+        if (value is Guid selectedBomId)
+        {
+            var selectedBOM = stockBOMList?.FirstOrDefault(b => b.Id == selectedBomId);
+
+            if (selectedBOM?.StockLocationId != null)
+            {
+                stockassemblymodel.StockLocationId = selectedBOM.StockLocationId;
+            }
+        }
+
+        if (value is Guid bomId)
+        {
+            var bomDetails = await stockItemsService.GetStockBOMDetailsByIdSAO(bomId.ToString());
+
+            if (bomDetails != null && bomDetails.Any())
+            {
+                stockAssemblyDetails = bomDetails
+                    .OrderBy(d => d.Pos)
+                    .Select((detail, index) => new StockAssemblyDetail
+                    {
+                        Id = Guid.NewGuid(),
+                        StockAssemblyId = Id ?? stockassemblymodel.Id,
+                        Pos = index + 1,
+                        StockId = detail.StockId,
+                        Description = !string.IsNullOrWhiteSpace(detail.Description)
+                            ? detail.Description
+                            : stockList?.FirstOrDefault(s => s.Id == detail.StockId)?.StockName,
+                        UOMId = detail.UOMId,
+                        Qty = detail.Qty,
+                        UnitCost = detail.UnitCost,
+                        StockLocationId = detail.StockLocationId
+                    })
+                    .ToList();
+            }
+            else
+            {
+                // No BOM details found — fall back to blank rows
+                InitializeStockAssemblyRows();
+            }
+        }
+        else
+        {
+            // BOM cleared
+            InitializeStockAssemblyRows();
+        }
+
+        Reset(); // clears stockassemblyorderDetailsToInsert / ToUpdate
+
+        if (stockassemblyDetailsGrid != null)
+        {
+            await stockassemblyDetailsGrid.Reload();
+        }
+
+        RecalculateTotalCost();
+
+        StateHasChanged();
+    }
+
+    // JUNE 17, 2026
+    protected void InitializeStockAssemblyRows()
+    {
+        // Initialize with 5 rows and set default Pos index
+        stockAssemblyDetails = Enumerable.Range(1, 5)
+            .Select(i => new StockAssemblyDetail
+            {
+                Id = Guid.NewGuid(),
+                Pos = i,
+                StockAssemblyId = Id ?? stockassemblymodel.Id,
+            })
+            .ToList();
+
+        RecalculateTotalCost();
+    }
+
+    // Helper method para mag recalculate at lumabas ang value sa Total Cost
+    // QTY X UNIT COST = SUM
+    // SUM + ILANG STOCKS = TOTAL COST
+    private void RecalculateTotalCost()
+    {
+        stockassemblymodel.TotalCost = stockAssemblyDetails.Sum(x => (x.Qty ?? 0) * (x.UnitCost ?? 0));
+
+        // Keep unit Cost in sync with the new total (mirrors LoadStockAssemblyOrderTransferDetails)
+        stockassemblymodel.Cost = stockassemblymodel.Qty is decimal q && q != 0
+            ? stockassemblymodel.TotalCost / q
+            : 0;
+
+        StateHasChanged();
+    }
+
+    // ADDED 10/01/2026
+    private void OnNew()
+    {
+        navManager.NavigateTo("/StockAssembly", forceLoad: true);
+    }
+
+
+}

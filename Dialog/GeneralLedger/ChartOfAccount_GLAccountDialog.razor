@@ -1,0 +1,789 @@
+﻿@page "/GLAccountdialog"
+@attribute [Authorize(Roles = "Admin,User")]
+@inject DialogService dialogService
+@inject NotificationService notificationService
+@inject GLAccountsServices gLAccountsServices
+@inject ChartOfAccountsServices chartOfAccountsServices
+@inject RequestMessageHandler requestMessageHandler
+@inject NavigationManager NavManager
+@inject MenuService menuService
+@inject AllTaxCodeService allTaxCodeService
+
+@if (isloading == false)
+{
+	<RadzenStack>
+		<RadzenTemplateForm TItem=ChartOfAccountTree Data="chartOfAccountTree" Submit="@Submit">
+			<RadzenTabs RenderMode="TabRenderMode.Client">
+				<Tabs>
+					<RadzenTabsItem Text="Account Info">
+						@*   <RadzenRow Gap="2rem" Class="rz-p-0 rz-p-lg-4"> *@
+						<RadzenColumn Size="12" SizeMD="6">
+
+							<RadzenFieldset>
+								<RadzenStack Gap="1rem">
+
+									<RadzenRow AlignItems="@alignItems">
+										<RadzenColumn Size="12" SizeMD="2">
+											<RadzenText TextStyle="@textStyle" Text="Account Type"></RadzenText>
+										</RadzenColumn>
+										<RadzenColumn Size="12" SizeMD="10">
+											<RadzenDropDownDataGrid Disabled="true" @bind-Value=chartOfAccountTree.AcctId Style="width: 100%;" PageSize=10 AllowColumnResize="true"
+																	AllowClear="true" FilterCaseSensitivity="@filter" AllowFilteringByAllStringColumns="true"
+																	TextProperty="Description" Density="@density" Data="@accountList" ValueProperty="Id">
+											</RadzenDropDownDataGrid>
+
+										</RadzenColumn>
+									</RadzenRow>
+									@* Data=@SubAccountList *@
+
+									<RadzenRow AlignItems="@alignItems">
+										<RadzenColumn Size="12" SizeMD="2">
+											<RadzenText TextStyle="@textStyle" Text="Sub GL Account of"></RadzenText>
+										</RadzenColumn>
+										<RadzenColumn Size="12" SizeMD="8">
+											<RadzenDropDownDataGrid Disabled="true" @bind-Value="@glaccounts.ParentId" Style="width: 100%;" PageSize=10 AllowColumnResize="true"
+																	AllowClear="true" FilterCaseSensitivity="@filter" AllowFilteringByAllStringColumns="true"
+																	TextProperty="AccountCodeDescription" Density="@density" Data="@subaccountList" ValueProperty="Id">
+											</RadzenDropDownDataGrid>
+										</RadzenColumn>
+										<RadzenColumn Size="12" SizeMD="2">
+											<RadzenCheckBox @bind-Value=@glaccounts.IsActive Name="Active"></RadzenCheckBox> Active
+										</RadzenColumn>
+									</RadzenRow>
+									<RadzenRow AlignItems="@alignItems">
+										<RadzenColumn Size="12" SizeMD="2">
+											<RadzenText Component="GLAccountCode" TextStyle="@textStyle" Text="GL Account Code"></RadzenText>
+										</RadzenColumn>
+										<RadzenColumn Size="12" SizeMD="10">
+											<RadzenMask Name="GLAccountCode" Mask="*-***-***-***-***" CharacterPattern="[0-9]" @bind-Value=@glaccounts.GLAccountCode Placeholder="0-000-000-000-000" Style=" width: 100%;"></RadzenMask>
+											<RadzenRequiredValidator Component="GLAccountCode" Text="GL Account code can not be empty." />
+										</RadzenColumn>
+									</RadzenRow>
+									<RadzenRow AlignItems="@alignItems">
+										<RadzenColumn Size="12" SizeMD="2">
+											<RadzenText Component="Description" TextStyle="@textStyle" Text="Description"></RadzenText>
+										</RadzenColumn>
+										<RadzenColumn Size="12" SizeMD="10">
+											<RadzenTextBox Name="Description" @bind-Value=@glaccounts.Description Style=" width: 100%;" />
+											<RadzenRequiredValidator Component="Description" Text="GL Account description can not be empty." />
+										</RadzenColumn>
+									</RadzenRow>
+
+
+									<RadzenRow AlignItems="@alignItems">
+										<RadzenColumn Size="12" SizeMD="2">
+										</RadzenColumn>
+										<RadzenColumn Size="12" SizeMD="10">
+											<RadzenTextBox @bind-Value=@value Style=" width: 100%;"></RadzenTextBox>
+										</RadzenColumn>
+									</RadzenRow>
+
+									<RadzenRow AlignItems="@alignItems">
+										<RadzenColumn Size="12" SizeMD="2">
+											<RadzenText TextStyle="@textStyle" Text="DRCR"></RadzenText>
+
+										</RadzenColumn>
+										<RadzenColumn Size="12" SizeMD="10">
+											<RadzenRadioButtonList Style=" width: 100%; height:30%" @bind-Value=chartOfAccountTree.DRCR TValue="string">
+												<Items>
+													<RadzenRadioButtonListItem Text="Debit" TValue="string" Value=@IsDR />
+													<RadzenRadioButtonListItem Text="Credit" TValue="string" Value=@IsCR />
+												</Items>
+											</RadzenRadioButtonList>
+										</RadzenColumn>
+									</RadzenRow>
+
+									<RadzenRow AlignItems="@alignItems">
+										<RadzenColumn Size="12" SizeMD="2">
+											<RadzenText TextStyle="@textStyle" Text="Special Account Type"></RadzenText>
+										</RadzenColumn>
+										<RadzenColumn Size="12" SizeMD="8">
+											<RadzenDropDownDataGrid Disabled="@IsDisabled" @bind-Value=@chartOfAccountTree.SpecialAccountId Style="width: 100%;" PageSize=10 AllowColumnResize="true"
+																	AllowClear="true" FilterCaseSensitivity="@filter" AllowFilteringByAllStringColumns="true"
+																	TextProperty="Description" Density="@density" Data="@SpecialAccounts" ValueProperty="Id">
+											</RadzenDropDownDataGrid>
+										</RadzenColumn>
+
+										<RadzenColumn Size="12" SizeMD="2">
+											<RadzenCheckBox @bind-Value=@glaccounts.IsCreditCard Name="Active"></RadzenCheckBox> Credit Card
+										</RadzenColumn>
+									</RadzenRow>
+								</RadzenStack>
+							</RadzenFieldset>
+
+						</RadzenColumn>
+						<RadzenColumn Size="12" SizeMD="6">
+							<RadzenStack>
+								<RadzenFieldset Text="VAT">
+									<RadzenStack Gap="1rem">
+										<RadzenRow AlignItems="@alignItems">
+											<RadzenColumn Size="12" SizeMD="2">
+												<RadzenText TextStyle="@textStyle" Text="Default Input"></RadzenText>
+
+											</RadzenColumn>
+											<RadzenColumn Size="12" SizeMD="10">
+												@* <RadzenDropDownDataGrid Placeholder="N/A" @bind-Value=@gLAccountTaxCodeLinks.DefaultInputTaxCodeId Style="width: 100%;" PageSize=15
+                                                                        AllowClear="true" Data="@DefaultInputTaxCodes" AllowFiltering=false AllowColumnResize="true"
+                                                                        TextProperty="TaxCode" Density="@density" ValueProperty="Id"> *@
+												<RadzenDropDownDataGrid @bind-Value=@gLAccountTaxCodeLinks.DefaultInputTaxCodeId Style="width: 100%;" AllowSorting="false" PageSize=10 AllowColumnResize="true"
+																		AllowClear="true" Data="@DefaultInputTaxCodes" FilterCaseSensitivity="@filter" AllowFilteringByAllStringColumns="true" AllowVirtualization="true"
+																		TextProperty="TaxCode" Density="@density" ValueProperty="Id">
+													<Columns>
+														<RadzenDropDownDataGridColumn Width="10%" Property="TaxCode" Title="Vat #"></RadzenDropDownDataGridColumn>
+														<RadzenDropDownDataGridColumn Width="10%" Property="Rate" Title="Rate"></RadzenDropDownDataGridColumn>
+														<RadzenDropDownDataGridColumn Width="20%" Property="VatType" Title="VatType"></RadzenDropDownDataGridColumn>
+														<RadzenDropDownDataGridColumn Property="Description" Title="Description"></RadzenDropDownDataGridColumn>
+													</Columns>
+												</RadzenDropDownDataGrid>
+											</RadzenColumn>
+										</RadzenRow>
+
+										<RadzenRow AlignItems="@alignItems">
+											<RadzenColumn Size="12" SizeMD="2">
+												<RadzenText TextStyle="@textStyle" Text="Default Output"></RadzenText>
+
+											</RadzenColumn>
+											<RadzenColumn Size="12" SizeMD="10">
+												@*   <RadzenDropDownDataGrid Placeholder="N/A" @bind-Value=@gLAccountTaxCodeLinks.DefaultOutputTaxCodeId Style="width: 100%;" AllowColumnResize="true" PageSize=10
+                                                                        AllowClear="true" Data="@DefaultOutputTaxCodes" AllowFiltering=false
+                                                                        TextProperty="TaxCode" Density="@density" ValueProperty="Id"> *@
+
+												<RadzenDropDownDataGrid @bind-Value=@gLAccountTaxCodeLinks.DefaultOutputTaxCodeId Style="width: 100%;" AllowSorting="false" PageSize=10 AllowColumnResize="true"
+																		AllowClear="true" Data="@DefaultOutputTaxCodes" FilterCaseSensitivity="@filter" AllowFilteringByAllStringColumns="true" AllowVirtualization="true"
+																		TextProperty="TaxCode" Density="@density" ValueProperty="Id">
+													<Columns>
+														<RadzenDropDownDataGridColumn Width="10%" Property="TaxCode" Title="Vat #"></RadzenDropDownDataGridColumn>
+														<RadzenDropDownDataGridColumn Width="10%" Property="Rate" Title="Rate"></RadzenDropDownDataGridColumn>
+														<RadzenDropDownDataGridColumn Width="20%" Property="VatType" Title="Vat Type"></RadzenDropDownDataGridColumn>
+														<RadzenDropDownDataGridColumn Property="Description" Title="Description"></RadzenDropDownDataGridColumn>
+													</Columns>
+												</RadzenDropDownDataGrid>
+												@* <RadzenTextBox Style=" width: 100%;" @bind-Value=GLTaxCode.GLAccountId /> *@
+											</RadzenColumn>
+										</RadzenRow>
+									</RadzenStack>
+								</RadzenFieldset>
+							</RadzenStack>
+						</RadzenColumn>
+					</RadzenTabsItem>
+					@* ATTACHMENTS TAB *@
+					<RadzenTabsItem Visible="false" Text="Attachments">
+						<RadzenColumn Size="12" SizeMD="6">
+							<RadzenStack>
+								PANEL HERE:
+							</RadzenStack>
+						</RadzenColumn>
+					</RadzenTabsItem>
+					@* NOTES TAB *@
+					<RadzenTabsItem Text="Notes">
+						<RadzenFieldset Text="Notes">
+							<RadzenRow AlignItems="@alignItems">
+								<RadzenColumn Size="12" SizeMD="10">
+									<RadzenTextArea @bind-Value=@chartOfAccountNotes.Notes Rows="20" Style="width: 100%" aria-label="TextArea" />
+								</RadzenColumn>
+
+								<RadzenColumn Size="12" SizeMD="2">
+									<RadzenButton Style="width:100%" Variant="Variant.Outlined" Click="@TimeStamp" Text="Time Stamp"></RadzenButton>
+								</RadzenColumn>
+
+							</RadzenRow>
+						</RadzenFieldset>
+					</RadzenTabsItem>
+					@* SETTINGS TAB *@
+					<RadzenTabsItem Visible=false Text="Settings">
+						<RadzenStack Gap="1rem">
+
+							<RadzenRow AlignItems="@alignItems">
+								<RadzenColumn Size="12" SizeMD="2">
+									<RadzenText TextStyle="@textStyle" Text="Overdraft Limit"></RadzenText>
+								</RadzenColumn>
+								<RadzenColumn Size="12" SizeMD="10">
+									<RadzenNumeric ShowUpDown="false" Style="width: 100%;" Format="#,0.00" @bind-Value=@bankAccountSettings.OverDraftLimit></RadzenNumeric>
+								</RadzenColumn>
+							</RadzenRow>
+
+							<RadzenRow AlignItems="@alignItems">
+								<RadzenColumn Size="12" SizeMD="2">
+									<RadzenText TextStyle="@textStyle" Text="Bank Charge Acc"></RadzenText>
+								</RadzenColumn>
+								<RadzenColumn Size="12" SizeMD="10">
+									<RadzenDropDownDataGrid @bind-Value=@bankAccountSettings.BankChargesAccountId Style="width: 100%;" PageSize=10 AllowColumnResize="true"
+															AllowClear="true" Placeholder="N/A" AllowVirtualization="true" FilterCaseSensitivity="@filter" AllowFilteringByAllStringColumns="true"
+															TextProperty="GLAccountCode" Density="@density" Data="@glaccountlist" ValueProperty="Id">
+										<Columns>
+											<RadzenDropDownDataGridColumn Width="20%" Property="GLAccountCode" Title="GL Account Code"></RadzenDropDownDataGridColumn>
+											<RadzenDropDownDataGridColumn Property="Description" Title="Description"></RadzenDropDownDataGridColumn>
+										</Columns>
+									</RadzenDropDownDataGrid>
+								</RadzenColumn>
+							</RadzenRow>
+
+							<RadzenRow AlignItems="@alignItems">
+								<RadzenColumn Size="12" SizeMD="2">
+									<RadzenText TextStyle="@textStyle" Text="Bank Charge"></RadzenText>
+								</RadzenColumn>
+								<RadzenColumn Size="12" SizeMD="10">
+									<RadzenTextBox Style="width: 100%;" @bind-Value=@bankAccountSettings.BankCharges></RadzenTextBox>
+								</RadzenColumn>
+							</RadzenRow>
+
+							<RadzenRow AlignItems="@alignItems">
+								<RadzenColumn Size="12" SizeMD="5">
+									<RadzenCheckBox @bind-Value=@bankAccountSettings.UseChequeAutoNo></RadzenCheckBox>  Cheque Number Auto Running
+								</RadzenColumn>
+
+								<RadzenColumn Size="12" SizeMD="2">
+									<RadzenCheckBox @bind-Value=@bankAccountSettings.IsChequeAllowEdit></RadzenCheckBox> Allow Edit
+								</RadzenColumn>
+							</RadzenRow>
+							<RadzenRow AlignItems="@alignItems">
+								<RadzenColumn Size="12" SizeMD="2">
+									<RadzenText TextStyle="@textStyle" Text="Format"></RadzenText>
+								</RadzenColumn>
+								<RadzenColumn Size="12" SizeMD="10">
+									<RadzenDropDownDataGrid Disabled="!bankAccountSettings.UseChequeAutoNo" Placeholder="N/A" @bind-Value=@chartOfAccountTree.SpecialAccountId Style="width: 100%;" PageSize=10 AllowColumnResize="true"
+															AllowClear="true" FilterCaseSensitivity="@filter" AllowFilteringByAllStringColumns="true"
+															TextProperty="Description" Density="@density" Data="@SpecialAccounts" ValueProperty="Id">
+									</RadzenDropDownDataGrid>
+								</RadzenColumn>
+							</RadzenRow>
+							<RadzenRow AlignItems="@alignItems">
+								<RadzenColumn Size="12" SizeMD="5">
+									<RadzenCheckBox @bind-Value=@bankAccountSettings.UseOwnOR></RadzenCheckBox>  Use Own OR
+								</RadzenColumn>
+							</RadzenRow>
+
+							<RadzenRow AlignItems="@alignItems">
+								<RadzenColumn Size="12" SizeMD="2">
+									<RadzenText TextStyle="@textStyle" Text="Format"></RadzenText>
+								</RadzenColumn>
+								<RadzenColumn Size="12" SizeMD="10">
+									<RadzenDropDownDataGrid Disabled="!bankAccountSettings.UseOwnOR" Placeholder="N/A" @bind-Value=@chartOfAccountTree.SpecialAccountId Style="width: 100%;" PageSize=10 AllowColumnResize="true"
+															AllowClear="true" FilterCaseSensitivity="@filter" AllowFilteringByAllStringColumns="true"
+															TextProperty="Description" Density="@density" Data="@SpecialAccounts" ValueProperty="Id">
+									</RadzenDropDownDataGrid>
+								</RadzenColumn>
+							</RadzenRow>
+							<RadzenRow AlignItems="@alignItems">
+								<RadzenColumn Size="12" SizeMD="5">
+									<RadzenCheckBox @bind-Value=@bankAccountSettings.UseOwnPV></RadzenCheckBox>  Use Own PV
+								</RadzenColumn>
+							</RadzenRow>
+
+
+							<RadzenRow AlignItems="@alignItems">
+								<RadzenColumn Size="12" SizeMD="2">
+									<RadzenText TextStyle="@textStyle" Text="Format"></RadzenText>
+								</RadzenColumn>
+								<RadzenColumn Size="12" SizeMD="10">
+									<RadzenDropDownDataGrid Disabled="!bankAccountSettings.UseOwnPV" Placeholder="N/A" @bind-Value=@chartOfAccountTree.SpecialAccountId Style="width: 100%;" PageSize=10 AllowColumnResize="true"
+															AllowClear="true" FilterCaseSensitivity="@filter" AllowFilteringByAllStringColumns="true"
+															TextProperty="Description" Density="@density" Data="@SpecialAccounts" ValueProperty="Id">
+									</RadzenDropDownDataGrid>
+								</RadzenColumn>
+							</RadzenRow>
+
+						</RadzenStack>
+
+					</RadzenTabsItem>
+				</Tabs>
+			</RadzenTabs>
+			<br />
+			@* Button Here *@
+			<RadzenRow AlignItems="@alignItems">
+				<RadzenColumn Size="12" SizeMD="12">
+					<RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.Right">
+						<RadzenButton Icon="save" BusyText="Saving..." IsBusy=@busy ButtonStyle="ButtonStyle.Primary" Shade=Shade.Dark Text="@btnText" ButtonType="@Radzen.ButtonType.Submit" />
+						<RadzenButton Icon="cancel" ButtonStyle="ButtonStyle.Light" Click="@((args) => dialogService.Close(true))" Text="Cancel" />
+					</RadzenStack>
+				</RadzenColumn>
+			</RadzenRow>
+		</RadzenTemplateForm>
+
+	</RadzenStack>
+}
+else
+{
+	<Spinner />
+
+}
+
+@code {
+	[CascadingParameter]
+	public Task<AuthenticationState> authenticationState { get; set; }
+
+	[Parameter]
+	public bool IsNew { get; set; }
+
+	[Parameter]
+	public Guid? Id { get; set; }
+
+	[Parameter]
+	public EventCallback RefreshGrid { get; set; }
+
+	private string Name = string.Empty;
+
+	//RADZEN PROPERTIES
+	string value = "NOT SET";
+	Density density = Density.Compact;
+	AlignItems alignItems = AlignItems.Center;
+	FilterCaseSensitivity filter = FilterCaseSensitivity.CaseInsensitive;
+	TextStyle textStyle = TextStyle.Body2;
+
+	bool busy, IsDisabled, isloading;
+	bool IsVisible = true;
+	string btnText = "Save";
+	string IsDR = "DR";
+	string IsCR = "CR";
+
+	Guid defaultcode;
+
+	protected GLAccounts glaccounts { get; set; } = new GLAccounts();
+
+	protected GLAccountTaxCodeLinks gLAccountTaxCodeLinks { get; set; } = new GLAccountTaxCodeLinks();
+	protected ChartOfAccountTree chartOfAccountTree { get; set; } = new ChartOfAccountTree();
+	protected ChartOfAccountTree chartOfAccountTreeNew { get; set; } = new ChartOfAccountTree();
+	protected BankAccountSettings bankAccountSettings { get; set; } = new BankAccountSettings();
+	protected ChartOfAccountNotes chartOfAccountNotes { get; set; } = new ChartOfAccountNotes();
+	private TaxCodeFilter taxCodefilter { get; set; }
+	//bind at Dropdownbox SpecialAccounts
+	protected IEnumerable<SpecialAccounts> SpecialAccounts { get; set; }
+
+	//bind at Dropdownbox GLInputTaxCode
+	protected IEnumerable<TaxCodes> DefaultInputTaxCodes { get; set; }
+	protected IEnumerable<TaxCodes> DefaultOutputTaxCodes { get; set; }
+
+
+	protected IEnumerable<Accounts> accountList { get; set; }
+	protected IEnumerable<SubAccounts> subaccountList { get; set; }
+	private IEnumerable<BankAccountSettings> bankaccountsettingList { get; set; }
+	private IEnumerable<GLAccounts> glaccountlist { get; set; } //Get GLAccount
+	protected Accounts Accounts { get; set; } = new Accounts();
+	protected string CompCode { get; set; }
+
+
+
+
+	protected override async Task OnInitializedAsync()
+	{
+		var authState = (await authenticationState).User;
+		if (authState.Identity.IsAuthenticated)
+		{
+			var RoleId = authState.FindFirst("RoleId").Value;
+			GetLoadMenuPermission(RoleId);
+		}
+
+	}
+
+
+	public IEnumerable<SystemMenuObjectPermission> systemMenuObjectPermissionList;
+	protected async void GetLoadMenuPermission(string RoleId)
+	{
+
+		var data = await menuService.GetSystemMenuObjectPermissionId(RoleId);
+		if (data is not null)
+			systemMenuObjectPermissionList = data;
+		StateHasChanged();
+
+		var result = systemMenuObjectPermissionList.FirstOrDefault(x => x.MenuName == "GL Account");
+		if (result.AllowNavigate == true)
+		{
+			isloading = true;
+			await GetUserName();
+			ComponentSettings();
+
+			await loadAllAccounts();
+			if (Id is not null)
+			{
+				await loadAllAccountById();
+				InitializeAllGLAccountsData();
+			}
+			StateHasChanged();
+		}
+		else
+		{
+			NavManager.NavigateTo("/NotAuthorized");
+			StateHasChanged();
+		}
+
+
+	}
+
+
+
+	//NOT FINISH YET SUBMIT ACTION UPDATE AND NEW
+	protected async Task Submit()
+	{
+		await Isbusy();
+		if (IsNew == true)
+		{ await AddGLAccount(); }
+		else { await UpdateGLAccount(); }
+
+	}
+
+
+	protected async Task loadAllAccounts()
+	{
+
+		await GetAccounts();
+		await GetSubAccount();
+		await GetSpecialAccounts();
+		await LoadDefalaulTaxCode();
+		await LoadGLAccounts();
+	}
+
+	protected async Task loadAllAccountById()
+	{
+
+		await GetAccountTreeById();
+		await GetTaxCodeById();
+		await GetBankAccountSettingsById();
+		await GetNotesById();
+		isloading = false;
+
+	}
+
+	//ERROR ON THIS
+
+
+	protected void ComponentSettings()
+	{
+		//for SpecialAccountTextBox
+		IsDisabled = IsNew == false ? true : false;
+		//for Settings ChartOfAccount Settings Tab
+		IsVisible = IsNew == false ? true : false;
+	}
+
+
+	//Load All FormModels GLAccounts contain data
+	protected async void InitializeAllGLAccountsData()
+	{
+		glaccounts.Id = IsNew == true ? chartOfAccountTreeNew.NewId : chartOfAccountTree.Id;
+		glaccounts.ParentId = IsNew == true ? chartOfAccountTree.Id : chartOfAccountTree.ParentId;
+		glaccounts.GLAccountCode = IsNew == true ? chartOfAccountTreeNew.GLAccountCode : chartOfAccountTree.GLAccountCode;
+		glaccounts.AccountId = chartOfAccountTree.AcctId;
+		glaccounts.SpecialAccountId = chartOfAccountTree.SpecialAccountId;
+		glaccounts.CurrencyId = chartOfAccountTree.CurrencyId;
+		glaccounts.GSTTypeId = chartOfAccountTreeNew.GSTTypeId;
+		glaccounts.Description = IsNew == true ? chartOfAccountTreeNew.Description : chartOfAccountTree.Description;
+		glaccounts.DRCR = chartOfAccountTree.DRCR;
+		glaccounts.IsCreditCard = IsNew == true ? chartOfAccountTreeNew.IsCreditCard : chartOfAccountTree.IsCreditCard;
+		glaccounts.IsActive = IsNew == true ? chartOfAccountTreeNew.IsActive : chartOfAccountTree.IsActive;
+		glaccounts.GSTGroup = chartOfAccountTree.GSTGroup;
+		glaccounts.IsRevaluation = chartOfAccountTree.IsRevaluation;
+		glaccounts.IsSubAccount = chartOfAccountTree.IsSubAccount;
+		glaccounts.BankAccountNo = chartOfAccountTreeNew.BankAccountNo;
+		glaccounts.GSTMSICCode = chartOfAccountTree.GSTMSICCode;
+		glaccounts.OptimisticLockField = chartOfAccountTree.OptimisticLockField;
+		glaccounts.SAC = chartOfAccountTree.SAC;
+		glaccounts.HasChildInCoa = chartOfAccountTree.HasChildInCoa;
+		glaccounts.IncludeInCashFlowForecastAdvisor = chartOfAccountTree.IncludeInCashFlowForecastAdvisor;
+		glaccounts.SSTTariffCode = chartOfAccountTree.SSTTariffCode;
+		glaccounts.TariffCodeId = chartOfAccountTree.TariffCodeId;
+		glaccounts.ATCCodeId = chartOfAccountTree.ATCCodeId;
+		glaccounts.Description2 = chartOfAccountTreeNew.Description2;
+
+
+	}
+
+	protected async Task AddGLAccount()
+	{
+		//Insert GLAccount
+		// InitializeAllGLAccountsData();
+		glaccounts.SpecialAccountId = chartOfAccountTree.SpecialAccountId;
+		var data = await gLAccountsServices.InsertGLAccounts(glaccounts);
+		if (data is not null)
+		{
+			if (data.Contains("must be unique"))
+			{
+				await dialogService.Alert(data);
+				busy = false;
+			}
+			else
+			{
+				await dialogService.Alert(data);
+				await InsertBankAccountSettings();
+				await InsertGLTaxCode();
+				await InserNotes();
+				await NavigateTo();
+				busy = false;
+			}
+
+		}
+		else
+		{
+			requestMessageHandler.isSucccess(false);
+			dialogService.Close(true);
+		}
+	}
+
+	protected async Task UpdateGLAccount()
+	{
+
+		//Update GLAccounts
+		var data = await gLAccountsServices.UpdateGLAccounts(glaccounts);
+
+		if (data > 0)
+		{
+
+			await UpdateBankAccountSettings();
+			await UpdateGLTaxCode();
+			await UpdateNotes();
+			await NavigateTo();
+			busy = false;
+			dialogService.Close(true);
+		}
+		else
+		{
+			requestMessageHandler.isSucccess(false);
+			dialogService.Close(true);
+			busy = false;
+		}
+	}
+
+
+
+
+	protected async Task InsertBankAccountSettings()
+	{
+		if (bankAccountSettings.OverDraftLimit != 0.00M || bankAccountSettings.BankChargesAccountId is not null || bankAccountSettings.BankCharges != string.Empty || bankAccountSettings.UseOwnOR != false || bankAccountSettings.UseOwnPV != false)
+		{
+			bankAccountSettings.GLAccountId = glaccounts.Id;
+			var httpRequest = await chartOfAccountsServices.InsertBankAccountSetting(bankAccountSettings);
+		}
+	}
+	protected async Task UpdateBankAccountSettings()
+	{
+		if (bankAccountSettings.GLAccountId != defaultcode)
+		{
+			var httpRequest = await chartOfAccountsServices.UpdateBankAccountSetting(bankAccountSettings);
+		}
+		else
+		{
+			await InsertBankAccountSettings();
+		}
+	}
+
+	//LOAD DATA GLACCOUNT
+	protected async Task LoadGLAccounts()
+	{
+		var data = await gLAccountsServices.GetGLAccounts();
+		if (data is not null)
+		{
+			glaccountlist = data is not null ? data : new List<GLAccounts>();
+		}
+	}
+
+	//Get Accounts List From db.Accounts
+	protected async Task GetAccounts()
+	{
+		var data = await gLAccountsServices.GetAccounts();
+		if (data is not null)
+		{
+			accountList = data is not null ? data : new List<Accounts>();
+		}
+	}
+
+	//Get SubAccount List From dbo.GLAccounts
+	protected async Task GetSubAccount()
+	{
+		var data = await gLAccountsServices.GetSubAccounts();
+		if (data is not null)
+		{
+			subaccountList = data is not null ? data : new List<SubAccounts>();
+		}
+
+	}
+
+	//Get Special Accounts From db.SpecialAccounts
+	protected async Task GetSpecialAccounts()
+	{
+		var data = await gLAccountsServices.GetSpecialAccounts();
+		if (data is not null)
+		{
+			SpecialAccounts = data is not null ? data : new List<SpecialAccounts>();
+		}
+	}
+
+	//Get GLAccount From db.GLAccounts By Id
+	protected async Task GetAccountById()
+	{
+		var data = await gLAccountsServices.GetGLAccountsById(Id.ToString());
+		if (data is not null)
+		{
+			glaccounts = data is not null ? data : new GLAccounts();
+		}
+
+	}
+
+	//GET CHARTOFACCOUNTTREE BY ID FROM dbo.GLAccounts/dbo.Accounts/dbo.Currencies/dbo.SpecialAccounts/dbo.GLTaxCodeLinks
+	protected async Task GetAccountTreeById()
+	{
+		var result = await chartOfAccountsServices.GetChartofAccountTreeById(Id.ToString());
+		if (result is not null) { chartOfAccountTree = result is not null ? result : new ChartOfAccountTree(); }
+	}
+
+	private async Task LoadDefalaulTaxCode()
+	{
+		DefaultInputTaxCodes = await GetDefaultTaxCodes(taxCodefilter = new TaxCodeFilter { IsOutOrIn = false, IsActive = true }); // For Input Tax
+		DefaultOutputTaxCodes = await GetDefaultTaxCodes(taxCodefilter = new TaxCodeFilter { IsOutOrIn = true, IsActive = true }); // For Output Tax
+	}
+
+
+	private async Task<List<TaxCodes>> GetDefaultTaxCodes(TaxCodeFilter taxCodefilter)
+	{
+		// var result = await http.GetFromJsonAsync<List<DefaultTaxCode>>($"api/GeneralLedger/GetDefaultTaxCode?companyCode={CompCode}&isOrOutTax={taxCodefilter}");
+		// return result ?? new List<DefaultTaxCode>();
+		//var response = await http.PostAsJsonAsync($"api/GeneralLedger/GetDefaultTaxCode?companyCode={CompCode}", taxCodefilter);
+
+		//var data = (await glaccountServices.GetDefaultTaxCodes(taxCodefilter))?.ToList();
+
+		var data = (await allTaxCodeService.GetTaxCodes(taxCodefilter))?.ToList();
+		if (data is not null)
+		{
+			return data;
+		}
+		return new List<TaxCodes>();
+	}
+
+	protected async Task GetTaxCodeById()
+	{
+		var data = await allTaxCodeService.GetGLTaxCodesById(Id.ToString());
+		if (data is not null)
+		{
+			gLAccountTaxCodeLinks = data;
+		}
+		else
+		{
+			gLAccountTaxCodeLinks.GLAccountId = defaultcode;
+		}
+	}
+
+	protected async Task GetBankAccountSettingsById()
+	{
+		var data = await chartOfAccountsServices.GetBankAccountSettingById(Id.ToString());
+		if (data is not null)
+		{
+			bankAccountSettings = data;
+		}
+		else
+		{
+			bankAccountSettings.GLAccountId = defaultcode;
+		}
+	}
+
+	protected async Task InsertGLTaxCode()
+	{
+		if (gLAccountTaxCodeLinks.DefaultInputTaxCodeId is not null || gLAccountTaxCodeLinks.DefaultOutputTaxCodeId is not null)
+		{
+			gLAccountTaxCodeLinks.GLAccountId = glaccounts.Id;
+			var data = await gLAccountsServices.InsertGLAccountTaxCodes(gLAccountTaxCodeLinks);
+			if (data > 0)
+			{
+				await RefreshGrid.InvokeAsync();
+			}
+		}
+	}
+
+	protected async Task UpdateGLTaxCode()
+	{
+		if (gLAccountTaxCodeLinks.GLAccountId != defaultcode)
+		{
+			var data = await gLAccountsServices.UpdateGLAccountTaxCodes(gLAccountTaxCodeLinks);
+			if (data > 0)
+			{
+				await RefreshGrid.InvokeAsync();
+			}
+		}
+		else
+		{
+			await InsertGLTaxCode();
+		}
+	}
+
+	protected async Task GetNotesById()
+	{
+
+		var data = await chartOfAccountsServices.GetNotesById(Id.ToString());
+		if (data is not null)
+		{
+			chartOfAccountNotes = data is not null ? data : new ChartOfAccountNotes();
+		}
+		else
+		{
+			chartOfAccountNotes.MasterId = defaultcode;
+		}
+	}
+
+	protected async Task InserNotes()
+	{
+		if (chartOfAccountNotes.Notes != null)
+		{
+			chartOfAccountNotes.MasterId = glaccounts.Id;
+			var data = await chartOfAccountsServices.InsertNotes(chartOfAccountNotes);
+
+			if (data > 0)
+			{
+				await RefreshGrid.InvokeAsync();
+			}
+		}
+	}
+
+	protected async Task UpdateNotes()
+	{
+		if (chartOfAccountNotes.MasterId != defaultcode)
+		{
+			// var httpRequest = await http.PostAsJsonAsync("api/ChartOfAccounts/UpdateNotes?companyCode=" + CompCode, chartOfAccountNotes);
+			var data = await chartOfAccountsServices.UpdateNotes(chartOfAccountNotes);
+
+			if (data > 0)
+			{
+				await RefreshGrid.InvokeAsync();
+			}
+
+		}
+		else
+		{
+			await InserNotes();
+		}
+	}
+
+
+
+	protected async Task GetUserName()
+	{
+		var user = (await authenticationState).User;
+
+		if (user.Identity.IsAuthenticated)
+		{
+			//Displaying Givenname and Role of User from Claims in TokeController.cs
+			Name = user.FindFirst(x => x.Type == System.Security.Claims.ClaimTypes.Name).Value;
+		}
+	}
+
+	protected void TimeStamp()
+	{
+		string uppercasename = Name.ToUpper();
+		string timestamp = $"{DateTime.Now:MM/dd/yyyy hh:mm:ss tt} - ({uppercasename}): ";
+
+		chartOfAccountNotes.Notes += timestamp;
+
+	}
+
+	private async Task NavigateTo()
+	{
+		busy = false;
+		await RefreshGrid.InvokeAsync();
+		dialogService.Close(true);
+		CustomNotificationMessage.Message(notificationService, true);
+	}
+
+	async Task Isbusy()
+	{
+		busy = true;
+		await Task.Delay(10);
+
+	}
+
+
+}

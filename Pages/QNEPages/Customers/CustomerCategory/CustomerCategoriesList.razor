@@ -1,0 +1,155 @@
+﻿@page "/CustomerCategoriesList"
+@attribute [Authorize(Roles = "Admin,User")]
+
+
+<RadzenStack Gap="0.2rem">
+
+   
+    <RadzenDataGrid @ref="grid" Visible="true" @bind-Value=@selectedDebtorCategories
+                    IsLoading=@isLoading Sort="@ShowLoading" Page="@ShowLoading" Group="@ShowLoading" Filter="@ShowLoading"
+                    Data="@GetDebtorCategory()"
+                    TItem="DebtorCategory"
+                    RowDoubleClick="() => Edit(selectedDebtorCategories.FirstOrDefault().Id)"
+                    AllowVirtualization="true"
+                    ColumnWidth="200px"
+                    AllowSorting="true"
+                    AllowFiltering="true"
+                    ShowPagingSummary="true"
+                    ShowMultiColumnSortingIndex="true"
+                    FilterMode="FilterMode.CheckBoxList"
+                    Style="height: 84vh"
+                    AllowColumnPicking="true"
+                    FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive">
+        <HeaderTemplate>
+            <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.Center"
+                         Style="width: 100%;">
+                <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem;">
+                    <RadzenButton Size="ButtonSize.Small" Text="New"
+                                  ButtonStyle="ButtonStyle.Primary"
+                                  Icon="add" 
+                                  Click="@AddCategory" />
+
+                    <!-- DIVIDER -->
+                    <div style="border-left: 2px solid #ccc; height: 2rem; margin: 0 0.5rem;"></div>
+
+                    <RadzenTextBox InputSize="InputSize.Medium" @bind-Value="@searchText"
+                                   @ref="textBox"
+                                   @oninput="@(args => OnInput(args))"
+                                   Placeholder="Search..."
+                                   Style="width:30rem;"/>
+
+                    <RadzenButton Size="ButtonSize.Small" Icon="delete"
+                                  Click="@ClearFilter"
+                                  Text="Clear" />
+                </RadzenStack>
+            </RadzenStack>
+        </HeaderTemplate>
+        <Columns>
+            <RadzenDataGridColumn Width="110px" TItem="DebtorCategory" Property="@nameof(DebtorCategory.CategoryCode)" Title="Category Code" />
+            <RadzenDataGridColumn Width="110px" TItem="DebtorCategory" Property="@nameof(DebtorCategory.Description)" Title="Description" />
+            <RadzenDataGridColumn TItem="DebtorCategory" Property="@nameof(DebtorCategory.IsDefault)" Title="Is Default" >
+                <Template Context="data">
+                    @if (data.IsDefault)
+                    {
+                        <RadzenBadge IsPill="true" BadgeStyle="BadgeStyle.Success" Text="Yes" />
+                    }
+                    else
+                    {
+                        <RadzenBadge IsPill="true" Variant="Variant.Outlined" BadgeStyle="BadgeStyle.Secondary" Text="No" />
+                    }
+                    
+                </Template>
+            </RadzenDataGridColumn>
+        </Columns>
+    </RadzenDataGrid>
+</RadzenStack>
+
+@code {
+    [CascadingParameter]
+    public Task<AuthenticationState> authenticationState { get; set; }
+
+    bool isLoading;
+    RadzenTextBox textBox; 
+    RadzenDataGrid<DebtorCategory> grid;
+    protected IList<DebtorCategory> selectedDebtorCategories { get; set; }
+    
+
+    private string searchText = "";
+    //private IEnumerable<DebtorCategory> filteredDebtorCategoriesList;
+    protected override async Task OnInitializedAsync()
+    {
+
+        var authState = (await authenticationState).User;
+        if (authState.Identity.IsAuthenticated)
+        {
+            var RoleId = authState.FindFirst("RoleId").Value;
+            GetLoadMenuPermission(RoleId);
+        }
+    }
+
+    private SystemMenuObjectPermission? permission;
+    protected async void GetLoadMenuPermission(string RoleId)
+    {
+        isLoading = true;
+        permission = await permissionService.GetPermissionAsync(
+            RoleId,
+            "Customer Categories");
+
+        if (permission is null)
+            return;
+        await ShowLoading();
+        await GetDebtorCategoryLists();
+        StateHasChanged();
+    }
+
+    int totalDebtorCategories = 0;
+    protected IEnumerable<DebtorCategory> debtorCategoriesList;
+    private async Task GetDebtorCategoryLists()
+    {
+        var data = await customersServices.GetDebtorCategoryLists();
+        debtorCategoriesList = data is not null ? data : new List<DebtorCategory>();
+        totalDebtorCategories = debtorCategoriesList.Count();
+    }
+
+    private IEnumerable<DebtorCategory> GetDebtorCategory()
+    {
+        if (debtorCategoriesList == null)
+            return Enumerable.Empty<DebtorCategory>();
+        return debtorCategoriesList
+        .Where(x => string.IsNullOrEmpty(searchText) ||
+                (x.CategoryCode?.Contains(searchText, StringComparison.OrdinalIgnoreCase) ?? false) ||
+                (x.Description?.Contains(searchText, StringComparison.OrdinalIgnoreCase) ?? false))
+                .OrderByDescending(x => x.CategoryCode);
+
+    }
+
+    async Task OnInput(ChangeEventArgs args)
+    {
+        searchText = args.Value?.ToString() ?? string.Empty;
+        await grid.Reload();
+    }
+
+    private async Task ClearFilter()
+    {
+        searchText = string.Empty;
+        await grid.Reload();
+        StateHasChanged();
+    }
+
+    async Task ShowLoading()
+    {
+        await Task.Yield();
+
+        isLoading = false;
+    }
+    private void AddCategory()
+    {
+        navManager.NavigateTo("/CustomerCategories");
+    }
+
+    protected void Edit(int Id)
+    {
+        navManager.NavigateTo($"/CustomerCategories/Edit/{Id}");
+    }
+
+}

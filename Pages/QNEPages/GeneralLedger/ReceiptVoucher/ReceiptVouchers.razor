@@ -1,0 +1,1380 @@
+﻿@page "/ReceiptVouchers"
+@page "/ReceiptVouchers/Edit/{Id:guid}"
+@attribute [Authorize(Roles = "Admin,User")]
+
+
+<RadzenTemplateForm TItem="Receipts" Data="receipts" Submit="@OnSubmit">
+    <RadzenStack Gap="0.5rem" class="gl-form gl-flow">
+
+        <!-- TOOLBAR -->
+        <CrudToolbar Title="@(Id.HasValue ? "Edit Receipt Vouchers" : "Create Receipt Vouchers")"
+                     Subtitle="Manage receipt voucher information"
+                     Icon="badge"
+                     ButtonSize="@smallbtn"
+                     SaveText="Save"
+                     SaveBusy="@busy"
+                     SaveDisabled=@(btnDiseabled || receipts.IsCancelled is true )
+                     BackText="Back to Search"
+                     OnBackSearch="@Navigate" />
+
+        <!-- HEADER: 3 grupo (Document / Payment / Cheque & tax) -->
+        <RadzenCard class="gl-card is-compact">
+            <div class="gl-doc-head">
+                <div class="gl-card-icon is-sm"><RadzenIcon Icon="receipt_long" /></div>
+                <div class="gl-doc-title"><h2>Receipt Voucher</h2></div>
+                @if (!string.IsNullOrEmpty(receipts.ReceiptCode))
+                {
+                    <span class="gl-doc-code">@receipts.ReceiptCode</span>
+                }
+                <RadzenBadge Visible="@(status != string.Empty)" Shade="Shade.Dark" BadgeStyle="BadgeStyle.Danger" Text="@status" IsPill="true" />
+                <span class="gl-spacer"></span>
+                <RadzenButton Visible="Id.HasValue" ButtonStyle="ButtonStyle.Light" Variant="Variant.Outlined" Size="ButtonSize.Small" Icon="info" Text="Document info" Click="@OpenDocumentInfoDialog" />
+            </div>
+
+            <div class="gl-groups">
+
+                <!-- ============ GROUP 1: DOCUMENT ============ -->
+                <div class="gl-group">
+                    <div class="gl-group-title"><RadzenIcon Icon="description" /> Document</div>
+
+                    <div class="gl-pair">
+                        <div class="gl-field">
+                            <RadzenLabel Text="Doc Date" Component="DocDate" class="gl-flabel" />
+                            <RadzenDatePicker Name="DocDate" Change="SetDocumentNo" class="@redtext" @bind-Value="@receipts.ReceiptDate" DateFormat="MM/dd/yyyy" Style="width:100%" />
+                        </div>
+                        <div class="gl-field">
+                            <RadzenLabel Text="Receipt #" Component="ReceiptNo" class="gl-flabel" />
+                            <div class="gl-field-row">
+                                <RadzenTextBox Name="ReceiptNo" class="@redtext" @bind-Value="@receipts.ReceiptCode" Style="width:100%;" />
+                                <RadzenButton @ref=@receiptNoButton class="gl-icon-btn" Icon="format_list_numbered" ButtonStyle="ButtonStyle.Primary" Variant="Variant.Outlined"
+                                              title="Choose number format" Click="@(args => popup.ToggleAsync(receiptNoButton.Element))" />
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="gl-field">
+                        <RadzenLabel Text="Received From*" Component="ReceivedFrom" class="gl-flabel" />
+                        <RadzenDropDown AllowClear="true" Name="ReceivedFrom" AllowFiltering="true" @bind-Value=@receipts.PaymentReceiptInfoId
+                                        Data=@paymentReceiptInfoList TextProperty="Description" ValueProperty="Id" Change="@(args => OnReceivedFromChange(args))"
+                                        ShowValueTemplateOnEmpty="true" Style="width:100%" />
+                        <RadzenRequiredValidator Component="ReceivedFrom" Text="'Received From' must not be empty." Popup="true" />
+                    </div>
+
+                    <div class="gl-field">
+                        <RadzenLabel Text="Project" Component="Project" class="gl-flabel" />
+                        <RadzenDropDownDataGrid Name="Project" class="@redtext" @bind-Value=@receipts.ProjectId AllowSorting="false" Style="width:100%;"
+                                                PageSize=10 Data="@projectList" AllowVirtualization="true" AllowColumnResize="true"
+                                                AllowClear="true" FilterCaseSensitivity="@filter" AllowFilteringByAllStringColumns="true"
+                                                TextProperty="ProjectCode" Density="@density" ValueProperty="Id"
+                                                Change="@(args => OnProjectChanged(args))">
+                            <Columns>
+                                <RadzenDropDownDataGridColumn Width="15%" Property="ProjectCode" Title="Project Code"></RadzenDropDownDataGridColumn>
+                                <RadzenDropDownDataGridColumn Width="15%" Property="Description" Title="Description"></RadzenDropDownDataGridColumn>
+                                <RadzenDropDownDataGridColumn Width="8%" Property="IsActive" Title="Active">
+                                    <Template Context="data2"><RadzenCheckBox TValue="bool" Value="data2.IsActive"></RadzenCheckBox></Template>
+                                </RadzenDropDownDataGridColumn>
+                            </Columns>
+                        </RadzenDropDownDataGrid>
+                    </div>
+
+                    <div class="gl-field">
+                        <RadzenLabel Text="Options" class="gl-flabel" />
+                        <div class="gl-opts-row">
+                            <div class="gl-opt">
+                                <RadzenSwitch Name="IsDetailPosting" @bind-Value=receipts.IsDetailPosting />
+                                <RadzenLabel Text="Detail posting" Component="IsDetailPosting" />
+                            </div>
+                            <div class="gl-opt">
+                                <RadzenSwitch Name="IsTaxInclusive" @bind-Value=receipts.IsTaxInclusive Change="@IsTaxInclusiveChanged" />
+                                <RadzenLabel Text="Tax inclusive" Component="IsTaxInclusive" />
+                            </div>
+                            @if (Id is not null)
+                            {
+                                <div class="@(receipts.IsCancelled == true ? "gl-opt is-danger" : "gl-opt")">
+                                    <RadzenSwitch Name="IsCancelled" @bind-Value="@receipts.IsCancelled" Change=@(args => OnSwitchChanged("IsCancelled")) />
+                                    <RadzenLabel Text="Cancelled" Component="IsCancelled" />
+                                </div>
+                            }
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ============ GROUP 2: PAYMENT ============ -->
+                <div class="gl-group">
+                    <div class="gl-group-title"><RadzenIcon Icon="account_balance_wallet" /> Payment</div>
+
+                    <div class="gl-field">
+                        <RadzenLabel Text="Description*" Component="Description" class="gl-flabel" />
+                        <div class="gl-field-row">
+                            <RadzenDropDown AllowClear="true" Name="Description" @bind-Value=@receipts.Description Data=@descriptionsList
+                                            class="gl-edit-dd" TextProperty="Description" Change="@InitializedDetailsDescription"
+                                            ValueProperty="Description" ShowValueTemplateOnEmpty="true" Style="width:100%">
+                                <ValueTemplate Context="data">
+                                    <RadzenTextBox @bind-Value=@receipts.Description Style="width:100%;" />
+                                </ValueTemplate>
+                            </RadzenDropDown>
+                            <RadzenButton class="gl-icon-btn" Icon="edit_note" ButtonStyle="ButtonStyle.Primary" Variant="Variant.Outlined"
+                                          title="Manage descriptions" Click="@OpenDescriptionDialog" />
+                        </div>
+                        <RadzenRequiredValidator Component="Description" Text="'Description' must not be empty." Popup="true" />
+                    </div>
+
+                    <div class="gl-field">
+                        <RadzenLabel Text="Deposit To*" Component="DepositTo" class="gl-flabel" />
+                        <RadzenDropDown AllowClear="true" AllowFiltering="true" Name="DepositTo" @bind-Value=@receipts.GLAccountId
+                                        Data=@depositAccountList TextProperty="Description" ValueProperty="Id" Change="@InitializedDetailsDescription"
+                                        ShowValueTemplateOnEmpty="true" Style="width:100%" />
+                        <RadzenRequiredValidator Component="DepositTo" Text="'Deposit To' must not be empty." Popup="true" />
+                    </div>
+
+                    <div class="gl-pair is-wide-left">
+                        <div class="gl-field">
+                            <RadzenLabel Text="Currency*" Component="Currency" class="gl-flabel" />
+                            <RadzenDropDownDataGrid Name="Currency" class="@redtext" @bind-Value=@receipts.CurrencyId AllowSorting="false" Style="width:100%;" PageSize=10 AllowColumnResize="true"
+                                                    AllowClear="true" FilterCaseSensitivity="@filter" AllowFilteringByAllStringColumns="true"
+                                                    TextProperty="CurrencyCode" Density="@density" Data="@currencyList" ValueProperty="Id">
+                                <Columns>
+                                    <RadzenDropDownDataGridColumn Width="10%" Property="CurrencyCode" Title="CurrencyCode"></RadzenDropDownDataGridColumn>
+                                    <RadzenDropDownDataGridColumn Width="10%" Property="Description" Title="Description"></RadzenDropDownDataGridColumn>
+                                </Columns>
+                            </RadzenDropDownDataGrid>
+                            <RadzenRequiredValidator Component="Currency" Text="'Currency' must not be empty." Popup="true" />
+                        </div>
+                        <div class="gl-field">
+                            <RadzenLabel Text="Rate" Component="Rate" class="gl-flabel" />
+                            <RadzenNumeric Name="Rate" ShowUpDown="false" Disabled="@(IsForeignCurrency != true)" class="@redtext" @bind-Value=@receipts.CurrencyRate Style="width:100%;" Placeholder="Exchange Rate"></RadzenNumeric>
+                        </div>
+                    </div>
+
+                    <div class="gl-field">
+                        <RadzenLabel Text="Bank Charges" Component="BankCharges" class="gl-flabel" />
+                        <div class="gl-field-row">
+                            <RadzenNumeric Name="BankCharges" ShowUpDown="false" class="@redtext" @bind-Value=@bankCharges.Amount Format="#.00" Style="width:100%;"></RadzenNumeric>
+                            <RadzenButton class="gl-icon-btn" Icon="account_balance" ButtonStyle="ButtonStyle.Primary" Variant="Variant.Outlined"
+                                          title="Bank charges info" Click="@OpenBankChargesDialog" />
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ============ GROUP 3: CHEQUE & TAX ============ -->
+                <div class="gl-group">
+                    <div class="gl-group-title"><RadzenIcon Icon="event_note" /> Cheque &amp; tax</div>
+
+                    <div class="gl-field">
+                        <RadzenLabel Text="Cheque/Ref No." Component="ChequeRefNo" class="gl-flabel" />
+                        <RadzenTextBox Name="ChequeRefNo" class="@redtext" @bind-Value="@receipts.ReferenceNo" Style="width:100%;" />
+                    </div>
+
+                    <div class="gl-pair">
+                        <div class="gl-field">
+                            <RadzenLabel Text="Cheque Received" Component="ChequeReceivedDate" class="gl-flabel" />
+                            <RadzenDatePicker Name="ChequeReceivedDate" class="@redtext" @bind-Value="@receipts.ChequeReceivedDate" DateFormat="MM/dd/yyyy" Style="width:100%" />
+                        </div>
+                        <div class="gl-field">
+                            <RadzenLabel Text="Cheque Date" Component="ChequeDate" class="gl-flabel" />
+                            <RadzenDatePicker Name="ChequeDate" class="@redtext" @bind-Value="@receipts.ChequeDate" DateFormat="MM/dd/yyyy" Style="width:100%" />
+                        </div>
+                    </div>
+
+                    <div class="gl-field">
+                        <RadzenLabel Text="Tax Date" Component="TaxDate" class="gl-flabel" />
+                        <RadzenDatePicker Name="TaxDate" class="@redtext" @bind-Value="@receipts.TaxDate" DateFormat="MM/dd/yyyy" Style="width:100%" />
+                    </div>
+                </div>
+
+            </div>
+        </RadzenCard>
+
+        <!-- DETAILS + NOTES (tabs). Ang grid lang ang nagsi-scroll -->
+        <RadzenCard class="gl-card is-compact gl-grid-card">
+            <RadzenTabs class="gl-tabs" RenderMode="TabRenderMode.Client">
+                <Tabs>
+
+                    <RadzenTabsItem Text="Receipt details" Icon="list_alt">
+                        <div class="gl-tab-body">
+                            <div class="gl-tab-toolbar">
+                                <RadzenButton ButtonStyle="ButtonStyle.Success" Icon="add" Text="Add New" Size="ButtonSize.Small"
+                                              Click="@(() => InsertAfterRow(receiptDetailsList.LastOrDefault()))" title="Add new row after this row"
+                                              Disabled="@(receiptDetailsToInsert.Any() || receiptDetailsToUpdate.Any() || receipts.IsCancelled is true )" />
+                            </div>
+
+                            @* TABLE DETAILS *@
+                            <div class="gl-grid-wrap">
+                                <RadzenDataGrid class="gl-detail-grid" Density="Density.Compact" EmptyText="No details yet. Click Add New to start." EditMode="@editMode" @ref="grid"
+                                                Data="@receiptDetailsList" AllowColumnResize=true RowCreate="@OnCreateRow" RowRender="@RowRender"
+                                                TItem="ReceiptDetails" RowUpdate="@OnUpdateRow">
+                                    <Columns>
+
+                                        <RadzenDataGridColumn Width="45px" TextAlign="TextAlign.Center" Property="Action" Frozen="true" FrozenPosition="FrozenColumnPosition.Left">
+                                            <Template Context="data">
+                                                <RadzenButton Icon="edit" ButtonStyle="ButtonStyle.Secondary" Variant="Variant.Text" Size="ButtonSize.ExtraSmall"
+                                                              Click="@(args => EditRow(data))" title="Edit this row"
+                                                              Disabled="@(receipts.IsCancelled is true )" />
+                                            </Template>
+                                            <EditTemplate Context="data">
+                                                <RadzenButton Icon="check" ButtonStyle="ButtonStyle.Success" Variant="Variant.Text" Size="ButtonSize.ExtraSmall" Click="@((args) => SaveRow(data))" title="Save" />
+                                            </EditTemplate>
+                                        </RadzenDataGridColumn>
+
+                                        <RadzenDataGridColumn Width="9rem" TItem="ReceiptDetails" Property="@nameof(ReceiptDetails.GLAccountId)" Title="Account" FrozenPosition="FrozenColumnPosition.Left" TextAlign="TextAlign.Center">
+                                            <Template Context="data">
+                                                @{
+                                                    var stock = glaccountlist?.FirstOrDefault(s => s.Id == data.GLAccountId);
+                                                }
+                                                @stock?.GLAccountCode
+                                            </Template>
+                                            <EditTemplate Context="data">
+                                                <RadzenDropDownDataGrid @bind-Value="data.GLAccountId" Style="width: 100%; font-size:12px" PageSize="10" Data="@glaccountlist" AllowVirtualization="true" AllowColumnResize="true"
+                                                                        Change="@(args => OnGLAccountChanged(args, data))"
+                                                                        AllowClear="true" AllowSorting="false" FilterCaseSensitivity="@filter" AllowFilteringByAllStringColumns="true"
+                                                                        TextProperty="GLAccountCode" Density="@density" ValueProperty="Id">
+                                                    <Columns>
+                                                        <RadzenDropDownDataGridColumn Width="6%" Property=@nameof(GLAccounts.GLAccountCode) Title="Account #" />
+                                                        <RadzenDropDownDataGridColumn Width="10%" Property=@nameof(GLAccounts.Description) Title="Account Name" />
+                                                    </Columns>
+                                                </RadzenDropDownDataGrid>
+                                            </EditTemplate>
+                                        </RadzenDataGridColumn>
+                                        <RadzenDataGridColumn Width="15rem" TItem="ReceiptDetails" Title="Account Name" TextAlign="TextAlign.Center">
+                                            <Template Context="data">
+                                                @{
+                                                    var stock = glaccountlist?.FirstOrDefault(s => s.Id == data.GLAccountId);
+                                                }
+                                                @stock?.Description
+                                            </Template>
+                                        </RadzenDataGridColumn>
+
+                                        <RadzenDataGridColumn Width="17rem" TItem="ReceiptDetails" Property="@nameof(ReceiptDetails.Description)" Title="Description" TextAlign="TextAlign.Center">
+                                            <EditTemplate Context="data">
+                                                <RadzenTextBox Style="width: 100%; font-size:12px" @bind-Value="data.Description"></RadzenTextBox>
+                                            </EditTemplate>
+                                        </RadzenDataGridColumn>
+
+                                        <RadzenDataGridColumn Width="9rem" TItem="ReceiptDetails" Title="Project" TextAlign="TextAlign.Center">
+                                            <Template Context="data">
+                                                @{
+                                                    var project = projectList?.FirstOrDefault(s => s.Id == data.ProjectId);
+                                                }
+                                                @project?.ProjectCode
+                                            </Template>
+                                            <EditTemplate Context="data">
+                                                <RadzenDropDownDataGrid class="@redtext" @bind-Value=@data.ProjectId AllowSorting="false" Style="width: 100%;" PageSize=10 Data="@projectList" AllowVirtualization="true" AllowColumnResize="true"
+                                                                        AllowClear="true" FilterCaseSensitivity="@filter" AllowFilteringByAllStringColumns="true"
+                                                                        TextProperty="ProjectCode" Density="@density" ValueProperty="Id">
+                                                    <Columns>
+                                                        <RadzenDropDownDataGridColumn Width="15%" Property="ProjectCode" Title="Project Code"></RadzenDropDownDataGridColumn>
+                                                        <RadzenDropDownDataGridColumn Width="15%" Property="Description" Title="Description"></RadzenDropDownDataGridColumn>
+                                                        <RadzenDropDownDataGridColumn Width="8%" Property="IsActive" Title="Active">
+                                                            <Template Context="data2"><RadzenCheckBox TValue="bool" Value="data2.IsActive"></RadzenCheckBox></Template>
+                                                        </RadzenDropDownDataGridColumn>
+                                                    </Columns>
+                                                </RadzenDropDownDataGrid>
+                                            </EditTemplate>
+                                        </RadzenDataGridColumn>
+
+                                        <RadzenDataGridColumn Width="10rem" TItem="ReceiptDetails" Property="@nameof(ReceiptDetails.ReferenceNo)" Title="Reference/Tax Inv#" TextAlign="TextAlign.Center">
+                                            <EditTemplate Context="data">
+                                                <RadzenTextBox Style="width: 100%; font-size:12px" @bind-Value="data.ReferenceNo"></RadzenTextBox>
+                                            </EditTemplate>
+                                        </RadzenDataGridColumn>
+
+                                        <RadzenDataGridColumn Width="9rem" Visible=true TItem="ReceiptDetails" Property="@nameof(ReceiptDetails.Amount)" Title="Amount" TextAlign="TextAlign.Right">
+                                            <Template Context="data">
+                                                @(data.Amount == 0.0000M ? "" : data.Amount.ToString("N2"))
+                                            </Template>
+                                            <EditTemplate Context="data">
+                                                <RadzenNumeric Style="width: 100%; font-size:12px" Disabled="@IsDisable" Change="@(args => TransactionHelper(data))" TValue="decimal" @bind-Value="data.Amount" Format="#.00"></RadzenNumeric>
+                                            </EditTemplate>
+                                        </RadzenDataGridColumn>
+
+                                        <RadzenDataGridColumn Width="9rem" Visible=false TItem="ReceiptDetails" Property="@nameof(ReceiptDetails.AmountLocal)" Title="Amount Local" TextAlign="TextAlign.Right">
+                                            <Template Context="data">
+                                                @(data.AmountLocal == 0.0000M ? "" : data.AmountLocal.ToString("N2"))
+                                            </Template>
+                                        </RadzenDataGridColumn>
+
+                                        <RadzenDataGridColumn Width="9rem" Visible=false TItem="ReceiptDetails" Property="@nameof(ReceiptDetails.SubAmount)" Title="SubAmount" TextAlign="TextAlign.Right">
+                                            <Template Context="data">
+                                                @(data.SubAmount == 0.0000M ? "" : data.SubAmount.ToString("N2"))
+                                                @(data.SubAmountLocal == 0.0000M ? "" : data.SubAmountLocal.ToString("N2"))
+                                            </Template>
+                                        </RadzenDataGridColumn>
+
+                                        <RadzenDataGridColumn Width="9rem" Visible=true TItem="ReceiptDetails" Property="@nameof(ReceiptDetails.TaxCodeId)" Title="TaxCode" TextAlign="TextAlign.Center">
+                                            <Template Context="data">
+                                                @{
+                                                    var taxcode = alltaxCodesList?.FirstOrDefault(t => t.Id == data.TaxCodeId);
+                                                }
+                                                @taxcode?.TaxCode
+                                            </Template>
+                                            <EditTemplate Context="data">
+                                                <RadzenDropDownDataGrid Change="@(args => TransactionHelper(data))" @bind-Value="data.TaxCodeId" AllowSorting="false" Style="font-size:12px" PageSize="10" Data="@taxCodesList"
+                                                                        AllowClear="true" FilterCaseSensitivity="@filter" AllowFilteringByAllStringColumns="true"
+                                                                        TextProperty="TaxCode" Density="@density" ValueProperty="Id">
+                                                    <Columns>
+                                                        <RadzenDropDownDataGridColumn Width="100px" Property="TaxCode" Title="Vat #" />
+                                                        <RadzenDropDownDataGridColumn Width="100px" Property="Rate" Title="Rate" />
+                                                        <RadzenDropDownDataGridColumn Width="100px" Property="VatType" Title="VatType" />
+                                                        <RadzenDropDownDataGridColumn Width="250px" Property="Description" Title="Description" />
+                                                    </Columns>
+                                                </RadzenDropDownDataGrid>
+                                            </EditTemplate>
+                                        </RadzenDataGridColumn>
+
+                                        <RadzenDataGridColumn Width="9rem" Visible=true TItem="ReceiptDetails" Property="@nameof(ReceiptDetails.TaxAmount)" Title="Tax" TextAlign="TextAlign.Center">
+                                            <Template Context="data">
+                                                @(data.TaxAmount == 0.0000M ? "" : data.TaxAmount?.ToString("N4"))
+                                            </Template>
+                                            <EditTemplate Context="data">
+                                                <RadzenNumeric Style="width: 100%; font-size:12px" @bind-Value="data.TaxAmount" Disabled="@IsDisable" Change="@(args => TransactionHelper(data))" TValue="decimal?" Format="#.0000" />
+                                            </EditTemplate>
+                                        </RadzenDataGridColumn>
+
+                                        <RadzenDataGridColumn Width="9rem" TItem="ReceiptDetails" Property="@nameof(ReceiptDetails.WTaxCode)" Title="WTax Code" TextAlign="TextAlign.Center">
+                                            <Template Context="data">
+                                                @{
+                                                    var wtaxcode = wTaxCodesList?.FirstOrDefault(w => w.Id == data.WTaxCode);
+                                                }
+                                                @wtaxcode?.Code
+                                            </Template>
+
+                                            @* WTAXCODE DROPDOWN *@
+                                            <EditTemplate Context="data">
+                                                <RadzenDropDownDataGrid @bind-Value="data.WTaxCode" AllowSorting="false" Style="font-size:12px" PageSize="10" Data="@FilteredWTaxCodesList"
+                                                                        AllowClear="true" FilterCaseSensitivity="@filter" AllowFilteringByAllStringColumns="true"
+                                                                        TextProperty="Code" Density="@density" ValueProperty="Id" Change="@(args => TransactionHelper(data))">
+                                                    <Columns>
+                                                        <RadzenDropDownDataGridColumn Width="100px" Property="Code" Title="Code" />
+                                                        <RadzenDropDownDataGridColumn Width="100px" Property="Rate" Title="Rate">
+                                                            <Template Context="wtaxcode">
+                                                                @((wtaxcode.Rate * 100).ToString("0.00") + "%")
+                                                            </Template>
+                                                        </RadzenDropDownDataGridColumn>
+                                                        <RadzenDropDownDataGridColumn Width="250px" Property="Description" Title="Description" />
+                                                    </Columns>
+                                                </RadzenDropDownDataGrid>
+                                            </EditTemplate>
+                                        </RadzenDataGridColumn>
+                                        <RadzenDataGridColumn Width="9rem" Visible=false TItem="ReceiptDetails" Property="@nameof(ReceiptDetails.NetAmount)" Title="NetAmount" TextAlign="TextAlign.Center">
+                                            <Template Context="data">
+                                                @(data.NetAmount == 0.0000M ? "" : data.NetAmount.ToString("N4"))
+                                            </Template>
+                                        </RadzenDataGridColumn>
+                                        <RadzenDataGridColumn Width="9rem" Visible=true TItem="ReceiptDetails" Property="@nameof(ReceiptDetails.WTaxAmount)" Title="WTax" TextAlign="TextAlign.Center">
+                                            <Template Context="data">
+                                                @(data.WTaxAmount == 0.0000M ? "" : data.WTaxAmount.ToString("N4"))
+                                            </Template>
+                                        </RadzenDataGridColumn>
+
+                                        <RadzenDataGridColumn Width="9rem" Visible=false TItem="ReceiptDetails" Property="@nameof(ReceiptDetails.TaxExclusiveAmount)" Title="TaxExclusiveAmount" TextAlign="TextAlign.Center">
+                                            <Template Context="data">
+                                                @(data.TaxExclusiveAmount == 0.0000M ? "" : data.TaxExclusiveAmount?.ToString("N4"))
+                                            </Template>
+                                        </RadzenDataGridColumn>
+
+                                        <RadzenDataGridColumn Width="7rem" Visible=false TItem="ReceiptDetails" Title="WTax Rate" TextAlign="TextAlign.Center">
+                                            <Template Context="data">
+                                                @{
+                                                    var wtaxcode = wTaxCodesList?.FirstOrDefault(w => w.Id == data.WTaxCode);
+                                                }
+                                                @((wtaxcode?.Rate * 100).GetValueOrDefault().ToString("0.00") + "%")
+                                            </Template>
+                                        </RadzenDataGridColumn>
+
+                                        <RadzenDataGridColumn Width="7rem" Visible=false TItem="ReceiptDetails" Property="@nameof(ReceiptDetails.IsTaxInclusive)" Title="Is TaxInclusive" TextAlign="TextAlign.Center" />
+                                        <RadzenDataGridColumn Width="5rem" Visible=false TItem="ReceiptDetails" Property="@nameof(ReceiptDetails.Pos)" Title="Pos" TextAlign="TextAlign.Center" />
+
+                                        <RadzenDataGridColumn Width="11rem" Visible=true TItem="ReceiptDetails" Property="@nameof(ReceiptDetails.GLBIRClsInfo)" Title="BIR Classification" TextAlign="TextAlign.Center" />
+                                        <RadzenDataGridColumn Width="45px" TextAlign="TextAlign.Center" Property="Action" Frozen="true" FrozenPosition="FrozenColumnPosition.Right">
+                                            <Template Context="data">
+                                                <RadzenButton Icon="delete" ButtonStyle="ButtonStyle.Danger" title="Delete" Variant="Variant.Text" Size="ButtonSize.ExtraSmall" Click="@(args => DeleteRow(data))" Disabled="@(receiptDetailsList.Count == 1 || receipts.IsCancelled is true)" />
+                                            </Template>
+                                        </RadzenDataGridColumn>
+
+                                    </Columns>
+                                </RadzenDataGrid>
+                            </div>
+                            @* END OF TABLE DETAILS *@
+                        </div>
+                    </RadzenTabsItem>
+
+                    <RadzenTabsItem Text="Notes" Icon="sticky_note_2">
+                        <div class="gl-tab-body">
+                            <RadzenTextArea Name="Notes" Placeholder="Enter notes here..." @bind-Value=@receipts.Notes
+                                            class="@($"gl-notes-area {redtext}")" Style="width:100%;" />
+                        </div>
+                    </RadzenTabsItem>
+
+                </Tabs>
+            </RadzenTabs>
+        </RadzenCard>
+
+        <!-- SUMMARY -->
+        <div class="gl-summary is-sticky is-sm">
+            <div class="gl-summary-note">
+                <RadzenIcon Icon="info" />
+                <span>Amounts shown in local currency</span>
+            </div>
+            <div class="gl-sum-item">
+                <span class="gl-sum-label">Taxable</span>
+                <span class="gl-sum-value">@($"{receipts.TaxExclusiveTotalAmountLocal:N2}")</span>
+            </div>
+            <div class="gl-sum-item">
+                <span class="gl-sum-label">Tax</span>
+                <span class="gl-sum-value">@($"{receipts.TaxTotalAmountLocal:N2}")</span>
+            </div>
+            <div class="gl-sum-item is-main">
+                <span class="gl-sum-label">Due Amount</span>
+                <span class="gl-sum-value"><small>@(currencyList?.FirstOrDefault(c => c.Id == receipts.CurrencyId)?.CurrencyCode)</small>@($"{DueAmount:N2}")</span>
+            </div>
+        </div>
+
+    </RadzenStack>
+
+    <RadzenPopup @ref=popup Lazy=true class="gl-popup">
+        <RadzenDataGrid RowDoubleClick="() => SetDocumentNoPopup(selectedtransactionCodesList.FirstOrDefault().Id)"
+                        TItem="TransactionsCode"
+                        @ref=transactionsCodeGrid
+                        @bind-Value="@selectedtransactionCodesList"
+                        Data=@transactionCodesList>
+            <Columns>
+                <RadzenDataGridColumn TItem="TransactionsCode" Property="@nameof(TransactionsCode.Format)" Title="Format" TextAlign="TextAlign.Center" Width="300px">
+                    <Template Context="transactionCode">
+                        @transactionCode.Format
+                    </Template>
+                </RadzenDataGridColumn>
+            </Columns>
+        </RadzenDataGrid>
+    </RadzenPopup>
+</RadzenTemplateForm>
+
+
+@if (isloading)
+{
+    <Spinner Message="Loading receipt..." />
+}
+
+@code {
+    [Parameter]
+    public Guid? Id { get; set; }
+
+    [CascadingParameter]
+    public Task<AuthenticationState> authenticationState { get; set; }
+
+
+    AlignItems alignItems = AlignItems.Center;
+    Density density = Density.Compact;
+    TextStyle textStyle = TextStyle.Body2;
+    FilterCaseSensitivity filter = FilterCaseSensitivity.CaseInsensitive;
+    Variant btnVariantText = Variant.Text;
+    ButtonSize smallbtn = ButtonSize.Small;
+
+
+    //FOR POP UP DIALOG
+    RadzenButton receiptNoButton;   // dati: iisang "button" ref ang gamit ng tatlong button
+    RadzenPopup popup;
+    RadzenDataGrid<TransactionsCode> transactionsCodeGrid;
+    protected IList<TransactionsCode> selectedtransactionCodesList { get; set; }
+
+    //FOR PROPERTY SET VALUE OF OBJECT
+    string btnText = "Save";
+    bool busy = false;
+    string status = string.Empty;
+    string redtext;
+
+    //for diseabled quotatuion details table
+    protected bool IsDisable;
+
+    //for loading data
+    bool isloading = true;
+    bool btnDiseabled = false;
+
+
+
+    protected Receipts receipts { get; set; } = new Receipts();
+
+    //FOR QUOTATION DETAILS GRID
+    // Add this after initializing quotationsDetailsList to ensure a first row is loaded by default
+    RadzenDataGrid<ReceiptDetails> grid;
+    DataGridEditMode editMode = DataGridEditMode.Single;
+    List<ReceiptDetails> receiptDetailsToInsert = new List<ReceiptDetails>();
+    List<ReceiptDetails> receiptDetailsToUpdate = new List<ReceiptDetails>();
+    protected List<ReceiptDetails> receiptDetailsList { get; set; }
+
+    //ALL LIST FOR DROPDOWN BOX INPUT
+    protected IEnumerable<Projects> projectList { get; set; }
+    protected IEnumerable<Currencies> currencyList { get; set; }
+    protected IEnumerable<Creditors> supplieraccountList { get; set; }
+    protected IEnumerable<Terms> termList { get; set; }
+    protected IEnumerable<Purchasers> purchaserList { get; set; }
+
+    protected IEnumerable<WTaxCodes> wTaxCodesList { get; set; }
+    protected IEnumerable<TaxCodes> taxCodesList { get; set; }
+    protected IEnumerable<TaxCodes> alltaxCodesList { get; set; }
+
+
+
+    protected IEnumerable<TransactionsCode> transactionCodesList { get; set; }
+
+    protected DescriptionFilter descriptionFilter { get; set; } = new DescriptionFilter();
+    protected TransactionCodesFilter transactionCodesFilter = new TransactionCodesFilter();
+    protected TaxCodeFilter taxCodeFilter = new TaxCodeFilter();
+
+    string value = "";
+    IEnumerable<string> companyNames;
+
+    string? userId;//USER GUID
+
+
+    protected async override Task OnInitializedAsync()
+    {
+
+        var authState = (await authenticationState).User;
+        if (authState.Identity.IsAuthenticated)
+        {
+            var RoleId = authState.FindFirst("RoleId").Value;
+
+            //USER GUID
+            var userguid = authState.FindFirst(x => x.Type == System.Security.Claims.ClaimTypes.NameIdentifier);
+            userId = userguid.Value;
+
+            await GetLoadMenuPermission(RoleId);
+        }
+
+        isloading = false;
+    }
+
+    private SystemMenuObjectPermission? permission;
+    protected async Task GetLoadMenuPermission(string RoleId)
+    {
+        permission = await permissionService.GetPermissionAsync(
+         RoleId,
+         "Receipt Vouchers");
+
+        if (permission is null)
+        {
+            navManager.NavigateTo("/NotAuthorized");
+            return;
+        }
+
+        SetTransactionCodeData();
+        InitializeDetailsRows();
+        await loadAllData();
+        if (Id.HasValue)
+        {
+            await loadAllDataById();
+        }
+    }
+
+
+
+    protected void SetTransactionCodeData()
+    {
+
+        receipts.ObjectType = 7; // FOR QNE XPObjectType , Query and Front end data manipulation
+
+
+        descriptionFilter.OwnerCode = "Receipts.Description";
+        transactionCodesFilter.TableId = 3;
+    }
+
+
+    protected void LoadDocumentStatus()
+    {
+        var statusList = new List<string>();
+        // if (bill.FromDocId != Guid.Empty)
+        //     statusList.Add("Posted From Purchase");
+
+        if (receipts.IsCancelled)
+            statusList.Add("Cancelled");
+
+        if (statusList.Any())
+        {
+            status = $"({string.Join(", ", statusList)})";
+        }
+
+        StateHasChanged();
+    }
+
+
+
+    //protected GLTransactions gLTransactions { get; set; } = new GLTransactions();
+    protected async Task OnSubmit()
+    {
+        busy = true;
+        try
+        {
+            if (receiptDetailsToInsert.Any() || receiptDetailsToUpdate.Any())
+            {
+                NotificationHelper.ShowWarning(notificationService, "Unsaved Details",
+                    "Please click the 'Save' (checkmark) button for any active or newly added detail rows in the grid before saving.");
+                return;
+            }
+
+            if (!receiptDetailsList.Any(x => x.Description != null))
+            {
+                NotificationHelper.ShowError(notificationService, "Unsaved Details",
+                    "Please insert at least one data on details before saving.");
+                return;
+            }
+
+            await bankChargesServices.SaveBankCharges(bankCharges);
+            var data = await receiptServices.SaveReceiptHeaderAndDetails(receipts, receiptDetailsList);
+
+            if (data is null)
+            {
+                btnDiseabled = false;
+                return;
+            }
+
+            if (!data.Contains("Success"))
+            {
+                await DialogService.Alert(data);
+                btnDiseabled = false;
+                return;
+            }
+
+            // Success na ang save, saka lang mag-delete
+            var deleteResult = string.Empty;
+            if (deleteModels.Any())
+            {
+                deleteResult = await deleteServices.DeleteReceiptDetailRows(deleteModels);
+                deleteModels.Clear();
+            }
+
+            var info = await documentsInfoService.SaveDocumentInfo(documentInfo);
+            await DialogService.Alert($"{data} {info} {deleteResult}".Trim());
+            btnDiseabled = true;
+        }
+        finally
+        {
+            busy = false;
+            StateHasChanged();
+        }
+    }
+
+
+    DialogPosition position;
+    bool closeDialogOnOverlayClick;
+    bool showMask;
+    bool resizable;
+    protected DocumentInfo documentInfo { get; set; } = new DocumentInfo();
+    async Task OpenDocumentInfoDialog()
+    {
+        await DialogService.OpenSideAsync<DocumentInfoPage>(
+            "Document Info",
+            new Dictionary<string, object?>
+            {
+            { "Id", (Guid?)Id }
+            },
+            options: new SideDialogOptions
+            {
+                CloseDialogOnOverlayClick = closeDialogOnOverlayClick,
+                Resizable = resizable,
+                Position = position,
+                ShowMask = showMask,
+                MinHeight = 250.0,
+                MinWidth = 500.0
+            });
+
+    }
+    protected void SetDocumentInfo()
+    {
+        documentInfo.DocumentId = receipts.Id.ToString();
+        documentInfo.FirstCreatedUserId = userId;
+        documentInfo.LastModifiedUserId = userId;
+        documentInfo.DocType = "Receipt";
+    }
+
+    protected async Task loadAllData()
+    {
+        await GetTransactionNo();
+        await GetSupplierList();
+        await GetTermList();
+        await GetCurrencyList();
+        SetDefaultCurrency();
+        await GetGLAccountLists();
+        await GetTaxCodesList();
+        await GetWTaxCodesList();
+        await GetDescriptions();
+        await GetPaymentReceiptInfoList();
+        await GetDepositAccountList();
+        SetDefaultDescriptions();
+        await GetProjectList();
+        await SetDocumentNo();
+        await GetStockBundle();
+        SetDocumentInfo();
+        InitializedDetailsDescription();
+
+        receipts.BankCharges = bankCharges.Id;
+    }
+
+    protected async Task loadAllDataById()
+    {
+        await GetDocumentInfoById();
+        await GetHeaderById();
+        await GetDetailsById();
+        await GetBankChargesById();
+        SetDocumentInfo();
+        LoadDocumentStatus();
+    }
+
+    protected IEnumerable<PaymentReceiptInfo> paymentReceiptInfoList { get; set; }
+    protected async Task GetPaymentReceiptInfoList()
+    {
+        var data = await receiptServices.GetPaymentReceiptInfo();
+        paymentReceiptInfoList = data is not null ? data : new List<PaymentReceiptInfo>();
+    }
+
+
+    // protected IEnumerable<GLAccounts> glaccountaccountonlylist { get; set; }
+    // protected async Task GetGLAccountLists()
+    // {
+    //     var data = await gLAccountsServices.GetGLAccountAccountOnlyList();
+    //     glaccountaccountonlylist = data is not null ? data : new List<GLAccounts>();
+    // }
+
+    // protected async Task GetDuedate()
+    // {
+    //     int terms = termList.FirstOrDefault(t => t.Id == receiptDetailsList.TermId)?.TermDays ?? 0;
+
+    //     bill.DueDate = await termsDayMonthServices.ComputeDaysMonth(journals.JournalDate, terms);
+
+    // }
+
+
+    //Get Currencies From db.Currencies
+    protected async Task GetCurrencyList()
+    {
+        var data = await currenciesService.GetCurrencies();
+        currencyList = data is not null ? data : new List<Currencies>();
+
+    }
+    protected void SetDefaultCurrency()
+    {
+        var selectedcurrency = currencyList.FirstOrDefault(c => c.Id == 1);
+        receipts.CurrencyId = selectedcurrency.Id;
+        receipts.CurrencyRate = selectedcurrency.DefaultPurchaseRate;
+    }
+
+    protected async Task GetSupplierList()
+    {
+        var data = await suppliersServices.GetSupplierLists();
+        supplieraccountList = data is not null ? data : new List<Creditors>();
+    }
+    protected async Task GetTermList()
+    {
+        var data = await termService.GetTermsLists();
+        termList = data is not null ? data : new List<Terms>();
+    }
+
+    protected async Task GetProjectList()
+    {
+        var data = await projectService.GetProjectsLists();
+        projectList = data is not null ? data : new List<Projects>();
+    }
+
+
+    protected IEnumerable<GLAccounts> glaccountlist { get; set; }
+    protected async Task GetGLAccountLists()
+    {
+        var data = await gLAccountsServices.GetGLAccountList();
+        glaccountlist = data is not null ? data : new List<GLAccounts>();
+    }
+
+
+    protected IEnumerable<GLAccounts> depositAccountList { get; set; }
+    protected async Task GetDepositAccountList()
+    {
+        var data = await gLAccountsServices.GetDepositAccountList();
+        depositAccountList = data is not null ? data : new List<GLAccounts>();
+    }
+
+
+    protected IEnumerable<Descriptions> descriptionsList { get; set; }
+    protected async Task GetDescriptions()
+    {
+        var data = await descriptionsService.GetDescriptions(descriptionFilter);
+        descriptionsList = data is not null ? data : new List<Descriptions>();
+    }
+    protected void SetDefaultDescriptions()
+    {
+        var selectedcurrency = descriptionsList.FirstOrDefault(c => c.IsDefault == true);
+        receipts.Description = selectedcurrency.Description;
+    }
+
+    private void ToggleCreditable(ReceiptDetails data)
+    {
+        // data.IsCreditable = !data.IsCreditable;
+    }
+
+
+    private async void OnGLAccountChanged(object GLAccountId, ReceiptDetails receiptDetails)
+    {
+
+
+        Guid selectedGLAccountId = GLAccountId is Guid guid ? guid : Guid.Empty;
+        // var selectedCreditor = supplieraccountList.FirstOrDefault(c => c.Id == bill.CreditorId);
+        var taxcode = taxCodesList?.FirstOrDefault(s => s.TaxCode == "I - N/A");
+
+        var selectedGLaccount = glaccountlist?.FirstOrDefault(s => s.Id == selectedGLAccountId);
+        if (selectedGLaccount != null)
+        {
+            //IsDisable = false;
+            //JournalDetails.BillId = bill.Id;
+            receiptDetails.Description = receipts.DetailsDescription;
+            receiptDetails.GLAccountId = selectedGLAccountId;
+            //receiptDetails.TaxCodeId = taxcode.Id;
+            // JournalDetails.WTaxCode = selectedCreditor?.DefaultWTaxCodeId;
+            // JournalDetails.ProjectId = bill.ProjectId;
+            // billDetails.ReferenceNo = bill.ReferenceNo;
+            // billDetails.DepartmentId = bill.DepartmentId;
+            // billDetails.CostCentreId = bill.CostCentreId;
+            // billDetails.WTaxCode = selectedGLaccount?.DefaultWTaxCodeId;
+            // bill.Tax
+        }
+        else
+        {
+            IsDisable = true;
+            receiptDetails.Description = string.Empty;
+            receiptDetails.ReferenceNo = string.Empty;
+            receiptDetails.ProjectId = null;
+            receiptDetails.Amount = 0.00M;
+            receiptDetails.AmountLocal = 0.00M;
+            receiptDetails.SubAmount = 0.00M;
+            receiptDetails.SubAmountLocal = 0.00M;
+            receiptDetails.TaxCodeId = null;
+            receiptDetails.TaxRate = 0.00M;
+            receiptDetails.TaxAmount = 0.00M;
+            receiptDetails.TaxAmountLocal = 0.00M;
+            receiptDetails.NetAmount = 0.00M;
+            receiptDetails.NetAmountLocal = 0.00M;
+            receiptDetails.WTaxCode = null;
+            receiptDetails.WTaxRate = 0.00M;
+            receiptDetails.WTaxAmount = 0.00M;
+            receiptDetails.WTaxAmountLocal = 0.00M;
+            receiptDetails.Note = string.Empty;
+            StateHasChanged();
+        }
+
+
+    }
+
+    // StateHasChanged();
+
+
+    ///FOR INSERT BUNDLED ITEM <summary>
+    ///
+    /// </summary>
+    protected List<StockBundlesModel> stockbundleDetailList { get; set; } = new();
+    private async Task GetStockBundle()
+    {
+        var data = await stockItemsService.GetStockBundlesList();
+        stockbundleDetailList = data is not null ? data.ToList() : new List<StockBundlesModel>();
+    }
+
+    protected async Task GetTransactionNo()
+    {
+        var data = await transactionCodeService.GetTransactionNo(transactionCodesFilter);
+        transactionCodesList = data is not null ? data : new List<TransactionsCode>();
+    }
+
+
+    //FOR RUNNING NUMBERS
+    protected TransactionsCode selectedTransacCode => transactionCodesList.FirstOrDefault(sa => sa.IsDefault == true);
+    protected RunningNumbers runningNumbers { get; set; } = new RunningNumbers();
+
+    protected async Task SetDocumentNoPopup(int Id)
+    {
+        await SetDocumentNo();
+    }
+    protected async Task SetDocumentNo()
+    {
+        runningNumbers.DocDate = receipts.ReceiptDate;
+        runningNumbers.Format = selectedTransacCode?.Format;
+        runningNumbers.ColumnName = "ReceiptCode";
+        runningNumbers.TableName = "Receipts";
+
+        await GetNextDocumentCodeAsync();
+        if (popup != null) await popup.CloseAsync();
+
+    }
+    private async Task GetNextDocumentCodeAsync()
+    {
+
+        var data = await runningNumberService.GetNextRunningNumber(runningNumbers);
+        receipts.ReceiptCode = data is not null ? data : string.Empty;
+
+    }
+
+    protected void SetRedText()
+    {
+        redtext = receipts.IsCancelled == true ? "rz-color-danger-darker" : "";
+    }
+
+
+    protected async Task GetDocumentInfoById()
+    {
+        var data = await documentsInfoService.GetDocumentInfoById(Id.ToString());
+        documentInfo = data is not null ? data : new DocumentInfo();
+    }
+
+    protected async Task GetHeaderById()
+    {
+        var data = await receiptServices.GetHeadersById(Id.ToString());
+        receipts = data is not null ? data : new Receipts();
+        redtext = receipts.IsCancelled == true ? "rz-color-danger-darker" : "";
+        SetRedText();
+    }
+
+
+    protected async Task GetDetailsById()
+    {
+        var data = await receiptServices.GetDetailsById(Id.ToString());
+        receiptDetailsList = data is not null ? data.ToList() : new List<ReceiptDetails>();
+    }
+
+
+
+    //Tax Code List
+    //FOR TAXCODE DROPDOWN
+    protected async Task GetTaxCodesList()
+    {
+        taxCodeFilter.IsOutOrIn = false;// true for Output Tax Codes
+        taxCodeFilter.IsActive = true; // true for Active Tax Codes
+
+        var data = await allTaxCodeService.GetTaxCodes(taxCodeFilter);
+        taxCodesList = data is not null ? data : new List<TaxCodes>();
+
+
+        //Get All TaxCodesList
+        var allTaxCodedata = await allTaxCodeService.GetAllTaxCodes();
+        alltaxCodesList = allTaxCodedata is not null ? allTaxCodedata : new List<TaxCodes>();
+
+    }
+
+    //FOR WTAXCODE DROPDOWN
+    //CreditableAccount != null IS REFERRING TO CREDIABLE ACCOUNT WHICH IS CREDITABLE WTAX ON GLACCOUNT
+    protected IEnumerable<WTaxCodes> FilteredWTaxCodesList => wTaxCodesList?.Where(w => w.CreditableAccount != null) ?? Enumerable.Empty<WTaxCodes>();
+    protected async Task GetWTaxCodesList()
+    {
+        // wTaxCodesList = await http.GetFromJsonAsync<List<WTaxCodes>>("api/AllTaxCodes/GetWTaxCodesList?companyCode=" + CompCode);
+        var data = await allTaxCodeService.GetWTaxCodes();
+        wTaxCodesList = data is not null ? data : new List<WTaxCodes>();
+    }
+
+    protected void OnCreditorChanged(object Id)
+    {
+        if (Id is not null)
+        {
+            if (supplieraccountList.FirstOrDefault(sa => sa.Id == (Guid)Id) is var selectedsuppliers && selectedsuppliers != null)
+            {
+                LoadHeaderDataModel(selectedsuppliers);
+            }
+        }
+        else
+        {
+            ClearHeaderDataModel();
+        }
+    }
+
+    bool IsForeignCurrency = false;
+    public void LoadHeaderDataModel(Creditors selectedsuppliers)
+    {
+        var currency = currencyList.FirstOrDefault(c => c.Id == selectedsuppliers.CurrencyId);
+
+        // bill.CreditorId = selectedsuppliers.Id;
+        // bill.GLAccountId = selectedsuppliers.GLAccountId;
+        // bill.CurrencyId = selectedsuppliers.CurrencyId;
+        // bill.CurrencyRate = currency?.DefaultPurchaseRate ?? 0;
+        // IsForeignCurrency = currency.IsForeign; /// for editing CurrencyRate Textbox
+        // bill.ObjectType = 9; /// object value is from XPObjectType Table
+
+        // bill.BillFrom = string.Join(Environment.NewLine, selectedsuppliers.CompanyName, selectedsuppliers.Address1); ///merge of Creditor Name and Address
+
+    }
+
+    public void ClearHeaderDataModel()
+    {
+        SetDefaultCurrency();
+        // bill.CreditorId = null;
+        // bill.BillFrom = string.Empty;
+        IsForeignCurrency = false;
+
+    }
+
+
+
+    protected void OnReceivedFromChange(object Id)
+    {
+        Guid selectedReceivedFromId = Id is Guid guid ? guid : Guid.Empty;
+        receipts.DebtorName = paymentReceiptInfoList.Where(x => x.Id == selectedReceivedFromId).Select(x => x.Description).FirstOrDefault() ?? string.Empty;
+    }
+
+
+    protected void OnProjectChanged(object projectId)
+    {
+        int? selectedprojectId = projectId as int?;
+
+        foreach (var detail in receiptDetailsList)
+        {
+            detail.ProjectId = selectedprojectId;
+        }
+
+        StateHasChanged();
+    }
+
+
+    protected void InitializedDetailsDescription()
+    {
+        ///CONDITION HERE SAME AS ON QNE
+        //  Guid selectedDepositFromId = depositId is Guid guid ? guid : Guid.Empty;
+        string selectedDepositAccount = depositAccountList.Where(x => x.Id == receipts.GLAccountId).Select(x => x.Description).FirstOrDefault() ?? string.Empty;
+        receipts.DetailsDescription = $"{selectedDepositAccount} {receipts.Description}";
+        //  receipts.DetailsDescription =
+        // !string.IsNullOrWhiteSpace(receipts.Description) && receipts.GLAccountId != Guid.Empty
+        //     ? $"{selectedDepositAccount}, {receipts.Description}"
+        //     : receipts.DebtorName;
+    }
+
+
+    protected void IsTaxInclusiveChanged()
+    {
+        foreach (var row in receiptDetailsList)
+        {
+            row.IsTaxInclusive = receipts.IsTaxInclusive;
+            ReceiptTransactionHelper.Compute(row);
+        }
+        // LoadSubtotalRow();
+        LoadAllTaxTotalNet();
+    }
+
+
+    private async Task OnSwitchChanged(string switchName)
+    {
+        // bool hasTransfer = purchaseordersHeader.TransferToInfo != null;
+        // bool hasTransfer = !string.IsNullOrWhiteSpace(purchaseordersHeader.TransferToInfo);
+
+        if (Id is null)
+        {
+            receipts.IsCancelled = false;
+            NotificationHelper.ShowWarning(
+                notificationService,
+                "",
+                "Please click the 'Save' (checkmark) button for any active or newly added detail rows in the grid before saving."
+            );
+            return;
+        }
+
+        await SetSwitchValue(switchName);
+        SetRedText();
+    }
+
+    private ForCloseCancelledDocumentsModel forCloseCancelledDocumentsModel = new ForCloseCancelledDocumentsModel();
+    private async Task SetSwitchValue(string switchName)
+    {
+
+        forCloseCancelledDocumentsModel = new()
+        {
+            Id = Id,
+            TableName = "Journals",   // TODO: kopya ito mula sa Journal page - dapat bang "Receipts"? (hindi ko ginalaw)
+            SwitchName = switchName,
+            IsCancelled = receipts.IsCancelled
+        };
+
+        await headerSwitchServices.UpdateForCloseOrCancelled(forCloseCancelledDocumentsModel);
+    }
+
+
+    protected void Navigate()
+    {
+        navManager.NavigateTo("/ReceiptVoucherList");
+    }
+
+
+    protected void InitializeDetailsRows()
+    {// Initialize with 5 rows and set default Pos index
+        receiptDetailsList = Enumerable.Range(1, 1)
+           .Select(i => new ReceiptDetails
+           {
+               Pos = i,
+               ReceiptId = Id ?? receipts.Id,
+               IsTaxInclusive = receipts.IsTaxInclusive
+           })
+           .ToList();
+    }
+
+
+    // Helper to reset Pos index after any add/delete
+    private void ResetPosIndexes()
+    {
+        for (int i = 0; i < receiptDetailsList.Count; i++)
+        {
+            receiptDetailsList[i].Pos = i + 1;
+        }
+    }
+
+
+    //insert after row
+    async Task InsertAfterRow(ReceiptDetails receiptDetails)
+    {
+        // If there's an active edit, prevent adding another row until it's saved.
+
+        if (receiptDetailsToInsert.Any() || receiptDetailsToUpdate.Any())
+        {
+            NotificationHelper.ShowWarning(notificationService, "Unsaved Details", "Please click the 'Save' (checkmark) button for any active or newly added detail rows in the grid before saving.");
+            return;
+        }
+
+
+
+        if (!grid.IsValid) return;
+        if (editMode == DataGridEditMode.Single)
+        {
+            Reset();
+        }
+        var newreceiptDetails = new ReceiptDetails();
+
+        //Set QuotationId to new inserted row
+        newreceiptDetails.ReceiptId = Id ?? receipts.Id;
+        newreceiptDetails.IsTaxInclusive = receipts.IsTaxInclusive;
+        // Assign a sequential Pos for new rows, inserting after the current row's Pos
+        receiptDetailsToInsert.Add(newreceiptDetails);
+        var index = receiptDetailsList.IndexOf(receiptDetails);
+        if (index >= 0)
+        {
+            receiptDetailsList.Insert(index + 1, newreceiptDetails); // Insert after selected row
+        }
+        else
+        {
+            receiptDetailsList.Add(newreceiptDetails);
+        }
+
+
+        ResetPosIndexes();
+
+        if (receiptDetails is not null)
+        {
+            await grid.InsertAfterRow(newreceiptDetails, receiptDetails);
+        }
+        else
+        {
+            await grid.InsertRow(newreceiptDetails);
+        }
+
+        await grid.Reload();
+        StateHasChanged();
+    }
+
+    async Task EditRow(ReceiptDetails receiptDetails)
+    {
+        if (receiptDetailsToInsert.Any() || receiptDetailsToUpdate.Any())
+        {
+            NotificationHelper.ShowWarning(notificationService, "Unsaved Details", "Please click the 'Save' (checkmark) button for any active or newly added detail rows in the grid before saving.");
+            return;
+        }
+
+        if (!grid.IsValid) return;
+        if (editMode == DataGridEditMode.Single)
+        {
+            Reset();
+        }
+
+        receiptDetailsToUpdate.Add(receiptDetails);
+        await grid.EditRow(receiptDetails);
+        StateHasChanged(); // Ensure UI updates and list is reflected
+    }
+
+    async Task SaveRow(ReceiptDetails receiptDetails)
+    {
+
+        await grid.UpdateRow(receiptDetails);
+        await grid.Reload();
+        StateHasChanged();
+    }
+
+    void OnUpdateRow(ReceiptDetails receiptDetails)
+    {
+        Reset(receiptDetails);
+
+    }
+
+    void OnCreateRow(ReceiptDetails receiptDetails)
+    {
+        receiptDetailsToInsert.Remove(receiptDetails);
+    }
+
+    protected List<DeleteModel> deleteModels = new();
+    protected async Task DeleteLogic(ReceiptDetails receiptDetails, bool DeleteDetailRow)
+    {
+        if (!deleteModels.Any(dm => dm.DetailsId == receiptDetails.Id))
+        {
+            deleteModels.Add(new DeleteModel
+            {
+                Id = receipts.Id,
+                DetailsId = receiptDetails.Id,
+                DeleteDetailRow = DeleteDetailRow
+
+            });
+        }
+    }
+
+
+
+
+    async Task DeleteRow(ReceiptDetails receiptDetails)
+    {
+        if (receiptDetailsToInsert.Any() || receiptDetailsToUpdate.Any())
+        {
+            NotificationHelper.ShowWarning(notificationService, "Unsaved Details", "Please click the 'Save' (checkmark) button for any active or newly added detail rows in the grid before saving.");
+            return;
+        }
+        if (await DialogService.Confirm("You are about to delete record(s). Do you want to proceed?", "Delete") == true)
+        {
+            // deleteModel.Id = receiptDetails.Id;
+            // deleteModel.TableName = "ReceiptDetails";
+            // var data = await deleteServices.DeleteDataOnDetailRows(deleteModel);
+            await DeleteLogic(receiptDetails, true);
+
+            Reset(receiptDetails);
+            receiptDetailsList.Remove(receiptDetails); // Remove from main list
+            ResetPosIndexes();
+            await grid.Reload();
+            StateHasChanged();
+        }
+
+
+    }
+
+
+    void Reset(ReceiptDetails receiptDetails)
+    {
+        receiptDetailsToInsert.Remove(receiptDetails);
+        receiptDetailsToUpdate.Remove(receiptDetails);
+    }
+
+    void Reset()
+    {
+        receiptDetailsToInsert.Clear();
+        receiptDetailsToUpdate.Clear();
+    }
+
+
+
+
+    private async void TransactionHelper(ReceiptDetails row)
+    {
+        row.TaxRate = taxCodesList.FirstOrDefault(tax => tax.Id == row.TaxCodeId)?.TaxRate ?? 0;
+        row.WTaxRate = wTaxCodesList.FirstOrDefault(tax => tax.Id == row.WTaxCode)?.Rate ?? 0;
+
+        ReceiptTransactionHelper.Compute(row);
+        // ConvertPackUOM(row);
+
+        if (row.Amount == 0)
+        {
+            await DeleteLogic(row, false);
+        }
+    }
+
+    public string ReceivedFrom;
+
+    //public string ReceivedFrom => paymentReceiptInfoList.Where(x => x.Id == receipts.PaymentReceiptInfoId).Select(x => x.Description).FirstOrDefault() ?? string.Empty;
+
+    public decimal TotalAmount => receiptDetailsList?.Where(x => x.ItemTypeCode != "D" && x.ItemTypeCode != "T").Sum(x => x.Amount) ?? 0.00m;
+    public decimal TotalAmountLocal => receiptDetailsList?.Where(x => x.ItemTypeCode != "D" && x.ItemTypeCode != "T").Sum(x => x.AmountLocal) ?? 0.00m;
+    //public decimal DiscountAmount => receiptDetailsList?.Where(x => x.ItemTypeCode != "D" && x.ItemTypeCode != "T").Sum(p => p.DiscountAmount) ?? 0.00m;
+    // public decimal DiscountAmountLocal => receiptDetailsList?.Where(x => x.ItemTypeCode != "D" && x.ItemTypeCode != "T").Sum(p => p.DiscountAmountLocal) ?? 0.00m;
+    public decimal NetAmount => receiptDetailsList?.Where(x => x.ItemTypeCode != "D" && x.ItemTypeCode != "T").Sum(p => p.NetAmount) ?? 0.00m;
+    public decimal NetAmountLocal => receiptDetailsList?.Where(x => x.ItemTypeCode != "D" && x.ItemTypeCode != "T").Sum(p => p.NetAmountLocal) ?? 0.00m;
+    public decimal TaxAmount => receiptDetailsList?.Where(x => x.ItemTypeCode != "D" && x.ItemTypeCode != "T").Sum(p => p.TaxAmount) ?? 0.00m;
+    public decimal TaxAmountLocal => receiptDetailsList?.Where(x => x.ItemTypeCode != "D" && x.ItemTypeCode != "T").Sum(p => p.TaxAmountLocal) ?? 0.00m;
+    public decimal SubAmount => receiptDetailsList?.Where(x => x.ItemTypeCode != "D" && x.ItemTypeCode != "T").Sum(p => p.SubAmount) ?? 0.00m;
+    public decimal SubAmountLocal => receiptDetailsList?.Where(x => x.ItemTypeCode != "D" && x.ItemTypeCode != "T").Sum(p => p.SubAmountLocal) ?? 0.00m;
+    public decimal TaxExclusiveAmount => receiptDetailsList?.Where(x => x.ItemTypeCode != "D" && x.ItemTypeCode != "T").Sum(p => p.TaxExclusiveAmount) ?? 0.00m;
+    public decimal TaxExclusiveAmountLocal => receiptDetailsList?.Where(x => x.ItemTypeCode != "D" && x.ItemTypeCode != "T").Sum(p => p.TaxExclusiveAmountLocal) ?? 0.00m;
+    public decimal WTaxAmount => receiptDetailsList?.Where(x => x.ItemTypeCode != "D" && x.ItemTypeCode != "T").Sum(p => p.WTaxAmount) ?? 0.00m;
+    public decimal WTaxAmountLocal => receiptDetailsList?.Where(x => x.ItemTypeCode != "D" && x.ItemTypeCode != "T").Sum(p => p.WTaxAmountLocal) ?? 0.00m;
+
+    public decimal DueAmount => (receipts?.NetTotalAmountLocal ?? 0m) - (receipts?.WTaxTotalAmountLocal ?? 0m);
+    // // protected decimal? TaxableLocal => quotationsDetailsList?.Where(p => p.ItemTypeCode != "T").Sum(p => p.TaxExclusiveAmountLocal) ?? 0.00m;
+    // protected decimal? TaxLocal => quotationsDetailsList?.Where(p => p.ItemTypeCode != "T").Sum(p => p.TaxAmountLocal) ?? 0.00m;
+
+    // public decimal TotalDebit => receiptDetailsList?.Sum(x => x.NetDebit) ?? 0.00m;
+    // public decimal TotalCredit => receiptDetailsList?.Sum(x => x.NetCredit) ?? 0.00m;
+
+    // public decimal TotalWTaxDebit => receiptDetailsList?.Sum(p => p.WTaxDebit) ?? 0.00m;
+    // public decimal TotalWTaxCredit => receiptDetailsList?.Sum(p => p.WTaxCredit) ?? 0.00m;
+
+    // public decimal Debit => TotalDebit - TotalWTaxDebit;
+    // public decimal Credit => TotalCredit - TotalWTaxCredit;
+    // public decimal Different => Debit - Credit;
+
+    private void LoadAllTaxTotalNet()
+    {
+
+
+        ///INCLUDE HERE THE TAX, WTAX, AMOUT, ALL DETAILS AMOUNT
+        var receiptDetail = receiptDetailsList;
+
+        receipts.TotalAmount = receiptDetail?.Sum(x => x.Amount) ?? 0.00m;
+        receipts.TotalAmountLocal = receiptDetail?.Sum(x => x.AmountLocal) ?? 0.00m;
+
+        receipts.NetTotalAmount = receiptDetail?.Sum(x => x.NetAmount) ?? 0.00m;
+        receipts.NetTotalAmountLocal = receiptDetail?.Sum(x => x.NetAmountLocal) ?? 0.00m;
+
+        receipts.TaxTotalAmount = receiptDetail?.Sum(x => x.TaxAmount) ?? 0.00m;
+        receipts.TaxTotalAmountLocal = receiptDetail?.Sum(x => x.TaxAmountLocal) ?? 0.00m;
+
+        receipts.SubtotalAmount = receiptDetail?.Sum(x => x.SubAmount) ?? 0.00m;
+        receipts.SubtotalAmountLocal = receiptDetail?.Sum(x => x.SubAmountLocal) ?? 0.00m;
+
+        receipts.TaxExclusiveTotalAmount = receiptDetail?.Sum(x => x.TaxExclusiveAmount) ?? 0.00m;
+        receipts.TaxExclusiveTotalAmountLocal = receiptDetail?.Sum(x => x.TaxExclusiveAmountLocal) ?? 0.00m;
+
+        receipts.WTaxTotalAmount = receiptDetail?.Sum(x => x.WTaxAmount) ?? 0.00m;
+        receipts.WTaxTotalAmountLocal = receiptDetail?.Sum(x => x.WTaxAmountLocal) ?? 0.00m;
+
+    }
+
+    protected void RowRender(RowRenderEventArgs<ReceiptDetails> args)
+    {
+        LoadAllTaxTotalNet();
+
+    }
+
+
+    protected async void OpenDescriptionDialog()
+    {
+        var result = await DialogService.OpenAsync<DescriptionsDialog>("Descriptions",
+            new Dictionary<string, object> { { "OwnerCode", descriptionFilter.OwnerCode } },
+            new DialogOptions() { Width = "60rem", Height = "54rem", Resizable = true, Draggable = true });
+        if (result == true)
+        {
+            await GetDescriptions();
+            StateHasChanged();
+        }
+    }
+
+
+    protected BankCharges bankCharges { get; set; } = new BankCharges();
+
+    protected async Task GetBankChargesById()
+    {
+        var data = await bankChargesServices.GetBankChargesById(receipts.BankCharges.ToString());
+        bankCharges = data is not null ? data : new BankCharges();
+    }
+
+    protected async void OpenBankChargesDialog()
+    {
+        var result = await DialogService.OpenAsync<BankChargesDialog>("Bank Charges Info",
+            new Dictionary<string, object> { { "BankCharges", bankCharges } },
+            new DialogOptions() { Width = "40rem", Height = "auto", Resizable = true, Draggable = true });
+        if (result is BankCharges updatedBankCharges)
+        {
+            bankCharges = updatedBankCharges;
+
+            StateHasChanged();
+        }
+    }
+
+}

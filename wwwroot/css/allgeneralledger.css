@@ -1,0 +1,1280 @@
+﻿/* ==========================================================================
+   AccuBook shared form / document page styles   (wwwroot/css/ab-forms.css)
+
+   - Lahat ng kulay ay galing sa Radzen theme variables, kaya sumusunod
+     sa napiling theme.
+   - Gamitin: lagyan ng class="ab-form" ang pinakalabas na RadzenStack ng page,
+     tapos gamitin ang mga ab-* class sa loob.
+   - May "legacy" aliases (.sr, .sr-*) para gumana pa rin ang mga naunang page
+     (System Role, System User, Customers, GL Account) kapag inalis na ang
+     inline <style> nila.
+   ========================================================================== */
+
+/* ---------- Tokens ---------- */
+.ab-form,
+.sr {
+    --ab-line: var(--rz-base-300, rgba(128, 128, 128, 0.3));
+    --ab-muted: var(--rz-text-secondary-color);
+    --ab-surface: var(--rz-base-background-color, #fff);
+    /* legacy names */
+    --sr-line: var(--ab-line);
+    --sr-muted: var(--ab-muted);
+    --sr-surface: var(--ab-surface);
+}
+
+    /* ---------- Card ---------- */
+    .ab-form .ab-card,
+    .sr .sr-card {
+        padding: 1.25rem 1.4rem;
+        border: 1px solid var(--ab-line);
+        border-radius: 10px;
+        box-shadow: none;
+    }
+
+.ab-card-head,
+.sr-card-head {
+    display: flex;
+    align-items: center;
+    gap: 0.85rem;
+    margin-bottom: 1.1rem;
+}
+
+.ab-card-icon,
+.sr-card-icon {
+    width: 40px;
+    height: 40px;
+    flex: none;
+    display: grid;
+    place-items: center;
+    border-radius: 10px;
+    color: var(--rz-primary);
+    background: color-mix(in srgb, var(--rz-primary) 14%, transparent);
+}
+
+.ab-card-title,
+.sr-card-title {
+    flex: 1;
+    min-width: 0;
+}
+
+    .ab-card-title h3,
+    .sr-card-title h3 {
+        margin: 0;
+        font-size: 1.1rem;
+        font-weight: 700;
+    }
+
+    .ab-card-title p,
+    .sr-card-title p {
+        margin: 0.1rem 0 0;
+        color: var(--ab-muted);
+        font-size: 0.9rem;
+    }
+
+/* ---------- Sub-section heading (inside a card or tab) ---------- */
+.ab-sub,
+.sr-sub {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+    padding-bottom: 0.55rem;
+    border-bottom: 1px solid var(--ab-line);
+    font-weight: 700;
+}
+
+    .ab-sub .rzi,
+    .sr-sub .rzi {
+        color: var(--rz-primary);
+        font-size: 1.2rem;
+    }
+
+/* ---------- Small field label (for radios, etc.) ---------- */
+.ab-label,
+.sr-label {
+    font-weight: 700;
+    margin-bottom: 0.5rem;
+}
+
+/* ---------- Option tile (switch / checkbox + title + hint) ---------- */
+.ab-option,
+.sr-option {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.85rem;
+    padding: 0.9rem 1rem;
+    border: 1px solid var(--ab-line);
+    border-radius: 8px;
+    background: var(--ab-surface);
+}
+
+    .ab-option.is-on,
+    .sr-option.is-on {
+        border-color: var(--rz-primary);
+        background: color-mix(in srgb, var(--rz-primary) 6%, var(--ab-surface));
+    }
+
+    /* para sa "Cancelled" at iba pang babala */
+    .ab-option.is-danger {
+        border-color: var(--rz-danger);
+        background: color-mix(in srgb, var(--rz-danger) 7%, var(--ab-surface));
+    }
+
+.ab-option-grow,
+.sr-option-grow {
+    flex: 1;
+    min-width: 0;
+}
+
+.ab-option-title,
+.sr-option-title {
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.ab-option-hint,
+.sr-option-hint {
+    color: var(--ab-muted);
+    font-size: 0.88rem;
+}
+
+/* ---------- Empty state ---------- */
+.ab-empty,
+.sr-empty {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.6rem;
+    min-height: 140px;
+    margin-top: 0.5rem;
+    padding: 1.5rem;
+    color: var(--ab-muted);
+    border: 1px dashed var(--ab-line);
+    border-radius: 8px;
+}
+
+/* ---------- Document header (title + code + status + actions) ---------- */
+.ab-doc-head {
+    display: flex;
+    align-items: center;
+    gap: 0.85rem;
+    flex-wrap: wrap;
+}
+
+.ab-doc-title h2 {
+    margin: 0;
+    font-size: 1.35rem;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+}
+
+.ab-doc-code {
+    padding: 0.15rem 0.65rem;
+    border-radius: 6px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    color: var(--rz-primary);
+    background: color-mix(in srgb, var(--rz-primary) 12%, transparent);
+}
+
+.ab-spacer {
+    flex: 1;
+}
+
+/* ---------- Totals ---------- */
+.ab-totals-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    padding: 0.55rem 0;
+    border-bottom: 1px dashed var(--ab-line);
+    font-variant-numeric: tabular-nums;
+}
+
+    .ab-totals-row span {
+        color: var(--ab-muted);
+    }
+
+    .ab-totals-row strong {
+        font-size: 1.1rem;
+    }
+
+    .ab-totals-row.is-main {
+        margin-top: 0.35rem;
+        padding-top: 0.75rem;
+        border-bottom: 0;
+        border-top: 2px solid var(--ab-line);
+    }
+
+        .ab-totals-row.is-main span {
+            color: inherit;
+            font-weight: 700;
+        }
+
+        .ab-totals-row.is-main strong {
+            font-size: 1.6rem;
+            color: var(--rz-primary);
+        }
+
+/* ---------- Status chip (Balanced / Out of balance, etc.) ---------- */
+.ab-status-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.2rem 0.75rem;
+    border-radius: 999px;
+    font-size: 0.88rem;
+    font-weight: 600;
+}
+
+    .ab-status-chip.is-ok {
+        color: var(--rz-success);
+        background: color-mix(in srgb, var(--rz-success) 14%, transparent);
+    }
+
+    .ab-status-chip.is-bad {
+        color: var(--rz-danger);
+        background: color-mix(in srgb, var(--rz-danger) 14%, transparent);
+    }
+
+/* ---------- Popup (document number format picker) ---------- */
+.ab-popup {
+    display: none;
+    position: absolute;
+    overflow: hidden;
+    height: 160px;
+    width: 300px;
+    border: var(--rz-panel-border);
+    background-color: var(--rz-panel-background-color);
+    box-shadow: var(--rz-panel-shadow);
+    border-radius: var(--rz-border-radius);
+}
+
+/* ---------- Small screens ---------- */
+@media (max-width: 768px) {
+    .ab-form .ab-card,
+    .sr .sr-card {
+        padding: 1rem;
+    }
+}
+
+
+
+
+
+
+
+
+/* ---------- JOURNAL AND RECEIPT ---------- */
+
+
+
+
+
+/* ==========================================================================
+   AccuBook shared form / document page styles   (wwwroot/css/ab-forms.css)
+
+   - Lahat ng kulay ay galing sa Radzen theme variables, kaya sumusunod
+     sa napiling theme.
+   - Gamitin: lagyan ng class="gl-form" ang pinakalabas na RadzenStack ng page,
+     tapos gamitin ang mga gl-* class sa loob.
+   - May "legacy" aliases (.sr, .sr-*) para gumana pa rin ang mga naunang page
+     (System Role, System User, Customers, GL Account).
+
+   Mga bahagi:
+     1. Tokens, card, option, empty state (base)
+     2. Document header, totals, status chip, popup
+     3. Compact document layout (gl-fit: fixed na taas, grid ang nagsi-scroll)
+     4. Grouped header + professional summary
+     5. Receipt Voucher: natural na taas (gl-flow), tabs, details grid,
+        sticky summary
+   ========================================================================== */
+
+/* ==========================================================================
+   1. BASE
+   ========================================================================== */
+
+/* ---------- Tokens ---------- */
+.gl-form,
+.sr {
+    --gl-line: var(--rz-base-300, rgba(128, 128, 128, 0.3));
+    --gl-muted: var(--rz-text-secondary-color);
+    --gl-surface: var(--rz-base-background-color, #fff);
+    /* legacy names */
+    --sr-line: var(--gl-line);
+    --sr-muted: var(--gl-muted);
+    --sr-surface: var(--gl-surface);
+}
+
+    /* ---------- Card ---------- */
+    .gl-form .gl-card,
+    .sr .sr-card {
+        padding: 1.25rem 1.4rem;
+        border: 1px solid var(--gl-line);
+        border-radius: 10px;
+        box-shadow: none;
+    }
+
+        .gl-form .gl-card.is-compact {
+            padding: 0.7rem 1rem;
+        }
+
+        .gl-form .gl-card.gl-tight {
+            padding: 0.75rem 1rem;
+        }
+
+.gl-card-head,
+.sr-card-head {
+    display: flex;
+    align-items: center;
+    gap: 0.85rem;
+    margin-bottom: 1.1rem;
+}
+
+    .gl-card-head.is-sm {
+        gap: 0.6rem;
+        margin-bottom: 0.5rem;
+    }
+
+        .gl-card-head.is-sm h3 {
+            font-size: 1rem;
+        }
+
+.gl-card-icon,
+.sr-card-icon {
+    width: 40px;
+    height: 40px;
+    flex: none;
+    display: grid;
+    place-items: center;
+    border-radius: 10px;
+    color: var(--rz-primary);
+    background: color-mix(in srgb, var(--rz-primary) 14%, transparent);
+}
+
+    .gl-card-icon.is-sm,
+    .gl-card-icon.gl-sm {
+        width: 32px;
+        height: 32px;
+        border-radius: 8px;
+    }
+
+.gl-card-title,
+.sr-card-title {
+    flex: 1;
+    min-width: 0;
+}
+
+    .gl-card-title h3,
+    .sr-card-title h3 {
+        margin: 0;
+        font-size: 1.1rem;
+        font-weight: 700;
+    }
+
+    .gl-card-title p,
+    .sr-card-title p {
+        margin: 0.1rem 0 0;
+        color: var(--gl-muted);
+        font-size: 0.9rem;
+    }
+
+/* ---------- Sub-section heading ---------- */
+.gl-sub,
+.sr-sub {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+    padding-bottom: 0.55rem;
+    border-bottom: 1px solid var(--gl-line);
+    font-weight: 700;
+}
+
+    .gl-sub .rzi,
+    .sr-sub .rzi {
+        color: var(--rz-primary);
+        font-size: 1.2rem;
+    }
+
+/* ---------- Small field label ---------- */
+.gl-label,
+.sr-label {
+    font-weight: 700;
+    margin-bottom: 0.5rem;
+}
+
+/* ---------- Option tile (switch / checkbox + title + hint) ---------- */
+.gl-option,
+.sr-option {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.85rem;
+    padding: 0.9rem 1rem;
+    border: 1px solid var(--gl-line);
+    border-radius: 8px;
+    background: var(--gl-surface);
+}
+
+    .gl-option.is-on,
+    .sr-option.is-on {
+        border-color: var(--rz-primary);
+        background: color-mix(in srgb, var(--rz-primary) 6%, var(--gl-surface));
+    }
+
+    .gl-option.is-danger {
+        border-color: var(--rz-danger);
+        background: color-mix(in srgb, var(--rz-danger) 7%, var(--gl-surface));
+    }
+
+.gl-option-grow,
+.sr-option-grow {
+    flex: 1;
+    min-width: 0;
+}
+
+.gl-option-title,
+.sr-option-title {
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.gl-option-hint,
+.sr-option-hint {
+    color: var(--gl-muted);
+    font-size: 0.88rem;
+}
+
+/* ---------- Empty state ---------- */
+.gl-empty,
+.sr-empty {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.6rem;
+    min-height: 140px;
+    margin-top: 0.5rem;
+    padding: 1.5rem;
+    color: var(--gl-muted);
+    border: 1px dashed var(--gl-line);
+    border-radius: 8px;
+}
+
+/* ==========================================================================
+   2. DOCUMENT HEADER, TOTALS, CHIP, POPUP
+   ========================================================================== */
+
+.gl-doc-head {
+    display: flex;
+    align-items: center;
+    gap: 0.85rem;
+    flex-wrap: wrap;
+}
+
+.gl-card.is-compact .gl-doc-head {
+    margin-bottom: 0.6rem;
+}
+
+.gl-doc-title h2 {
+    margin: 0;
+    font-size: 1.35rem;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+}
+
+.gl-card.is-compact .gl-doc-title h2 {
+    font-size: 1.15rem;
+}
+
+.gl-doc-code {
+    padding: 0.15rem 0.65rem;
+    border-radius: 6px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    color: var(--rz-primary);
+    background: color-mix(in srgb, var(--rz-primary) 12%, transparent);
+}
+
+.gl-spacer {
+    flex: 1;
+}
+
+/* ---------- Totals (stacked rows) ---------- */
+.gl-totals-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    padding: 0.55rem 0;
+    border-bottom: 1px dashed var(--gl-line);
+    font-variant-numeric: tabular-nums;
+}
+
+    .gl-totals-row span {
+        color: var(--gl-muted);
+    }
+
+    .gl-totals-row strong {
+        font-size: 1.1rem;
+    }
+
+    .gl-totals-row.is-main {
+        margin-top: 0.35rem;
+        padding-top: 0.75rem;
+        border-bottom: 0;
+        border-top: 2px solid var(--gl-line);
+    }
+
+        .gl-totals-row.is-main span {
+            color: inherit;
+            font-weight: 700;
+        }
+
+        .gl-totals-row.is-main strong {
+            font-size: 1.6rem;
+            color: var(--rz-primary);
+        }
+
+/* ---------- Status chip ---------- */
+.gl-status-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.2rem 0.75rem;
+    border-radius: 999px;
+    font-size: 0.88rem;
+    font-weight: 600;
+}
+
+    .gl-status-chip.is-ok {
+        color: var(--rz-success);
+        background: color-mix(in srgb, var(--rz-success) 14%, transparent);
+    }
+
+    .gl-status-chip.is-bad {
+        color: var(--rz-danger);
+        background: color-mix(in srgb, var(--rz-danger) 14%, transparent);
+    }
+
+/* ---------- Popup (document number format picker) ---------- */
+.gl-popup {
+    display: none;
+    position: absolute;
+    overflow: hidden;
+    height: 160px;
+    width: 300px;
+    border: var(--rz-panel-border);
+    background-color: var(--rz-panel-background-color);
+    box-shadow: var(--rz-panel-shadow);
+    border-radius: var(--rz-border-radius);
+}
+
+/* ---------- Search box na may icon ---------- */
+.gl-search {
+    position: relative;
+    flex: 0 1 22rem;
+    min-width: 12rem;
+}
+
+    .gl-search > .rzi {
+        position: absolute;
+        left: 0.6rem;
+        top: 50%;
+        transform: translateY(-50%);
+        color: var(--gl-muted);
+        pointer-events: none;
+        z-index: 1;
+    }
+
+    .gl-search .rz-textbox {
+        width: 100%;
+        padding-left: 2.1rem;
+    }
+
+/* ---------- Maliit na bilang/pill ---------- */
+.gl-count {
+    padding: 0.1rem 0.65rem;
+    border: 1px solid var(--gl-line);
+    border-radius: 999px;
+    color: var(--gl-muted);
+    font-size: 0.85rem;
+    font-weight: 600;
+}
+
+/* ==========================================================================
+   3. COMPACT DOCUMENT LAYOUT (gl-fit)
+      Fixed na taas ng screen, ang grid lang ang nagsi-scroll.
+      Para sa mga page na gusto pa ng ganitong behavior.
+   ========================================================================== */
+
+.gl-fit {
+    --gl-fit-offset: 9rem;
+    height: calc(100vh - var(--gl-fit-offset));
+    min-height: 540px;
+}
+
+    .gl-fit > * {
+        flex-shrink: 0;
+    }
+
+    .gl-fit > .gl-grid-card {
+        flex: 1 1 0;
+        min-height: 240px;
+        display: flex;
+        flex-direction: column;
+    }
+
+.gl-grid-wrap {
+    flex: 1 1 0;
+    min-height: 0;
+}
+
+/* title strip sa loob ng card */
+.gl-head-strip {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.65rem;
+    margin-bottom: 0.75rem;
+}
+
+.gl-head-title {
+    font-size: 1.1rem;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+}
+
+.gl-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 0.9rem;
+}
+
+    .gl-toggle .rz-label {
+        font-weight: 600;
+        cursor: pointer;
+    }
+
+    .gl-toggle.is-danger {
+        color: var(--rz-danger);
+    }
+
+/* detail card (lumang pattern) */
+.gl-form .gl-details {
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 0;
+    min-height: 240px;
+}
+
+.gl-details .gl-head-strip {
+    margin-bottom: 0.5rem;
+}
+
+.gl-details-body {
+    flex: 1 1 auto;
+    min-height: 0;
+}
+
+    .gl-details-body > .rz-datatable {
+        height: 100%;
+    }
+
+.gl-grid .rz-cell-data {
+    white-space: normal;
+    overflow: visible;
+    text-overflow: clip;
+    word-break: break-word;
+}
+
+/* footer: notes + totals */
+.gl-footer {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    flex-wrap: wrap;
+}
+
+.gl-footer-notes {
+    flex: 1 1 320px;
+    min-width: 0;
+}
+
+.gl-stats {
+    display: flex;
+    align-items: center;
+    gap: 1.25rem;
+    margin-left: auto;
+    font-variant-numeric: tabular-nums;
+}
+
+.gl-stat {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    line-height: 1.2;
+}
+
+    .gl-stat span {
+        font-size: 0.8rem;
+        color: var(--gl-muted);
+    }
+
+    .gl-stat strong {
+        font-size: 1.05rem;
+    }
+
+    .gl-stat.is-main strong {
+        font-size: 1.35rem;
+        color: var(--rz-primary);
+    }
+
+/* ---------- 12-column field grid ---------- */
+.gl-fields {
+    display: grid;
+    grid-template-columns: repeat(12, minmax(0, 1fr));
+    gap: 0.5rem 0.75rem;
+    align-items: start;
+}
+
+.gl-field {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+    min-width: 0;
+}
+
+.gl-flabel {
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: var(--gl-muted);
+}
+
+.gl-field-row {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+}
+
+    .gl-field-row > :first-child {
+        flex: 1;
+        min-width: 0;
+    }
+
+.gl-fields > .gl-c1 {
+    grid-column: span 1;
+}
+
+.gl-fields > .gl-c2 {
+    grid-column: span 2;
+}
+
+.gl-fields > .gl-c3 {
+    grid-column: span 3;
+}
+
+.gl-fields > .gl-c4 {
+    grid-column: span 4;
+}
+
+.gl-fields > .gl-c5 {
+    grid-column: span 5;
+}
+
+.gl-fields > .gl-c6 {
+    grid-column: span 6;
+}
+
+.gl-fields > .gl-c8 {
+    grid-column: span 8;
+}
+
+.gl-fields > .gl-c12 {
+    grid-column: span 12;
+}
+
+/* ---------- Switch options ---------- */
+.gl-opts {
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+    padding-top: 0.15rem;
+}
+
+.gl-opt {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.9rem;
+    font-weight: 600;
+}
+
+    .gl-opt.is-danger {
+        color: var(--rz-danger);
+    }
+
+/* ---------- Detail grid: kita ang buong laman ng cell ---------- */
+.gl-detail-grid .rz-cell-data,
+.gl-detail-grid .rz-column-title-content {
+    white-space: normal;
+    overflow: visible;
+    text-overflow: clip;
+    overflow-wrap: anywhere;
+}
+
+/* ---------- Slim totals bar ---------- */
+.gl-totalbar {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 1.75rem;
+    flex-wrap: wrap;
+    padding: 0.5rem 1rem;
+    border: 1px solid var(--gl-line);
+    border-radius: 10px;
+    background: var(--gl-surface);
+    font-variant-numeric: tabular-nums;
+}
+
+    .gl-totalbar .gl-status-chip {
+        margin-right: auto;
+    }
+
+.gl-total {
+    display: flex;
+    align-items: baseline;
+    gap: 0.5rem;
+}
+
+    .gl-total span {
+        color: var(--gl-muted);
+        font-size: 0.88rem;
+    }
+
+    .gl-total strong {
+        font-size: 1.05rem;
+    }
+
+    .gl-total.is-main strong {
+        font-size: 1.35rem;
+        color: var(--rz-primary);
+    }
+
+/* ==========================================================================
+   4. GROUPED HEADER + PROFESSIONAL SUMMARY
+   ========================================================================== */
+
+.gl-groups {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.gl-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    min-width: 0;
+    padding: 0 1.1rem;
+}
+
+    .gl-group:first-child {
+        padding-left: 0;
+    }
+
+    .gl-group:last-child {
+        padding-right: 0;
+    }
+
+    .gl-group + .gl-group {
+        border-left: 1px solid var(--gl-line);
+    }
+
+.gl-group-title {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--gl-muted);
+}
+
+    .gl-group-title .rzi {
+        font-size: 1rem;
+        color: var(--rz-primary);
+    }
+
+.gl-pair {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.55rem 0.65rem;
+}
+
+    .gl-pair.is-wide-left {
+        grid-template-columns: 3fr 2fr;
+    }
+
+    .gl-pair > .gl-field {
+        min-width: 0;
+    }
+
+.gl-notes-row {
+    margin-top: 0.65rem;
+    padding-top: 0.65rem;
+    border-top: 1px dashed var(--gl-line);
+}
+
+.gl-opts-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.35rem 1.1rem;
+    min-height: var(--rz-input-height, 2.25rem);
+}
+
+/* sakto ang taas ng icon button sa katabing input */
+.gl-icon-btn.rz-button {
+    flex: none;
+    width: var(--rz-input-height, 2.25rem);
+    min-width: var(--rz-input-height, 2.25rem);
+    height: var(--rz-input-height, 2.25rem);
+    padding: 0;
+}
+
+/* Dropdown na may editable text sa loob: walang "input sa loob ng input" */
+.rz-dropdown.gl-edit-dd {
+    height: var(--rz-input-height, 2.25rem);
+}
+
+    .rz-dropdown.gl-edit-dd .rz-dropdown-label {
+        display: flex;
+        align-items: center;
+        height: 100%;
+        padding: 0;
+    }
+
+        .rz-dropdown.gl-edit-dd .rz-dropdown-label input.rz-textbox {
+            width: 100%;
+            height: 100%;
+            padding: 0 0.6rem;
+            border: 0;
+            box-shadow: none;
+            background: transparent;
+        }
+
+/* ---------- Professional summary (totals) ---------- */
+.gl-summary {
+    display: flex;
+    align-items: stretch;
+    justify-content: flex-end;
+    border: 1px solid var(--gl-line);
+    border-radius: 10px;
+    background: var(--gl-surface);
+    overflow: hidden;
+    font-variant-numeric: tabular-nums;
+
+}
+
+.gl-summary-note {
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+    margin-right: auto;
+    padding: 0 1rem;
+    color: var(--gl-muted);
+    font-size: 0.85rem;
+}
+
+    .gl-summary-note .rzi {
+        font-size: 1rem;
+    }
+
+    .gl-summary-note .gl-status-chip {
+        margin: 0;
+    }
+
+.gl-sum-item {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    justify-content: center;
+    min-width: 10.5rem;
+    padding: 0.5rem 1.4rem;
+    border-left: 1px solid var(--gl-line);
+}
+
+.gl-sum-label {
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--gl-muted);
+}
+
+.gl-sum-value {
+    font-size: 1.15rem;
+    font-weight: 600;
+    line-height: 1.3;
+}
+
+    .gl-sum-value small {
+        margin-right: 0.35rem;
+        font-size: 0.72rem;
+        font-weight: 600;
+        letter-spacing: 0.04em;
+        color: var(--gl-muted);
+    }
+
+/* ang pinakamahalagang numero (Due Amount / Difference) */
+.gl-sum-item.is-main {
+    min-width: 14rem;
+    background: color-mix(in srgb, var(--rz-primary) 10%, var(--gl-surface));
+    box-shadow: inset 3px 0 0 var(--rz-primary);
+}
+
+    .gl-sum-item.is-main .gl-sum-label,
+    .gl-sum-item.is-main .gl-sum-value {
+        color: var(--rz-primary);
+    }
+
+    .gl-sum-item.is-main .gl-sum-value {
+        font-size: 1.55rem;
+        font-weight: 700;
+    }
+
+        .gl-sum-item.is-main .gl-sum-value small {
+            color: inherit;
+            opacity: 0.8;
+        }
+
+    /* hindi balanse (Journal) */
+    .gl-sum-item.is-main.is-bad {
+        background: color-mix(in srgb, var(--rz-danger) 9%, var(--gl-surface));
+        box-shadow: inset 3px 0 0 var(--rz-danger);
+    }
+
+        .gl-sum-item.is-main.is-bad .gl-sum-label,
+        .gl-sum-item.is-main.is-bad .gl-sum-value {
+            color: var(--rz-danger);
+        }
+
+
+
+
+
+/* ==========================================================================
+   5. RECEIPT VOUCHER: natural na taas, tabs, details grid, sticky summary
+   ========================================================================== */
+
+/* ---------- Page: walang fixed height, ang buong page ang nagsi-scroll ---------- */
+.gl-flow {
+    height: auto;
+    min-height: 0;
+}
+
+    .gl-flow > * {
+        flex-shrink: 0;
+    }
+
+/* ---------- Tabs (Details / Notes) ---------- */
+.gl-grid-card .gl-tabs .rz-tabview-panels {
+    padding: 0.6rem 0 0;
+}
+
+.gl-tab-body {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.gl-tab-toolbar {
+    display: flex;
+    justify-content: flex-end;
+}
+
+.gl-notes-area.rz-textarea,
+textarea.gl-notes-area {
+    min-height: 12rem;
+    resize: vertical;
+}
+
+/* ---------- Details grid: lumalaki ayon sa dami ng row ---------- */
+.gl-flow .gl-grid-wrap {
+    flex: none;
+    border: 1px solid var(--gl-line);
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.gl-flow .gl-detail-grid {
+    height: auto;
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+}
+
+/* header */
+.gl-detail-grid .rz-grid-table thead th {
+    background: color-mix(in srgb, var(--rz-primary) 8%, var(--gl-surface));
+    border-bottom: 2px solid color-mix(in srgb, var(--rz-primary) 35%, var(--gl-line));
+}
+
+.gl-detail-grid .rz-column-title-content {
+    font-size: 0.74rem;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+    color: var(--gl-muted);
+}
+
+/* rows */
+.gl-detail-grid .rz-grid-table tbody td {
+    border-bottom: 1px solid var(--gl-line);
+    padding-top: 0.45rem;
+    padding-bottom: 0.45rem;
+}
+
+.gl-detail-grid .rz-grid-table tbody tr:hover > td {
+    background: color-mix(in srgb, var(--rz-primary) 6%, var(--gl-surface));
+}
+
+.gl-detail-grid .rz-grid-table tbody tr:last-child > td {
+    border-bottom: 0;
+}
+
+.gl-detail-grid .rz-cell-data {
+    font-variant-numeric: tabular-nums;
+}
+
+/* row na ine-edit */
+.gl-detail-grid .rz-grid-table tbody tr.rz-datatable-edit > td {
+    background: color-mix(in srgb, var(--rz-primary) 9%, var(--gl-surface));
+}
+
+/* empty state */
+.gl-detail-grid .rz-datatable-emptymessage-row td,
+.gl-detail-grid .rz-grid-table .rz-datatable-emptymessage td {
+    padding: 2rem 1rem;
+    text-align: center;
+    color: var(--gl-muted);
+    font-style: italic;
+}
+
+/* ---------- Summary: maliit, at nakadikit sa baba ng screen ---------- */
+.gl-summary.is-sticky {
+    position: sticky;
+    bottom: 0;
+    z-index: 5;
+    box-shadow: 0 -6px 14px -8px rgba(0, 0, 0, 0.25);
+}
+
+.gl-summary.is-sm .gl-summary-note {
+    font-size: 0.78rem;
+    padding: 0 0.85rem;
+}
+
+.gl-summary.is-sm .gl-sum-item {
+    min-width: 7.5rem;
+    padding: 0.3rem 1rem;
+}
+
+.gl-summary.is-sm .gl-sum-label {
+    font-size: 0.62rem;
+}
+
+.gl-summary.is-sm .gl-sum-value {
+    font-size: 0.92rem;
+    line-height: 1.25;
+}
+
+.gl-summary.is-sm .gl-sum-item.is-main {
+    min-width: 10rem;
+}
+
+    .gl-summary.is-sm .gl-sum-item.is-main .gl-sum-value {
+        font-size: 1.15rem;
+    }
+
+.gl-summary.is-sm .gl-sum-value small {
+    font-size: 0.62rem;
+}
+
+/* ==========================================================================
+   RESPONSIVE
+   ========================================================================== */
+
+@media (max-width: 1200px) {
+    .gl-fields > .gl-field {
+        grid-column: span 4;
+    }
+}
+
+@media (max-width: 1100px) {
+    .gl-groups {
+        grid-template-columns: 1fr;
+    }
+
+    .gl-group {
+        padding: 0 0 0.9rem;
+    }
+
+        .gl-group:last-child {
+            padding-bottom: 0;
+        }
+
+        .gl-group + .gl-group {
+            border-left: 0;
+            border-top: 1px solid var(--gl-line);
+            padding-top: 0.9rem;
+        }
+}
+
+@media (max-width: 991px) {
+    .gl-fit {
+        height: auto;
+        min-height: 0;
+    }
+
+    .gl-form .gl-details {
+        flex: none;
+    }
+
+    .gl-details-body {
+        height: 55vh;
+    }
+}
+
+@media (max-width: 800px) {
+    .gl-fields > .gl-field {
+        grid-column: span 12;
+    }
+
+    .gl-fit > .gl-grid-card {
+        min-height: 460px;
+    }
+
+    .gl-summary {
+        flex-wrap: wrap;
+    }
+
+    .gl-summary-note {
+        flex: 1 1 100%;
+        padding: 0.5rem 1rem;
+    }
+
+    .gl-sum-item {
+        flex: 1 1 45%;
+        border-top: 1px solid var(--gl-line);
+    }
+}
+
+@media (max-width: 768px) {
+    .gl-form .gl-card,
+    .sr .sr-card {
+        padding: 1rem;
+    }
+
+        .gl-form .gl-card.is-compact {
+            padding: 0.7rem 1rem;
+        }
+}

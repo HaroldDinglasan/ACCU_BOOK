@@ -1,0 +1,38 @@
+-- Create SystemRole table
+CREATE TABLE SystemRole (
+    Oid UNIQUEIDENTIFIER NOT NULL DEFAULT NEWID(),   -- Primary Key
+    OptimisticLockField INT NOT NULL DEFAULT 0,      -- Concurrency control
+    GCRecord INT NULL,                               -- Soft delete or archival
+    ObjectType INT NULL,                         -- Type identifier
+    Name NVARCHAR(150) NOT NULL,                     -- Role name
+    IsAdministrative BIT NOT NULL DEFAULT 0,         -- Admin flag
+    CanEditModel BIT NOT NULL DEFAULT 0,             -- Can edit system model
+    Description NVARCHAR(500) NULL,                  -- Description
+    HiddenNavigationItems NVARCHAR(MAX) NULL,        -- Hidden nav items
+    AllowPrintControl BIT NOT NULL DEFAULT 0,        -- Print control
+    ModifyLayout BIT NOT NULL DEFAULT 0,             -- Layout modification rights
+    NeedChangePasswordPeriodically BIT NOT NULL DEFAULT 0, -- Force password change
+    ChangePasswordInDays INT NULL                  -- Interval in days
+    
+);
+
+-- Insert sample role
+INSERT INTO SystemRole (
+    OptimisticLockField, GCRecord, ObjectType, Name, IsAdministrative,
+    CanEditModel, Description, HiddenNavigationItems, AllowPrintControl,
+    ModifyLayout, NeedChangePasswordPeriodically, ChangePasswordInDays
+)
+VALUES (
+    7,                 -- OptimisticLockField
+    NULL,              -- GCRecord
+    NULL,                -- ObjectType
+    'ACCOUNTING MANAGER', -- Name
+    0,                 -- IsAdministrative (FALSE)
+    1,                 -- CanEditModel (TRUE)
+    'ACCOUNTING MANAGER', -- Description
+    NULL,              -- HiddenNavigationItems
+    1,                 -- AllowPrintControl (TRUE)
+    1,                 -- ModifyLayout (TRUE)
+    1,                 -- NeedChangePasswordPeriodically (TRUE)
+    NULL               -- ChangePasswordInDays
+);

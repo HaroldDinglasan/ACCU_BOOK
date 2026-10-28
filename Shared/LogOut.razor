@@ -1,0 +1,26 @@
+@page "/logout"
+@layout LoginLayout
+@inject IAuthenticationService authService
+@inject NavigationManager navigationManager
+
+
+@* <RadzenStack AlignItems="AlignItems.Center">
+    <RadzenText TextStyle="TextStyle.H4" class="rz-text-center rz-mb-4">
+        Logging out...
+    </RadzenText>
+    <div class="rz-text-center">
+        <RadzenProgressBarCircular ShowValue="false" Mode="ProgressBarMode.Indeterminate" />
+    </div>
+</RadzenStack> *@
+
+<Spinner />
+
+@code {
+    protected override async Task OnInitializedAsync()
+    {
+        // Automatically logout when this page loads
+        // await AuthService.LogoutAsync();
+        await authService.LogOut();
+         navigationManager.NavigateTo("/login");
+    }
+}

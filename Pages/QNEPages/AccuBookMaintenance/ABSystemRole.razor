@@ -1,0 +1,494 @@
+﻿@page "/ABSystemRole"
+@page "/ABSystemRole/Edit/{id:guid}"
+@attribute [Authorize(Roles = "Admin")]
+
+<RadzenTemplateForm TItem="SystemRole" Data="systemRole" Submit="@OnSubmit">
+    <RadzenStack Gap="1rem" class="sr">
+
+        <!-- TOOLBAR ACTION CARD (hindi ginalaw) -->
+        <CrudToolbar Title="@(Id.HasValue ? "Edit System Role" : "Create System Role")"
+                     Subtitle="Manage system role information"
+                     Icon="badge"
+                     ButtonSize="@smallbtn"
+                     SaveText="Save"
+                     SaveBusy="@busy"
+                     SaveDisabled="@btnDiseabled"
+                     BackText="Back to Search"
+                     OnBackSearch="@Navigate">
+        </CrudToolbar>
+
+        <RadzenRow Gap="1rem">
+
+            <!-- Role information -->
+            <RadzenColumn Size="12" SizeLG="7">
+                <RadzenCard class="sr-card">
+                    <div class="sr-card-head">
+                        <div class="sr-card-icon"><RadzenIcon Icon="badge" /></div>
+                        <div class="sr-card-title">
+                            <h3>Role information</h3>
+                            <p>Give this role a clear name and description.</p>
+                        </div>
+                        @if (systemRole.IsAdministrative)
+                        {
+                            <RadzenBadge BadgeStyle="BadgeStyle.Primary" Text="Administrative" IsPill="true" />
+                        }
+                    </div>
+
+                    <RadzenStack Gap="1rem">
+                        <RadzenFormField Text="Name" AllowFloatingLabel="false" Style="width: 100%;">
+                            <ChildContent>
+                                <RadzenTextBox Name="Name" Placeholder="e.g. Accountant" @bind-Value="@systemRole.Name" Style="width: 100%;" />
+                            </ChildContent>
+                            <Helper>
+                                <RadzenRequiredValidator Component="Name" Text="*Name Required." />
+                            </Helper>
+                        </RadzenFormField>
+
+                        <RadzenFormField Text="Description" AllowFloatingLabel="false" Style="width: 100%;">
+                            <ChildContent>
+                                <RadzenTextArea Name="Description" Rows="3" Placeholder="What is this role for?" @bind-Value="@systemRole.Description" Style="width: 100%;" />
+                            </ChildContent>
+                        </RadzenFormField>
+                    </RadzenStack>
+                </RadzenCard>
+            </RadzenColumn>
+
+            <!-- Role settings -->
+            <RadzenColumn Size="12" SizeLG="5">
+                <RadzenCard class="sr-card">
+                    <div class="sr-card-head">
+                        <div class="sr-card-icon"><RadzenIcon Icon="tune" /></div>
+                        <div class="sr-card-title">
+                            <h3>Role settings</h3>
+                            <p>Access level and password rules.</p>
+                        </div>
+                    </div>
+
+                    <RadzenStack Gap="0.75rem">
+                        <div class="sr-option @(systemRole.IsAdministrative ? "is-on" : null)">
+                            <RadzenSwitch Name="IsAdministrative" @bind-Value="@systemRole.IsAdministrative" />
+                            <div>
+                                <RadzenLabel Text="Administrative" Component="IsAdministrative" class="sr-option-title" />
+                                <div class="sr-option-hint">Members of this role get administrative access.</div>
+                            </div>
+                        </div>
+
+                        <div class="sr-option @(IsChangePasswordInDays ? "is-on" : null)">
+                            <RadzenSwitch Name="ChangePasswordSwitch" @bind-Value="@IsChangePasswordInDays" />
+                            <div class="sr-option-grow">
+                                <RadzenLabel Text="Change password regularly" Component="ChangePasswordSwitch" class="sr-option-title" />
+                                <div class="sr-option-hint">Users must set a new password every:</div>
+                                <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.5rem" Style="margin-top:0.5rem;">
+                                    <RadzenNumeric Name="ChangePasswordInDays" @bind-Value="@systemRole.ChangePasswordInDays" Disabled="@(!IsChangePasswordInDays)" ShowUpDown="false" TValue="int" Placeholder="0" Style="width: 6rem;" />
+                                    <span class="sr-option-hint">days</span>
+                                </RadzenStack>
+                            </div>
+                        </div>
+                    </RadzenStack>
+                </RadzenCard>
+            </RadzenColumn>
+        </RadzenRow>
+
+        <!-- Access & members -->
+        <RadzenCard class="sr-card">
+            <div class="sr-card-head">
+                <div class="sr-card-icon"><RadzenIcon Icon="lock" /></div>
+                <div class="sr-card-title">
+                    <h3>Access &amp; members</h3>
+                    <p>Choose what this role can do and who belongs to it.</p>
+                </div>
+            </div>
+
+            <RadzenTabs>
+                <Tabs>
+                    <RadzenTabsItem Text="Permissions" Icon="security">
+                        <RadzenDataGrid @ref="grid" ColumnWidth="90px" AllowColumnPicking="true" Style="height: 84vh"
+                                        Data="GetData()" AllowColumnResize=true Density="Density.Default"
+                                        TItem="SystemMenuObjectPermission">
+
+                            <HeaderTemplate>
+
+                                <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.Center"
+                                             Style="width: 100%;">
+                                    <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem;">
+
+                                        @*       <div style="border-left: 2px solid #ccc; height: 2rem; margin: 0 0.5rem;"></div> *@
+
+                                        <RadzenTextBox InputSize="InputSize.Medium" @bind-Value="@searchText"
+                                                       @ref="textBox"
+                                                       @oninput="@(args => OnInput(args))"
+                                                       Placeholder="Search..."
+                                                       Style="width:30rem;" />
+                                        @if (IsSearching)
+                                        {
+                                            <RadzenButton Size="ButtonSize.Small" Icon="delete"
+                                                          Click="@ClearFilter"
+                                                          Text="Clear" />
+                                        }
+
+
+                                    </RadzenStack>
+                                </RadzenStack>
+                            </HeaderTemplate>
+                            <Columns>
+                                <RadzenDataGridColumn Width="200px" TItem="SystemMenuObjectPermission" Property=@nameof(SystemMenuObjectPermission.MenuName) Title="Menu Name" />
+                                <RadzenDataGridColumn TItem="SystemMenuObjectPermission" Title="Navigate">
+                                    <Template Context="data">
+                                        <RadzenSwitch style="scale: 0.6;" @bind-Value="data.AllowNavigate" TValue="bool" />
+
+                                    </Template>
+                                </RadzenDataGridColumn>
+                                <RadzenDataGridColumn TItem="SystemMenuObjectPermission" Title="Read">
+                                    <Template Context="data">
+                                        <RadzenSwitch style="scale: 0.6;" @bind-Value="data.AllowRead" TValue="bool" />
+                                    </Template>
+                                </RadzenDataGridColumn>
+                                <RadzenDataGridColumn TItem="SystemMenuObjectPermission" Title="Write">
+                                    <Template Context="data">
+                                        <RadzenSwitch style="scale: 0.6;" @bind-Value="data.AllowWrite" TValue="bool" />
+                                    </Template>
+                                </RadzenDataGridColumn>
+                                <RadzenDataGridColumn TItem="SystemMenuObjectPermission" Title="Create">
+                                    <Template Context="data">
+                                        <RadzenSwitch style="scale: 0.6;" @bind-Value="data.AllowCreate" TValue="bool" />
+                                    </Template>
+                                </RadzenDataGridColumn>
+                                <RadzenDataGridColumn TItem="SystemMenuObjectPermission" Title="Delete">
+                                    <Template Context="data">
+                                        <RadzenSwitch style="scale: 0.6;" @bind-Value="data.AllowDelete" TValue="bool" />
+                                    </Template>
+                                </RadzenDataGridColumn>
+                                <RadzenDataGridColumn TItem="SystemMenuObjectPermission" Title="Export">
+                                    <Template Context="data">
+                                        <RadzenSwitch style="scale: 0.6;" @bind-Value="data.AllowExport" TValue="bool" />
+                                    </Template>
+                                </RadzenDataGridColumn>
+                                <RadzenDataGridColumn TItem="SystemMenuObjectPermission" Title="Print">
+                                    <Template Context="data">
+                                        <RadzenSwitch style="scale: 0.6;" @bind-Value="data.AllowPrint" TValue="bool" />
+                                    </Template>
+                                </RadzenDataGridColumn>
+                                <RadzenDataGridColumn Visible="false" TItem="SystemMenuObjectPermission" Title="CreditControl">
+                                    <Template Context="data">
+                                        <RadzenSwitch style="scale: 0.6;" @bind-Value="data.AllowPrint" TValue="bool" />
+                                    </Template>
+                                </RadzenDataGridColumn>
+                                <RadzenDataGridColumn TItem="SystemMenuObjectPermission" Title="ChangeDocNumbering">
+                                    <Template Context="data">
+                                        <RadzenSwitch style="scale: 0.6;" @bind-Value="data.AllowChangeDocNumbering" TValue="bool" />
+                                    </Template>
+                                </RadzenDataGridColumn>
+                                <RadzenDataGridColumn Visible="false" TItem="SystemMenuObjectPermission" Title="ChangeUnitCost">
+                                    <Template Context="data">
+                                        <RadzenSwitch style="scale: 0.6;" @bind-Value="data.AllowChangeUnitCost" TValue="bool" />
+                                    </Template>
+                                </RadzenDataGridColumn>
+                                <RadzenDataGridColumn Visible="false" TItem="SystemMenuObjectPermission" Title="NegativeStockControl">
+                                    <Template Context="data">
+                                        <RadzenSwitch style="scale: 0.6;" @bind-Value="data.AllowNegativeStockControl" TValue="bool" />
+                                    </Template>
+                                </RadzenDataGridColumn>
+                                <RadzenDataGridColumn TItem="SystemMenuObjectPermission" Title="Filter">
+                                    <Template Context="data">
+                                        <RadzenSwitch style="scale: 0.6;" @bind-Value="data.AllowFilter" TValue="bool" />
+                                    </Template>
+                                </RadzenDataGridColumn>
+                                <RadzenDataGridColumn TItem="SystemMenuObjectPermission" Title="Preview">
+                                    <Template Context="data">
+                                        <RadzenSwitch style="scale: 0.6;" @bind-Value="data.AllowPreview" TValue="bool" />
+                                    </Template>
+                                </RadzenDataGridColumn>
+                                <RadzenDataGridColumn TItem="SystemMenuObjectPermission" Title="Inquiry">
+                                    <Template Context="data">
+                                        <RadzenSwitch style="scale: 0.6;" @bind-Value="data.AllowInquiry" TValue="bool" />
+                                    </Template>
+                                </RadzenDataGridColumn>
+                                <RadzenDataGridColumn TItem="SystemMenuObjectPermission" Title="SelectDocNum">
+                                    <Template Context="data">
+                                        <RadzenSwitch style="scale: 0.6;" @bind-Value="data.AllowSelectDocNumbering" TValue="bool" />
+                                    </Template>
+                                </RadzenDataGridColumn>
+                                <RadzenDataGridColumn Visible="false" TItem="SystemMenuObjectPermission" Title="ChangeUnitPrice">
+                                    <Template Context="data">
+                                        <RadzenSwitch style="scale: 0.6;" @bind-Value="data.AllowChangeUnitPrice" TValue="bool" />
+                                    </Template>
+                                </RadzenDataGridColumn>
+                            </Columns>
+
+                        </RadzenDataGrid>
+                    </RadzenTabsItem>
+                    <RadzenTabsItem Text="Users" Icon="group">
+                        @EmptyState("Users assigned to this role will be listed here.")
+                    </RadzenTabsItem>
+                    <RadzenTabsItem Text="Roles" Icon="admin_panel_settings">
+                        @EmptyState("Related roles will be listed here.")
+                    </RadzenTabsItem>
+                </Tabs>
+            </RadzenTabs>
+        </RadzenCard>
+
+    </RadzenStack>
+</RadzenTemplateForm>
+
+@if (isloading)
+{
+    <Spinner Message="Loading role..." />
+}
+
+
+
+@code {
+    [Parameter]
+    public Guid? Id { get; set; }
+    [CascadingParameter] public Task<AuthenticationState> authenticationState { get; set; }
+    bool busy = false;
+    bool btnDiseabled = false;
+    bool IsChangePasswordInDays = false;
+    ButtonSize smallbtn = ButtonSize.Small;
+    InputSize inputSize = InputSize.Small;
+    AlignItems alignItems = AlignItems.Center;
+    string status = string.Empty;
+    string redtext;
+    //for loading data
+    bool isloading = true;
+
+    string? userId;//USER GUID
+
+    // Placeholder na lalabas sa mga tab na wala pang laman.
+    RenderFragment<string> EmptyState => text => @<div class="sr-empty"><RadzenIcon Icon="construction" /><span>@text</span></div>;
+
+    protected async override Task OnInitializedAsync()
+    {
+
+        var authState = (await authenticationState).User;
+        if (authState.Identity.IsAuthenticated)
+        {
+            var RoleId = authState.FindFirst("RoleId").Value;
+
+            //USER GUID
+            var userguid = authState.FindFirst(x => x.Type == System.Security.Claims.ClaimTypes.NameIdentifier);
+            userId = userguid.Value;
+
+            //  GetLoadMenuPermission(RoleId);
+
+
+            // InitializeDetailsRows();
+            // await loadAllData();
+            if (Id is not null)
+            {
+                await loadAllDataById();
+            }
+            else
+            {
+                await InitializeNewPermissions();
+            }
+
+            StateHasChanged();
+            isloading = false;
+        }
+
+    }
+
+    protected async Task loadAllDataById()
+    {
+
+        await GetSystemRoleById();
+        await GetLoadMenuPermission();
+
+        isloading = false;
+    }
+
+
+    List<MenuInfo> menuList = new List<MenuInfo>();
+    private async Task GetMenuList()
+    {
+
+        var data = await menuService.GetMenuLists();
+        menuList = data is not null ? data.ToList() : new List<MenuInfo>();
+
+    }
+
+
+
+
+
+    protected SystemRole systemRole { get; set; } = new SystemRole();
+    protected async Task GetSystemRoleById()
+    {
+        var data = await systemRoleServices.GetSystemRoleById(Id.ToString());
+        systemRole = data is not null ? data : new SystemRole();
+
+        IsChangePasswordInDays = systemRole.ChangePasswordInDays > 0;
+
+    }
+
+
+    RadzenDataGrid<SystemMenuObjectPermission> grid;
+    public IEnumerable<SystemMenuObjectPermission> systemMenuObjectPermissionList;
+
+    public int Count => systemMenuObjectPermissionList?.Count() ?? 0;
+    protected async Task GetLoadMenuPermission()
+    {
+        var data = await menuService.GetSystemMenuObjectPermissionId(Id.ToString());
+
+        systemMenuObjectPermissionList = data is not null ? data : new List<SystemMenuObjectPermission>();
+
+      
+    }
+
+    bool IsSearching => !string.IsNullOrWhiteSpace(searchText);
+    RadzenTextBox textBox;
+    private string searchText = "";
+    private IEnumerable<SystemMenuObjectPermission> GetData()
+    {
+        if (systemMenuObjectPermissionList == null)
+            return Enumerable.Empty<SystemMenuObjectPermission>();
+
+        //NOT SHOWING THE FIRST 12 PARENT MENU ITEMS (1-12) IN THE PERMISSION GRID
+        return systemMenuObjectPermissionList.Where(m => m.MenuId >= 13)
+     .Where(x => string.IsNullOrEmpty(searchText) ||
+             (x.MenuName?.Contains(searchText, StringComparison.OrdinalIgnoreCase) ?? false));
+    }
+
+    async Task OnInput(ChangeEventArgs args)
+    {
+        searchText = args.Value?.ToString() ?? string.Empty;
+        await grid.Reload();
+    }
+
+    private async Task ClearFilter()
+    {
+        searchText = string.Empty;
+        await grid.Reload();
+        StateHasChanged();
+    }
+
+
+    string result;
+    protected async Task OnSubmit()
+    {
+        if (busy) return;
+        busy = true;
+
+        try
+        {
+            // 1. Kapag naka-off ang switch, 0 ang dapat ma-save.
+            if (!IsChangePasswordInDays)
+            {
+                systemRole.ChangePasswordInDays = 0;
+            }
+
+            // 2. Validation: dapat may araw kapag naka-on ang switch
+            if (IsChangePasswordInDays && systemRole.ChangePasswordInDays <= 0)
+            {
+                await DialogService.Alert("Please enter the number of days for password change.", "Validation");
+                return;
+            }
+
+            // 3. Ihanda ang Oid ng role (bago ang lahat ng save)
+            //    Edit: gamitin ang Id mula sa URL
+            //    Create: gumawa ng bagong Guid kung wala pa
+            var roleOid = Id ?? (systemRole.Oid == Guid.Empty ? Guid.NewGuid() : systemRole.Oid);
+            systemRole.Oid = roleOid;
+
+            // 4. I-save muna ang ROLE (para hindi masira ang FK ng Owner)
+
+            var result = await systemRoleServices.SaveSystemRole(systemRole);
+
+            if (result is null || !result.Contains("Success"))
+            {
+                await DialogService.Alert(result ?? "Failed to save role.", "Error");
+                return;
+            }
+
+            // 5. Pagkatapos ma-save ang role, i-save ang DETAILS (permissions)
+
+            var permissionsToSave = BuildPermissionsForSave(roleOid);
+            var permResult = await systemRoleServices.SaveSystemMenuObjectPermission(permissionsToSave);
+            //var permResult = await menuService.SaveSystemMenuObjectPermissions(roleOid.ToString(), permissionsToSave);
+
+            if (permResult is null || !permResult.Contains("Success"))
+            {
+                await DialogService.Alert(permResult ?? "Role saved, but permissions failed to save.", "Warning");
+                return;
+            }
+
+            await DialogService.Alert(result, "Saved");
+            btnDiseabled = true; // para hindi na ma-double submit
+        }
+        catch (Exception ex)
+        {
+            await DialogService.Alert($"Error: {ex.Message}", "Error");
+        }
+        finally
+        {
+            busy = false;
+            StateHasChanged();
+        }
+    }
+
+
+    // Ready-to-save na detail rows
+    private List<SystemMenuObjectPermission> BuildPermissionsForSave(Guid roleOid)
+    {
+        var result = new List<SystemMenuObjectPermission>();
+
+        var source = systemMenuObjectPermissionList
+            ?? Enumerable.Empty<SystemMenuObjectPermission>();
+
+        foreach (var p in source)
+        {
+            result.Add(new SystemMenuObjectPermission
+            {
+                Owner = roleOid,
+                MenuId = p.MenuId,
+
+                AllowNavigate = p.AllowNavigate,
+                AllowRead = p.AllowRead,
+                AllowWrite = p.AllowWrite,
+                AllowCreate = p.AllowCreate,
+                AllowDelete = p.AllowDelete,
+                AllowExport = p.AllowExport,
+                AllowPrint = p.AllowPrint,
+                AllowCreditControl = p.AllowCreditControl,
+                AllowChangeDocNumbering = p.AllowChangeDocNumbering,
+                AllowChangeUnitCost = p.AllowChangeUnitCost,
+                AllowNegativeStockControl = p.AllowNegativeStockControl,
+                AllowStockReorderLevelControl = p.AllowStockReorderLevelControl,
+                AllowFilter = p.AllowFilter,
+                AllowPreview = p.AllowPreview,
+                AllowInquiry = p.AllowInquiry,
+                AllowDesign = p.AllowDesign,
+                AllowSelectDocNumbering = p.AllowSelectDocNumbering,
+                AllowChangeUnitPrice = p.AllowChangeUnitPrice,
+                AllowEInvoiceValidation = p.AllowEInvoiceValidation
+            });
+        }
+
+        return result;
+    }
+
+    // Para sa Create mode: gumawa ng blangkong permission rows mula sa menu list
+    // Para sa Create mode: gumawa ng blangkong permission rows mula sa menu list
+    private async Task InitializeNewPermissions()
+    {
+        await GetMenuList();
+
+        systemMenuObjectPermissionList = menuList.Select(m => new SystemMenuObjectPermission
+        {
+            MenuId = m.MenuId,
+            MenuName = m.MenuName,
+            AllowNavigate = m.MenuId >= 1 && m.MenuId <= 12
+        })
+            .ToList();
+
+        StateHasChanged();
+        if (grid != null) await grid.Reload();
+    }
+
+
+    protected void Navigate()
+    {
+        navManager.NavigateTo("/ABSystemRoleList");
+    }
+}

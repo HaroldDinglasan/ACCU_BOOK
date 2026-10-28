@@ -1,0 +1,219 @@
+﻿@page "/DeliveryOrdersList"
+
+@attribute [Authorize(Roles = "Admin,User")]
+
+
+
+<RadzenStack Gap="0.2rem">
+	<RadzenDataGrid @ref="grid" Visible="true" @bind-Value=@selectedvwQuotation
+					IsLoading=@isLoading Sort="@ShowLoading" Page="@ShowLoading" Group="@ShowLoading" Filter="@ShowLoading"
+					Data="@filteredvwDeliveryOrderList" Density="Density.Compact"
+					TItem="VW_DeliveryOrders"
+					RowDoubleClick="() => Edit(selectedvwQuotation.FirstOrDefault().Id)"
+					AllowVirtualization="true"
+					ColumnWidth="200px"
+					AllowSorting="true"
+					AllowFiltering="true"
+					ShowPagingSummary="true"
+					ShowMultiColumnSortingIndex="true"
+					FilterMode="FilterMode.CheckBoxList"
+					Style="height: 84vh"
+					AllowColumnPicking="true"
+					FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive">
+		<HeaderTemplate>
+			<RadzenStack Orientation="Orientation.Horizontal"
+						 AlignItems="AlignItems.Center"
+						 Style="width: 100%;">
+				<RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem;">
+					<RadzenButton Text="New"
+								  Click="@AddAccount"
+								  ButtonStyle="ButtonStyle.Primary"
+								  Icon="add" />
+
+					<!-- DIVIDER -->
+					<div style="border-left: 2px solid #ccc; height: 2rem; margin: 0 0.5rem;"></div>
+
+					<RadzenTextBox Disabled=@(filteredvwDeliveryOrderList == null)
+								   @bind-Value="@searchText"
+								   Placeholder="Search..."
+								   Style="width:30rem;"
+								   Change="@(args => ApplyFilter())" />
+
+					<RadzenButton Disabled=@(filteredvwDeliveryOrderList == null)
+								  Icon="search"
+								  Click="@ApplyFilter"
+								  Text="Find" />
+
+					<RadzenButton Disabled=@(filteredvwDeliveryOrderList == null)
+								  Icon="delete"
+								  Click="@ClearFilter"
+								  Text="Clear" />
+				</RadzenStack>
+
+               
+			</RadzenStack>
+		</HeaderTemplate>
+		<Columns>
+			<RadzenDataGridColumn Filterable="false" Width="150px" Visible=true Title="Status">
+
+				<Template Context="data">
+					@{
+						var (text, style) = StatusHelper.Get(
+						data.IsClosed,
+						data.IsCancelled,
+						data.TransferToInfo);
+					}
+
+					<RadzenBadge IsPill="true" Text="@text" BadgeStyle="@style" />
+				</Template>
+			</RadzenDataGridColumn>
+			<RadzenDataGridColumn Visible=false TItem="VW_DeliveryOrders" Property="@nameof(VW_DeliveryOrders.Id)" Title="Id" />
+			<RadzenDataGridColumn Width="110px" TItem="VW_DeliveryOrders" Property="@nameof(VW_DeliveryOrders.DeliveryOrderDate)" FormatString="{0:d}" Title="Date" />
+			<RadzenDataGridColumn Width="120px" TItem="VW_DeliveryOrders" Property="@nameof(VW_DeliveryOrders.DeliveryOrderCode)" Title="DO #" />
+			
+			<RadzenDataGridColumn Width="350px" TItem="VW_DeliveryOrders" Title="Customer" Property="@nameof(VW_DeliveryOrders.CustomerName)">
+				<Template Context="data">
+					<RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem" AlignItems="AlignItems.Center">
+						<RadzenStack Gap="0">
+							<RadzenText TextStyle="TextStyle.Subtitle2" class="rz-mb-0">@data.CustomerCode - @data.CustomerName</RadzenText>
+							<RadzenText TextStyle="TextStyle.Caption" class="rz-mb-0 rz-text-wrap">@data.Address1</RadzenText>
+						</RadzenStack>
+					</RadzenStack>
+				</Template>
+				<FooterTemplate>
+					Total: <b>@totalDeliveryOrders</b>
+				</FooterTemplate>
+			</RadzenDataGridColumn>
+			<RadzenDataGridColumn TItem="VW_DeliveryOrders" Property="@nameof(VW_DeliveryOrders.TransferToInfo)" Title="Transfer To Info" />
+			<RadzenDataGridColumn TItem="VW_DeliveryOrders" Property="@nameof(VW_DeliveryOrders.ReferenceNo)" Title="Reference No" />
+			<RadzenDataGridColumn TItem="VW_DeliveryOrders" Property="@nameof(VW_DeliveryOrders.CurrencyCode)" Title="Currency" />
+			<RadzenDataGridColumn TItem="VW_DeliveryOrders" Property="@nameof(VW_DeliveryOrders.Term)" Title="Term" />
+			<RadzenDataGridColumn TItem="VW_DeliveryOrders" Property="@nameof(VW_DeliveryOrders.StaffCode)" Title="Staff" />
+			<RadzenDataGridColumn TItem="VW_DeliveryOrders" Property="@nameof(VW_DeliveryOrders.DeliveryOrderDate)" Title="Due Date" FormatString="{0:MM/dd/yyyy}" />
+			<RadzenDataGridColumn TItem="VW_DeliveryOrders" Property="@nameof(VW_DeliveryOrders.NetTotalAmount)" Title="Net Amount" FormatString="{0:N2}" />
+			<RadzenDataGridColumn TItem="VW_DeliveryOrders" Property="@nameof(VW_DeliveryOrders.TaxTotalAmount)" Title="Tax Amount" FormatString="{0:N2}" />
+			<RadzenDataGridColumn TItem="VW_DeliveryOrders" Property="@nameof(VW_DeliveryOrders.WTaxTotalAmount)" Title="WTax Amount" FormatString="{0:N2}" />
+			<RadzenDataGridColumn Visible=false TItem="VW_DeliveryOrders" Property="@nameof(VW_DeliveryOrders.IsCancelled)" Title="IsCancelled" />
+			<RadzenDataGridColumn Visible=false TItem="VW_DeliveryOrders" Property="@nameof(VW_DeliveryOrders.OptimisticLockField)" Title="OptimisticLockField" />
+		</Columns>
+	</RadzenDataGrid>
+</RadzenStack>
+
+
+
+@code {
+	[CascadingParameter]
+	public Task<AuthenticationState> authenticationState { get; set; }
+
+	protected IList<VW_DeliveryOrders> selectedvwQuotation { get; set; }
+	RadzenDataGrid<VW_DeliveryOrders> grid;
+	IEnumerable<VW_DeliveryOrders> vwDeliveryOrdersList;
+
+	//SAMPLE DATA
+	string status = string.Empty;
+
+	int totalDeliveryOrders = 0;
+	bool isLoading;
+
+	protected override async Task OnInitializedAsync()
+	{
+
+		var authState = (await authenticationState).User;
+		if (authState.Identity.IsAuthenticated)
+		{
+			var RoleId = authState.FindFirst("RoleId").Value;
+			GetLoadMenuPermission(RoleId);
+		}
+	}
+
+
+	private SystemMenuObjectPermission? permission;
+	protected async void GetLoadMenuPermission(string RoleId)
+	{
+		isLoading = true;
+		permission = await permissionService.GetPermissionAsync(
+			RoleId,
+			"Delivery Orders");
+	
+		if (permission is null)
+			return;
+		await ShowLoading();
+		await GetVWDeliveryOrdersList();
+		filteredvwDeliveryOrderList = vwDeliveryOrdersList;
+		StateHasChanged();
+	}
+
+
+
+
+
+
+
+	private string searchText = string.Empty;
+	private IEnumerable<VW_DeliveryOrders> filteredvwDeliveryOrderList;
+	private void ApplyFilter()
+	{
+		if (string.IsNullOrWhiteSpace(searchText))
+		{
+			filteredvwDeliveryOrderList = vwDeliveryOrdersList;
+		}
+		else
+		{
+			filteredvwDeliveryOrderList = vwDeliveryOrdersList.Where(x =>
+				(!string.IsNullOrEmpty(x.DeliveryOrderCode) && x.DeliveryOrderCode.Contains(searchText, StringComparison.OrdinalIgnoreCase)) ||
+				(!string.IsNullOrEmpty(x.CustomerName) && x.CustomerName.Contains(searchText, StringComparison.OrdinalIgnoreCase)) ||
+				(!string.IsNullOrEmpty(x.CustomerName2) && x.CustomerName2.Contains(searchText, StringComparison.OrdinalIgnoreCase)) ||
+				(!string.IsNullOrEmpty(x.DebtorName) && x.DebtorName.Contains(searchText, StringComparison.OrdinalIgnoreCase)) ||
+				(!string.IsNullOrEmpty(x.CustomerCode) && x.CustomerCode.Contains(searchText, StringComparison.OrdinalIgnoreCase)) ||
+				(!string.IsNullOrEmpty(x.Ref1) && x.Ref1.Contains(searchText, StringComparison.OrdinalIgnoreCase)) ||
+				(!string.IsNullOrEmpty(x.ReferenceNo) && x.ReferenceNo.Contains(searchText, StringComparison.OrdinalIgnoreCase)) ||
+				(!string.IsNullOrEmpty(x.ControlAccountCode) && x.ControlAccountCode.Contains(searchText, StringComparison.OrdinalIgnoreCase))
+			);
+		}
+		StateHasChanged();
+	}
+	private void ClearFilter()
+	{
+		searchText = string.Empty;
+		filteredvwDeliveryOrderList = vwDeliveryOrdersList;
+		StateHasChanged();
+	}
+
+
+
+
+
+
+
+
+	private async Task GetVWDeliveryOrdersList()
+	{
+
+		var data = await deliveryOrdersService.GetDeliveryOrderLists();
+		vwDeliveryOrdersList = data is not null ? data : new List<VW_DeliveryOrders>();
+		totalDeliveryOrders = vwDeliveryOrdersList.Count();
+
+	}
+
+
+	protected void Edit(Guid Id)
+	{
+		navManager.NavigateTo($"/DeliveryOrders/Edit/{Id}");
+	}
+
+
+	private void AddAccount()
+	{
+		navManager.NavigateTo("/DeliveryOrders");
+	}
+
+
+	//error loading
+
+	async Task ShowLoading()
+	{
+		await Task.Yield();
+
+		isLoading = false;
+	}
+}

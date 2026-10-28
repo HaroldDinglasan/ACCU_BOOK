@@ -1,0 +1,167 @@
+﻿@page "/ValidPostingPeriodList"
+@inject ValidPostingServices validPostingServices
+@attribute [Authorize(Roles = "Admin,User")]
+@inject HttpClient http
+@inject NavigationManager navManager
+@inject ContextMenuService contextMenuService
+@inject IJSRuntime JSRuntime
+
+
+<RadzenStack Gap="0.2rem">
+
+    <RadzenRow JustifyContent="JustifyContent.Start" AlignItems="AlignItems.Center" Gap="0.5rem">
+        <RadzenColumn Size="12" SizeSM="7">
+            <RadzenStack AlignItems="AlignItems.Center" Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.Normal">
+                <RadzenTextBox Disabled=@(filteredStockItemsList == null) @bind-Value="@searchText"
+                               Placeholder="Search..."
+                               Style="font-size:smaller; width:30rem;"
+                               Change="@(args => ApplyFilter())" />
+                <RadzenButton Disabled=@(filteredStockItemsList == null) Icon="search" Click="@ApplyFilter" Text="Find" />
+                <RadzenButton Disabled=@(filteredStockItemsList == null) Icon="delete" Click="@ClearFilter" Text="Clear" />
+            </RadzenStack>
+        </RadzenColumn>
+        <RadzenColumn Size="12" SizeSM="5">
+            <RadzenStack AlignItems="AlignItems.Center" Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End">
+                <RadzenButton Text="New" Click="@navigate" Size="ButtonSize.Small" ButtonStyle="ButtonStyle.Primary" Icon="add"></RadzenButton>
+            </RadzenStack>
+        </RadzenColumn>
+    </RadzenRow>
+
+    <RadzenDataGrid @ref="grids" @bind-Value=@selectedValidPostingPeriod RowDoubleClick="() => Edit(selectedValidPostingPeriod.FirstOrDefault().Id)" TItem="ValidPostingModel" AllowPaging="true" PageSize="30"
+                    AllowColumnReorder="true" AllowAlternatingRows="false"
+                    Data="@filteredStockItemsList" AllowColumnPicking="true" Style="height: 85vh; overflow: hidden;"
+                    KeyProperty="Id" PagerHorizontalAlign="HorizontalAlign.Center" AllowColumnResize="true" Density="@density"
+                    AllowSorting="true" ShowPagingSummary="true" AllowFiltering="true"
+                    FilterMode="FilterMode.CheckBoxList" FilterCaseSensitivity="@filter" LogicalFilterOperator="LogicalFilterOperator.Or">
+
+        <HeaderTemplate>
+            <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="1rem" Wrap="FlexWrap.Wrap">
+                <span>
+                    Valid Posting Period <RadzenBadge Visible="@(status != string.Empty)" Shade="Shade.Dark" BadgeStyle="BadgeStyle.Danger" Text="@status" class="rz-ms-2" />
+                </span>
+            </RadzenStack>
+        </HeaderTemplate>
+
+        <Columns>
+            <RadzenDataGridColumn Visible=true Width="160px" TItem="ValidPostingModel" Property="@nameof(ValidPostingModel.UserName)" Title="User"></RadzenDataGridColumn>
+
+            <RadzenDataGridColumn Visible=true Width="120px" TItem="ValidPostingModel" Property="@nameof(ValidPostingModel.ValidDateFrom)" FormatString="{0:d}" Title="Valid Date From"></RadzenDataGridColumn>
+
+            <RadzenDataGridColumn Visible=true Width="120px" TItem="ValidPostingModel" Property="@nameof(ValidPostingModel.ValidDateTo)" FormatString="{0:d}" Title="Valid Date To"></RadzenDataGridColumn>
+
+            <RadzenDataGridColumn TItem="ValidPostingModel" Property="@nameof(ValidPostingModel.IsActive)" Title="Active" Width="100px">
+                <Template Context="data">
+                    <RadzenCheckBox Value="data.IsActive" TValue="bool?" Disabled="true" />
+                </Template>
+            </RadzenDataGridColumn>
+
+        </Columns>
+
+    </RadzenDataGrid>
+</RadzenStack>
+
+@code {
+    string status = string.Empty;
+    private RadzenDataGrid<ValidPostingModel> grids;
+    private IList<ValidPostingModel> selectedValidPostingPeriod { get; set; }
+
+    private IEnumerable<ValidPostingModel> validPostingPeriodList { get; set; }
+
+    FilterCaseSensitivity filter = FilterCaseSensitivity.CaseInsensitive;
+    Density density = Density.Compact;
+    AlignItems alignItems = AlignItems.Center;
+    Variant variant = Variant.Flat;
+
+    bool isloading;
+
+
+    protected async override Task OnInitializedAsync()
+    {
+
+        await loadAllData();
+
+    }
+
+    private async Task loadAllData()
+    {
+        await GetValidPostList();
+        isloading = false;
+    }
+
+    private async Task GetValidPostList()
+    {
+        var data = await validPostingServices.GetValidPostList();
+        validPostingPeriodList = data is not null ? data : new List<ValidPostingModel>();
+        filteredStockItemsList = validPostingPeriodList; // enable search filter
+    }
+
+    protected void Edit(int Id)
+    {
+        navManager.NavigateTo($"/ValidPostingPeriod/Edit/{Id}");
+    }
+
+    //DoubleClick Cell Event
+    protected void OnCellContextMenu(DataGridCellMouseEventArgs<ValidPostingModel> stockItems)
+    {
+        selectedValidPostingPeriod = new List<ValidPostingModel>() { stockItems.Data };
+
+        var contextMenuItems = new List<ContextMenuItem>
+    {
+        new ContextMenuItem() { Text = "New", Value = 1, Icon = "add" },
+        new ContextMenuItem() { Text = "Edit", Value = 2, Icon = "edit" },
+        new ContextMenuItem() { Text = "Delete", Value = 3, Icon = "delete" }
+    };
+
+        contextMenuService.Open(stockItems, contextMenuItems, (e) =>
+        {
+            switch (e.Value)
+            {
+                case 1:
+                    navigate();
+                    break;
+                case 2:
+                    Edit(stockItems.Data.Id);
+                    // Edit(stockItems.Data.Id);
+
+                    //await AddUpdateGLAccountDialog(stockItems.Data.Id, false);
+                    break;
+                case 3:
+                    // Delete(stockItems.Data.Id);
+                    break;
+
+            }
+            contextMenuService.Close();
+
+        });
+    }
+
+    private void navigate()
+    {
+        navManager.NavigateTo("/ValidPostingPeriod");
+    }
+
+    private string searchText = string.Empty;
+    private IEnumerable<ValidPostingModel> filteredStockItemsList;
+    private void ApplyFilter()
+    {
+        if (string.IsNullOrWhiteSpace(searchText))
+        {
+            filteredStockItemsList = validPostingPeriodList;
+        }
+        else
+        {
+            filteredStockItemsList = validPostingPeriodList.Where(x =>
+                (!string.IsNullOrEmpty(x.UserName) && x.UserName.Contains(searchText, StringComparison.OrdinalIgnoreCase))
+
+            );
+        }
+        StateHasChanged();
+    }
+    private void ClearFilter()
+    {
+        searchText = string.Empty;
+        filteredStockItemsList = validPostingPeriodList;
+        StateHasChanged();
+    }
+
+}

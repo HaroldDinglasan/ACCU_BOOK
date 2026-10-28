@@ -1,0 +1,396 @@
+﻿@page "/ABMenuSettings"
+@attribute [Authorize(Roles = "Admin")]
+
+@* Ang styles ay nasa wwwroot/css/ab-forms.css (shared) *@
+
+<RadzenStack Gap="0.5rem" class="ab-form ab-fit">
+
+    <!-- EDITOR: lumalabas dito ang laman ng piniling row sa table sa ibaba -->
+    <RadzenTemplateForm TItem="MenuInfo" Data="editMenu" Submit="@Save">
+        <RadzenCard class="ab-card ab-tight">
+            <div class="ab-head-strip">
+                <div class="ab-card-icon ab-sm"><RadzenIcon Icon="menu_open" /></div>
+                <span class="ab-head-title">Menu Settings</span>
+
+                @if (!formActive)
+                {
+                    <span class="ab-option-hint">Select a menu below to edit it, or click New.</span>
+                }
+                else if (isNew)
+                {
+                    <span class="ab-doc-code">New menu</span>
+                }
+                else
+                {
+                    <span class="ab-doc-code">Editing: @(selectedMenu?.FirstOrDefault()?.MenuName)</span>
+                }
+
+                <span class="ab-spacer"></span>
+                <RadzenButton Size="ButtonSize.Small" Icon="add" Text="New" Variant="Variant.Outlined" Click="@NewMenu" />
+                @*    
+                <RadzenButton Size="ButtonSize.Small" Icon="undo" Text="Cancel" ButtonStyle="ButtonStyle.Light" Variant="Variant.Outlined" Click="@CancelEdit" Disabled="@(!formActive || busy)" /> *@
+                <RadzenButton Size="ButtonSize.Small" Icon="save" Text="Save" ButtonType="ButtonType.Submit" ButtonStyle="ButtonStyle.Primary" IsBusy="@busy" BusyText="Saving..." Disabled="@(!formActive)" />
+            </div>
+
+            <RadzenRow Gap="0.75rem">
+
+                <RadzenColumn Size="12" SizeLG="6" SizeXL="3">
+                    <RadzenFormField Style="width:100%" Text="Menu Name*" AllowFloatingLabel="false">
+                        <ChildContent>
+                            <RadzenTextBox Name="MenuName" Placeholder="e.g. Customers" Disabled="@(!formActive)" @bind-Value="@editMenu.MenuName" Style="width: 100%;" />
+                        </ChildContent>
+                        <Helper>
+                            <RadzenRequiredValidator Component="MenuName" Text="'Menu Name' must not be empty." />
+                        </Helper>
+                    </RadzenFormField>
+                </RadzenColumn>
+
+                <RadzenColumn Size="12" SizeLG="6" SizeXL="3">
+                    <RadzenFormField Style="width:100%" Text="Page Name (route)" AllowFloatingLabel="false">
+                        <RadzenTextBox Placeholder="e.g. /CustomersList" Disabled="@(!formActive)" @bind-Value="@editMenu.PageName" Style="width: 100%;" />
+                    </RadzenFormField>
+                </RadzenColumn>
+
+                <RadzenColumn Size="12" SizeSM="6" SizeLG="4" SizeXL="2">
+                    <RadzenFormField Style="width:100%" Text="Icon" AllowFloatingLabel="false">
+                        <Start>
+                            <RadzenIcon Icon="@(string.IsNullOrWhiteSpace(editMenu.IconNames) ? "help_outline" : editMenu.IconNames)" />
+                        </Start>
+                        <ChildContent>
+                            <RadzenTextBox Placeholder="e.g. dashboard" Disabled="@(!formActive)" @bind-Value="@editMenu.IconNames" Style="width: 100%;" />
+                        </ChildContent>
+                    </RadzenFormField>
+                </RadzenColumn>
+
+                <RadzenColumn Size="12" SizeSM="6" SizeLG="4" SizeXL="2">
+                    <RadzenFormField Style="width:100%" Text="Parent Menu" AllowFloatingLabel="false">
+                        <RadzenDropDown TValue="int" Disabled="@(!formActive)" @bind-Value="@editMenu.ParentMenuId"
+                                        Data="@parentOptions" TextProperty="Text" ValueProperty="Id" Style="width: 100%;" />
+                    </RadzenFormField>
+                </RadzenColumn>
+
+                <RadzenColumn Size="12" SizeLG="4" SizeXL="2" Style="display: flex; align-items: center;">
+                    <div class="ab-toggle">
+                        <RadzenSwitch Name="IsActive" Disabled="@(!formActive)" @bind-Value="@editMenu.IsActive" />
+                        <RadzenLabel Text="Active" Component="IsActive" />
+                    </div>
+                </RadzenColumn>
+
+            </RadzenRow>
+        </RadzenCard>
+    </RadzenTemplateForm>
+
+    <!-- TABLE: kumukuha ng natitirang taas ng page -->
+    <RadzenCard class="ab-card ab-tight ab-details">
+        <div class="ab-head-strip">
+            <div class="ab-card-icon ab-sm"><RadzenIcon Icon="list_alt" /></div>
+            <span class="ab-head-title">Menus</span>
+            <span class="ab-option-hint">@(IsSearching ? $"{filteredMenus.Count()} of {menuList.Count} shown" : $"{menuList.Count} total")</span>
+
+            <span class="ab-spacer"></span>
+
+            <div class="ab-search">
+                <RadzenIcon Icon="search" />
+                <RadzenTextBox @bind-Value="@searchText"
+                               @ref="textBox"
+                               @oninput="@(args => OnInput(args))"
+                               Placeholder="Search menu or page..." />
+            </div>
+            @if (IsSearching)
+            {
+                <RadzenButton Icon="close" Text="Clear" Click="@ClearFilter" />
+            }
+        </div>
+
+        <div class="ab-details-body">
+            <RadzenDataGrid @ref="grid" Visible="true" @bind-Value=@selectedMenu
+                            IsLoading=@isLoading Sort="@ShowLoading" Page="@ShowLoading" Group="@ShowLoading" Filter="@ShowLoading"
+                            Data="@filteredMenus"
+                            TItem="MenuInfo"
+                            class="ab-grid"
+                            SelectionMode="DataGridSelectionMode.Single"
+                            RowSelect="@OnRowSelect"
+                            AllowVirtualization="true"
+                            ColumnWidth="200px"
+                            AllowSorting="true"
+                            AllowFiltering="true"
+                            ShowMultiColumnSortingIndex="true"
+                            FilterMode="FilterMode.CheckBoxList"
+                            Style="height: 100%;"
+                            AllowColumnPicking="true"
+                            FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive">
+                <EmptyTemplate>
+                    <div class="ab-empty">
+                        <RadzenIcon Icon="@(IsSearching ? "search_off" : "menu_open")" />
+                        <span>@(IsSearching ? $"No menus match “{searchText.Trim()}”." : "No menus to show.")</span>
+                    </div>
+                </EmptyTemplate>
+                <Columns>
+                    <RadzenDataGridColumn TItem="MenuInfo" Property="@nameof(MenuInfo.IconNames)" Title="Icon" Width="14rem">
+                        <Template Context="data">
+                            <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.5rem">
+                                <RadzenIcon Icon="@data.IconNames" />
+                                <span class="ab-option-hint">@data.IconNames</span>
+                            </RadzenStack>
+                        </Template>
+                    </RadzenDataGridColumn>
+
+                    <RadzenDataGridColumn TItem="MenuInfo" Property="@nameof(MenuInfo.MenuName)" Title="Menu" Width="18rem">
+                        <Template Context="data">
+                            <span style="@(data.ParentMenuId != 0 && !IsSearching ? "padding-left: 1.25rem;" : "font-weight: 700;")">
+                                @(data.ParentMenuId != 0 && !IsSearching ? "↳ " : "")@data.MenuName
+                            </span>
+                        </Template>
+                    </RadzenDataGridColumn>
+
+                    <RadzenDataGridColumn TItem="MenuInfo" Property="@nameof(MenuInfo.PageName)" Title="Page" Width="18rem" />
+
+                    <RadzenDataGridColumn TItem="MenuInfo" Title="Parent" Width="14rem" Sortable="false" Filterable="false">
+                        <Template Context="data">
+                            @ParentName(data)
+                        </Template>
+                    </RadzenDataGridColumn>
+
+                    <RadzenDataGridColumn TItem="MenuInfo" Property="@nameof(MenuInfo.IsActive)" Title="Active" Width="8rem" TextAlign="TextAlign.Center">
+                        <Template Context="data">
+                            <RadzenBadge BadgeStyle="@(data.IsActive ? BadgeStyle.Success : BadgeStyle.Light)" Text="@(data.IsActive ? "Yes" : "No")" IsPill="true" />
+                        </Template>
+                    </RadzenDataGridColumn>
+                </Columns>
+            </RadzenDataGrid>
+        </div>
+    </RadzenCard>
+
+</RadzenStack>
+
+@code {
+    [CascadingParameter]
+    public Task<AuthenticationState> authenticationState { get; set; }
+
+    RadzenTextBox textBox;
+    RadzenDataGrid<MenuInfo> grid;
+    List<MenuInfo> menuList = new List<MenuInfo>();
+    IEnumerable<MenuInfo> filteredMenus = new List<MenuInfo>();   // naka-cache para hindi mag-reset ang grid sa bawat render
+    protected IList<MenuInfo> selectedMenu { get; set; }
+
+    // Editor
+    MenuInfo editMenu = new MenuInfo { IsActive = true };
+    bool formActive;   // may piniling row, o naka-New
+    bool isNew;
+    bool busy;
+
+    bool isLoading;
+
+    protected override async Task OnInitializedAsync()
+    {
+        isLoading = true;
+
+        var authState = (await authenticationState).User;
+        if (authState.Identity.IsAuthenticated)
+        {
+            await GetMenuList();
+            ApplyFilter();
+            RefreshParentOptions();
+        }
+
+        isLoading = false;
+    }
+
+    int totalData = 0;
+    private async Task GetMenuList()
+    {
+        //var data = await systemUserServices.GetSystemUserLists();
+        var data = await menuService.GetMenuLists();
+        menuList = data is not null ? data.ToList() : new List<MenuInfo>();
+        totalData = menuList.Count();
+    }
+
+    // ===================== SEARCH =====================
+    private string searchText = "";
+    bool IsSearching => !string.IsNullOrWhiteSpace(searchText);
+
+    private static bool Has(string? value, string term) =>
+        value?.Contains(term, StringComparison.OrdinalIgnoreCase) ?? false;
+
+    private IEnumerable<MenuInfo> GetData()
+    {
+        if (!IsSearching)
+            return InTreeOrder(menuList);
+
+        var term = searchText.Trim();
+        return menuList
+            .Where(x => Has(x.MenuName, term) || Has(x.PageName, term))
+
+.ToList();
+    }
+
+    // Parent muna, kasunod ang mga anak niya
+    private List<MenuInfo> InTreeOrder(IEnumerable<MenuInfo> source)
+    {
+        var all = source.ToList();
+        var ids = all.Select(x => x.MenuId).ToHashSet();
+        var result = new List<MenuInfo>();
+
+        foreach (var root in all.Where(x => x.ParentMenuId == 0 || !ids.Contains(x.ParentMenuId)).OrderBy(x => x.MenuName))
+        {
+            result.Add(root);
+            result.AddRange(all.Where(x => x.ParentMenuId == root.MenuId && x.MenuId != root.MenuId).OrderBy(x => x.MenuName));
+        }
+        return result;
+    }
+
+    private void ApplyFilter()
+    {
+        filteredMenus = GetData().ToList();
+    }
+
+    async Task OnInput(ChangeEventArgs args)
+    {
+        searchText = args.Value?.ToString() ?? string.Empty;
+        ApplyFilter();
+        if (grid != null) await grid.Reload();
+    }
+
+    private async Task ClearFilter()
+    {
+        searchText = string.Empty;
+        ApplyFilter();
+        if (grid != null) await grid.Reload();
+        StateHasChanged();
+    }
+
+    string ParentName(MenuInfo m) =>
+        m.ParentMenuId == 0
+            ? "—"
+            : menuList.FirstOrDefault(x => x.MenuId == m.ParentMenuId)?.MenuName ?? "—";
+
+    // ===================== EDITOR =====================
+    private class ParentOption
+    {
+        public int Id { get; set; }
+        public string Text { get; set; } = "";
+    }
+
+    List<ParentOption> parentOptions = new List<ParentOption> { new ParentOption { Id = 0, Text = "(Top level)" } };
+
+    // Top-level menus lang ang puwedeng maging parent (maliban sa sarili niya)
+    private void RefreshParentOptions()
+    {
+        parentOptions = new List<ParentOption> { new ParentOption { Id = 0, Text = "(Top level)" } };
+        parentOptions.AddRange(
+            menuList.Where(m => m.ParentMenuId == 0 && m.MenuId != editMenu.MenuId)
+                    .OrderBy(m => m.MenuName)
+                    .Select(m => new ParentOption { Id = m.MenuId, Text = m.MenuName }));
+    }
+
+    private static MenuInfo Clone(MenuInfo m) => new MenuInfo
+    {
+        MenuId = m.MenuId,
+        ParentMenuId = m.ParentMenuId,
+        PageName = m.PageName,
+        MenuName = m.MenuName,
+        IconNames = m.IconNames,
+        IsActive = m.IsActive
+    };
+
+    // Kapag may pinili sa table, lumalabas ang laman nito sa mga input sa taas
+    void OnRowSelect(MenuInfo row)
+    {
+        editMenu = Clone(row);
+        isNew = false;
+        formActive = true;
+        RefreshParentOptions();
+    }
+
+    void NewMenu()
+    {
+        selectedMenu = new List<MenuInfo>();
+        editMenu = new MenuInfo { IsActive = true };
+        isNew = true;
+        formActive = true;
+        RefreshParentOptions();
+    }
+
+    void CancelEdit()
+    {
+        var current = selectedMenu?.FirstOrDefault();
+        if (!isNew && current != null)
+        {
+            editMenu = Clone(current);   // ibalik sa orihinal na laman
+        }
+        else
+        {
+            editMenu = new MenuInfo { IsActive = true };
+            formActive = false;
+        }
+        isNew = false;
+        RefreshParentOptions();
+    }
+
+    async Task Save()
+    {
+        if (!formActive) return;
+
+        busy = true;
+        try
+        {
+            //var ok = await PersistMenu(editMenu, isNew);
+            var data = await menuService.SaveMenuInfo(editMenu);
+            if (data == 0)
+            {
+                requestMessageHandler.isSucccess(false);
+                return;
+            }
+
+            // Isinasama sa listahan sa page. Kapag naka-connect na sa service,
+            // puwedeng palitan ng:  await GetMenuList();
+            var saved = Clone(editMenu);
+            var index = saved.MenuId != 0 ? menuList.FindIndex(m => m.MenuId == saved.MenuId) : -1;
+            if (index >= 0)
+            {
+                menuList[index] = saved;
+            }
+            else
+            {
+                if (saved.MenuId == 0)
+                    saved.MenuId = menuList.Any() ? menuList.Max(m => m.MenuId) + 1 : 1;
+                menuList.Add(saved);
+            }
+
+            ApplyFilter();
+            selectedMenu = new List<MenuInfo> { saved };
+            editMenu = Clone(saved);
+            isNew = false;
+            RefreshParentOptions();
+
+            requestMessageHandler.isSucccess(true);
+            if (grid != null) await grid.Reload();
+        }
+        finally
+        {
+            busy = false;
+        }
+    }
+
+    // TODO: ikabit dito ang totoong pag-save sa database. Halimbawa (palitan ng tamang method ng MenuService):
+    //     var result = await menuService.SaveMenu(menu);
+    //     return result is not null;
+    // Sa ngayon, sa memory lang ng page nag-a-update (hindi pa nase-save sa database).
+    //protected Task<bool> PersistMenu(MenuInfo menu, bool isNew) => Task.FromResult(true);
+
+    protected void Edit(Guid Id)
+    {
+
+        // navManager.NavigateTo($"/SecurityUser/Edit/{Id}");
+        // navManager.NavigateTo($"/ABSystemUser/Edit/{Id}");
+        // navManager.NavigateTo("/SecurityUser");
+    }
+
+    async Task ShowLoading()
+    {
+        await Task.Yield();
+
+        isLoading = false;
+    }
+
+}

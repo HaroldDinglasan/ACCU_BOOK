@@ -1,0 +1,253 @@
+﻿@page "/Descriptions/{ownercode}"
+@* @page "/Accountdialog/{id:guid}" *@
+@attribute [Authorize(Roles = "Admin,User")]
+@inject HttpClient http
+@inject NotificationService notificationService
+@inject NavigationManager navigationManager
+
+
+@if (isloading == false)
+{
+    <RadzenTemplateForm Submit="@Submit" TItem="Descriptions" Data="descriptions">
+
+        <RadzenDataGrid EditMode="@editMode" @ref="grid" ColumnWidth="90px" Style="height: 75vh"
+                        Data="@descriptionsList" AllowColumnResize=true RowCreate="@OnCreateRow"
+                        TItem="Descriptions" RowUpdate="@OnUpdateRow">
+            @*   <HeaderTemplate>
+                        <RadzenButton ButtonStyle="ButtonStyle.Success" Icon="add" Text="Add New Order" Size="ButtonSize.ExtraSmall" Click="@InsertRow" Disabled="@(editMode == DataGridEditMode.Single && quotationsDetailsToInsert.Count() > 0)" />
+                    </HeaderTemplate> *@
+            <HeaderTemplate>
+                <RadzenButton ButtonStyle="ButtonStyle.Success" Icon="add" Text="Add New"
+                              Click="@(() => InsertAfterRow(descriptionsList.LastOrDefault()))" title="Add new row after this row"
+                              Disabled="@(descriptionsDetailsToInsert.Any() || descriptionsDetailsToUpdate.Any())" />
+            </HeaderTemplate>
+            <Columns>
+                <RadzenDataGridColumn Width="20px" TextAlign="TextAlign.Center" Property="Action" Frozen="true" FrozenPosition="FrozenColumnPosition.Left">
+                    <Template Context="data">
+                        <RadzenButton Icon="edit" ButtonStyle="ButtonStyle.Secondary" Variant="Variant.Text" Size="ButtonSize.ExtraSmall"
+                                      Click="@(args => EditRow(data))" title="Edit this row" />
+                    </Template>
+                    <EditTemplate Context="data">
+                        <RadzenButton Icon="check" ButtonStyle="ButtonStyle.Success" Variant="Variant.Text" Size="ButtonSize.ExtraSmall" Click="@((args) => SaveRow(data))" title="Save" />
+                    </EditTemplate>
+                </RadzenDataGridColumn>
+
+                <RadzenDataGridColumn Width="200px" TItem="Descriptions" Property="@nameof(Descriptions.Description)" Title="Description">
+                    <EditTemplate Context="data">
+                        <RadzenTextBox style="width: 100%;" @bind-Value="@data.Description" />
+                    </EditTemplate>
+                </RadzenDataGridColumn>
+
+                <RadzenDataGridColumn Width="30px" TItem="Descriptions" Title="Default">
+                    <Template Context="data">
+                        @if (data.IsDefault)
+                        {
+                          
+                            <RadzenIcon Icon="done" IconColor="@Colors.Success" />
+                        }
+                        else
+                        {
+                            
+                            <RadzenIcon Icon="cancel" IconColor="@Colors.Danger" />
+                        
+                        }
+
+                    </Template>
+
+                    <EditTemplate Context="data">
+                        <RadzenCheckBox TValue="bool"
+                                        Value="@data.IsDefault"
+                                        Change="@(args => OnDefaultChanged(data, args))" />
+                    </EditTemplate>
+                </RadzenDataGridColumn>
+            </Columns>
+        </RadzenDataGrid>
+    <br/>
+    <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.Right">
+        <RadzenRow>
+            <RadzenButton ButtonStyle="ButtonStyle.Secondary" Icon="Check" Text="OK" Click="@(() => DialogService.Close())" />
+            <RadzenButton ButtonStyle="ButtonStyle.Secondary" Icon="close" Text="CANCEL" Click="@(() => DialogService.Close())" />
+        </RadzenRow>
+
+    </RadzenStack>
+</RadzenTemplateForm>
+}
+else
+{
+    <Spinner />
+}
+
+
+
+@*Purchaser Table Here:*@
+@code {
+
+    private void OnDefaultChanged(Descriptions selectedItem, bool isChecked)
+    {
+        if (isChecked)
+        {
+            // Uncheck all other items
+            foreach (var item in descriptionsList)
+            {
+                if (item != selectedItem)
+                {
+                    item.IsDefault = false;
+                }
+            }
+            selectedItem.IsDefault = true;
+        }
+        else
+        {
+            // If unchecking, just set this item to false
+            selectedItem.IsDefault = false;
+        }
+
+        // Refresh the grid to reflect changes
+        StateHasChanged();
+    }
+
+    [Parameter]
+    public string OwnerCode { get; set; }
+    //initialized id here// list of PurchaseRequisition
+
+    bool isloading;
+    bool isAddingNew;
+    Variant btnVariantText = Variant.Text;
+    DataGridEditMode editMode = DataGridEditMode.Single;
+    //FORM MODEL
+    RadzenDataGrid<Descriptions> grid;
+    private Descriptions descriptions { get; set; } = new Descriptions();
+    private Descriptions editpurchaseDescriptions = null;
+    List<Descriptions> descriptionsDetailsToInsert = new List<Descriptions>();
+    List<Descriptions> descriptionsDetailsToUpdate = new List<Descriptions>();
+
+    private DescriptionFilter descriptionFilter { get; set; } = new DescriptionFilter();
+
+    public string CompCode { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        base.OnInitialized();
+        isloading = true;
+        descriptionFilter.OwnerCode = OwnerCode;
+        //await loadAllAccounts();
+        if (OwnerCode is not null)
+        {
+            await LoadDescriptionsByCode();
+        }
+    }
+
+    private async Task Submit()
+    {
+
+    }
+
+    private async Task LoadDescriptionsByCode()
+    {
+
+        await GetDescriptions();
+        isloading = false;
+
+    }
+    private List<Descriptions> descriptionsList { get; set; }
+    protected async Task GetDescriptions()
+    {
+        var data = await descriptionsService.GetDescriptions(descriptionFilter);
+        descriptionsList = data is not null ? data.ToList() : new List<Descriptions>();
+    }
+
+
+    async Task InsertAfterRow(Descriptions descriptions)
+    {
+        if (descriptionsDetailsToInsert.Any() || descriptionsDetailsToUpdate.Any())
+        {
+            NotificationHelper.ShowWarning(notificationService, "Unsaved Details", "Please click the 'Save' (checkmark) button for any active or newly added detail rows in the grid before saving.");
+            return;
+        }
+
+        if (!grid.IsValid) return;
+        if (editMode == DataGridEditMode.Single)
+        {
+            Reset();
+        }
+        var newdescriptions = new Descriptions();
+        descriptionsDetailsToInsert.Add(newdescriptions);
+        // var index = descriptionsList.IndexOf(descriptions);
+        // if (index >= 0)
+        // {
+        //     descriptionsList.Insert(index + 1, newdescriptions); // Insert after selected row
+        // }
+        // else
+        // {
+        descriptionsList.Add(newdescriptions);
+        // }
+
+
+        // if (descriptions is not null)
+        // {
+        //     await grid.InsertAfterRow(newdescriptions, descriptions);
+        // }
+        // else
+        // {
+        await grid.InsertRow(newdescriptions);
+        // }
+
+        // await grid.Reload();
+        StateHasChanged();
+
+
+    }
+
+    async Task EditRow(Descriptions descriptions)
+    {
+        if (descriptionsDetailsToInsert.Any() || descriptionsDetailsToUpdate.Any())
+        {
+            NotificationHelper.ShowWarning(notificationService, "Unsaved Details", "Please click the 'Save' (checkmark) button for any active or newly added detail rows in the grid before saving.");
+            return;
+        }
+
+        if (!grid.IsValid) return;
+        if (editMode == DataGridEditMode.Single)
+        {
+            Reset();
+        }
+
+        descriptionsDetailsToUpdate.Add(descriptions);
+        await grid.EditRow(descriptions);
+        StateHasChanged(); // Ensure UI updates and list is reflected
+    }
+
+
+    async Task SaveRow(Descriptions descriptions)
+    {
+
+        await grid.UpdateRow(descriptions);
+        await grid.Reload();
+        StateHasChanged();
+    }
+
+
+    void OnUpdateRow(Descriptions descriptions)
+    {
+        Reset(descriptions);
+
+    }
+
+    void OnCreateRow(Descriptions descriptions)
+    {
+        descriptionsDetailsToInsert.Remove(descriptions);
+    }
+
+    void Reset(Descriptions descriptions)
+    {
+        descriptionsDetailsToInsert.Remove(descriptions);
+        descriptionsDetailsToUpdate.Remove(descriptions);
+    }
+
+    void Reset()
+    {
+        descriptionsDetailsToInsert.Clear();
+        descriptionsDetailsToUpdate.Clear();
+    }
+}
+

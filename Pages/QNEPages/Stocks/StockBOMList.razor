@@ -1,0 +1,200 @@
+﻿@page "/BillOfMaterialList"
+@inject StockItemsService stockItemsService
+@attribute [Authorize(Roles = "Admin,User")]
+@inject HttpClient http
+@inject NavigationManager navManager
+@inject ContextMenuService contextMenuService
+@inject IJSRuntime JSRuntime
+
+<RadzenStack Gap="0.2rem">
+
+    <RadzenDataGrid @ref="grids" @bind-Value=@selectedStockBOM
+                    RowDoubleClick="() => Edit(selectedStockBOM.FirstOrDefault().Id)"
+                    TItem="StockBOMModel"
+                    IsLoading=@isLoading Sort="@ShowLoading" Page="@ShowLoading" Group="@ShowLoading" Filter="@ShowLoading"
+                    Data="@filteredStockItemsList"
+                    AllowVirtualization="true"
+                    ColumnWidth="200px"
+                    AllowSorting="true"
+                    AllowFiltering="true"
+                    ShowPagingSummary="true"
+                    ShowMultiColumnSortingIndex="true"
+                    FilterMode="FilterMode.CheckBoxList"
+                    Style="height: 84vh"
+                    AllowColumnPicking="true"
+                    FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive">
+
+        <HeaderTemplate>
+            <RadzenStack Orientation="Orientation.Horizontal"
+                         AlignItems="AlignItems.Center"
+                         Style="width: 100%;">
+                <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem;">
+                    <RadzenButton Text="New"
+                                  Click="@navigate"
+                                  ButtonStyle="ButtonStyle.Primary"
+                                  Icon="add" />
+
+                    <!-- DIVIDER -->
+                    <div style="border-left: 2px solid #ccc; height: 2rem; margin: 0 0.5rem;"></div>
+
+                    <RadzenTextBox Disabled=@(filteredStockItemsList == null)
+                                   @bind-Value="@searchText"
+                                   Placeholder="Search..."
+                                   Style="width:30rem;"
+                                   Change="@(args => ApplyFilter())" />
+
+                    <RadzenButton Disabled=@(filteredStockItemsList == null)
+                                  Icon="search"
+                                  Click="@ApplyFilter"
+                                  Text="Find" />
+
+                    <RadzenButton Disabled=@(filteredStockItemsList == null)
+                                  Icon="delete"
+                                  Click="@ClearFilter"
+                                  Text="Clear" />
+
+                    <RadzenBadge Visible="@(status != string.Empty)" Shade="Shade.Dark" BadgeStyle="BadgeStyle.Danger" Text="@status" class="rz-ms-2" />
+
+                </RadzenStack>
+            </RadzenStack>
+
+        </HeaderTemplate>
+
+        <Columns>
+
+            <RadzenDataGridColumn Visible=true Width="90px" TItem="StockBOMModel"
+                                  Property="@nameof(StockBOMModel.BOMCode)" FormatString="{0:d}" Title="BOM #"></RadzenDataGridColumn>
+
+            <RadzenDataGridColumn Visible=true Width="120px" TItem="StockBOMModel"
+                                  Property="@nameof(StockBOMModel.StockCode)" Title="Stock"></RadzenDataGridColumn>
+
+            <RadzenDataGridColumn Visible=true Width="160px" TItem="StockBOMModel"
+                                  Property="@nameof(StockBOMModel.UnitCost)" Title="Unit Cost"></RadzenDataGridColumn>
+
+        </Columns>
+
+    </RadzenDataGrid>
+</RadzenStack>
+
+
+@code {
+    string status = string.Empty;
+    private RadzenDataGrid<StockBOMModel> grids;
+    private IList<StockBOMModel> selectedStockBOM { get; set; }
+
+    private IEnumerable<StockBOMModel> stockBOMList { get; set; }
+
+    FilterCaseSensitivity filter = FilterCaseSensitivity.CaseInsensitive;
+    Density density = Density.Compact;
+    AlignItems alignItems = AlignItems.Center;
+    Variant variant = Variant.Flat;
+
+    bool isLoading;
+
+    protected async override Task OnInitializedAsync()
+    {
+        await ShowLoading();
+        await loadAllData();
+    }
+
+    private async Task loadAllData()
+    {
+        await GetStockBOMList();
+    }
+
+    private async Task GetStockBOMList()
+    {
+        var data = await stockItemsService.GetStockBOMList();
+
+        stockBOMList = data is not null
+            ? data
+            : new List<StockBOMModel>();
+
+        filteredStockItemsList = stockBOMList; // enable search filter
+    }
+
+    protected void Edit(Guid Id)
+    {
+        navManager.NavigateTo($"/BillOfMaterialList/Edit/{Id}");
+    }
+
+
+    // DoubleClick Cell Event
+    protected void OnCellContextMenu(DataGridCellMouseEventArgs<StockBOMModel> stockItems)
+    {
+        selectedStockBOM = new List<StockBOMModel>() { stockItems.Data };
+
+        var contextMenuItems = new List<ContextMenuItem>
+        {
+            new ContextMenuItem() { Text = "New", Value = 1, Icon = "add" },
+            new ContextMenuItem() { Text = "Edit", Value = 2, Icon = "edit" },
+            new ContextMenuItem() { Text = "Delete", Value = 3, Icon = "delete" }
+        };
+
+        contextMenuService.Open(stockItems, contextMenuItems, (e) =>
+        {
+            switch (e.Value)
+            {
+                case 1:
+                    navigate();
+                    break;
+                case 2:
+                    Edit(stockItems.Data.Id);
+                    break;
+                case 3:
+                    // Delete(stockItems.Data.Id);
+                    break;
+
+            }
+            contextMenuService.Close();
+
+        });
+    }
+
+    private void navigate()
+    {
+        navManager.NavigateTo("/BillOfMaterial");
+    }
+
+    private string searchText = string.Empty;
+    private IEnumerable<StockBOMModel> filteredStockItemsList;
+
+    private void ApplyFilter()
+    {
+        if (string.IsNullOrWhiteSpace(searchText))
+        {
+            filteredStockItemsList = stockBOMList;
+        }
+        else
+        {
+            filteredStockItemsList = stockBOMList.Where(x =>
+                (!string.IsNullOrEmpty(x.BOMCode) && x.BOMCode.Contains(searchText, StringComparison.OrdinalIgnoreCase)) ||
+                (!string.IsNullOrEmpty(x.Description) && x.Description.Contains(searchText, StringComparison.OrdinalIgnoreCase))
+
+            );
+        }
+        StateHasChanged();
+    }
+
+    private void ClearFilter()
+    {
+        searchText = string.Empty;
+        filteredStockItemsList = stockBOMList;
+        StateHasChanged();
+    }
+
+    async Task ShowLoading()
+    {
+        await Task.Yield();
+
+        isLoading = false;
+    }
+
+
+    // private void OnRowClick(DataGridRowMouseEventArgs<StockBOMModel> args)
+    // {
+    //     set condition for Cancelled
+    //     status = args.Data.IsCancelled ? "(Cancelled)": String.Empty;
+    // }
+
+}

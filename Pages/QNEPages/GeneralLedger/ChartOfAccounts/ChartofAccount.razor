@@ -1,0 +1,544 @@
+﻿@page "/ChartofAccount"
+@attribute [Authorize(Roles = "Admin,User")]
+
+<div class="coa">
+
+   @*  <header class="coa-head">
+        <div class="coa-icon"><RadzenIcon Icon="account_tree" /></div>
+        <div>
+            <h1>Chart of Accounts</h1>
+            <p>Browse the account tree. Double-click an account to edit it, right-click for more actions.</p>
+        </div>
+    </header> *@
+
+    <section class="coa-panel">
+
+        <div class="coa-toolbar">
+            <header class="coa-head">
+                <div class="coa-icon"><RadzenIcon Icon="account_tree" /></div>
+                <div>
+                    <h1>Chart of Accounts</h1>
+                    <p>Browse the account tree. Double-click an account to edit it, right-click for more actions.</p>
+                </div>
+            </header>
+
+            <div class="coa-search">
+                <RadzenIcon Icon="search" />
+                <RadzenTextBox @bind-Value="@searchText"
+                               @oninput="OnInput"
+                               Change="@OnSearchChanged"
+                               Placeholder="Search description, account code or SAC..." />
+            </div>
+
+            @if (IsSearching)
+            {
+                <RadzenButton Icon="close" Text="Clear"  Variant="Variant.Outlined"  Click="@ClearFilter" />
+                <span class="coa-count">@(ResultCount == 1 ? "1 match" : $"{ResultCount} matches")</span>
+            }
+
+            <span class="coa-legend"><span class="coa-dot"></span> Special account</span>
+
+
+            <RadzenButton Icon="download"
+                          Text="Export Excel"
+                          ButtonStyle="ButtonStyle.Success"
+                          Variant="Variant.Outlined"
+                          Click="@ExportToExcel" />
+
+
+        </div>
+
+        <RadzenDataGrid @ref="grids" CellContextMenu="(args) => OnCellContextMenu(args)" RowDoubleClick="(args) => Edit(args)"
+                        Data="@filteredChartOfAccountsTree" RowRender="@RowRender"
+                        AllowColumnReorder="true" TItem="ChartOfAccountTree" AllowAlternatingRows="false"
+                        AllowColumnResize="true" LoadChildData="@LoadChildData" SelectionMode="DataGridSelectionMode.Single"
+                        IsLoading=@isLoading Sort="@ShowLoading" Page="@ShowLoading" Group="@ShowLoading" Filter="@ShowLoading"
+                        Density="Density.Compact" Style="height: calc(100vh - 15rem); min-height: 420px; overflow: hidden;" AllowSorting="true"
+                        ColumnWidth="Auto" AllowFiltering="true" FilterPopupRenderMode="PopupRenderMode.OnDemand"
+                        FilterMode="FilterMode.CheckBoxList" FilterCaseSensitivity="@filterCaseSensitivity"
+                        LogicalFilterOperator="LogicalFilterOperator.Or"
+                        ShowMultiColumnSortingIndex="true"
+                        RowCollapse="@(args => grids.ColumnsCollection.ToList().ForEach(c => c.ClearFilters()))">
+            <EmptyTemplate>
+                <div class="coa-empty">
+                    <RadzenIcon Icon="@(IsSearching ? "search_off" : "account_tree")" />
+                    <span>@(IsSearching ? $"No accounts match “{searchText.Trim()}”." : "No accounts to show.")</span>
+                </div>
+            </EmptyTemplate>
+            <Columns>
+                <RadzenDataGridColumn Width="480px" TItem="ChartOfAccountTree" Property="Description" Title="Description">
+                    <Template Context="data">
+                        <span class="@SpecialClass(data)">@Highlight(data.Description)</span>
+                    </Template>
+                </RadzenDataGridColumn>
+                <RadzenDataGridColumn Visible="@IsSearching" Width="220px" TItem="ChartOfAccountTree" Title="Parent account" Filterable="false" Sortable="false">
+                    <Template Context="data">
+                        <span class="coa-parent">@ParentDescription(data)</span>
+                    </Template>
+                </RadzenDataGridColumn>
+                <RadzenDataGridColumn TItem="ChartOfAccountTree" Property="GLAccountCode" Title="Account Code">
+                    <Template Context="data">
+                        <span class="coa-code @SpecialClass(data)">@Highlight(data.GLAccountCode)</span>
+                    </Template>
+                </RadzenDataGridColumn>
+                <RadzenDataGridColumn TItem="ChartOfAccountTree" Property="SpecialAccountCode" Title="SAC">
+                    <Template Context="data">
+                        <span class="@SpecialClass(data)">@Highlight(data.SpecialAccountCode)</span>
+                    </Template>
+                </RadzenDataGridColumn>
+                <RadzenDataGridColumn TItem="ChartOfAccountTree" Property="CurrencyCode" Title="Currency">
+                    <Template Context="data">
+                        <span class="@SpecialClass(data)">@data.CurrencyCode</span>
+                    </Template>
+                </RadzenDataGridColumn>
+                <RadzenDataGridColumn TItem="ChartOfAccountTree" Property="InputTax" Title="Default Input Tax Code"></RadzenDataGridColumn>
+                <RadzenDataGridColumn TItem="ChartOfAccountTree" Property="OutputTax" Title="Default Output Tax Code"></RadzenDataGridColumn>
+            </Columns>
+        </RadzenDataGrid>
+    </section>
+</div>
+
+<style>
+   
+</style>
+
+@code {
+    [CascadingParameter]
+    public Task<AuthenticationState> authenticationState { get; set; }
+
+    //Data Grid Properties
+    FilterCaseSensitivity filterCaseSensitivity = FilterCaseSensitivity.CaseInsensitive;
+    protected RadzenDataGrid<ChartOfAccountTree> grids;
+
+    Guid defaultvalue = new Guid();
+    bool isLoading = false;
+    string? companyName = "ERROR 404";
+    //LIST ChartofAccounts
+    private IEnumerable<ChartOfAccountTree> chartOfAccountsTree;   // mga root lang
+    private IList<ChartOfAccountTree> selectedAccountsTree;
+    private IEnumerable<ChartOfAccountTree> chartOfAccountchild;   // LAHAT ng account (root + anak)
+
+
+    protected override async Task OnInitializedAsync()
+    {
+        isLoading = true;   // lalabas agad ang loading sa grid habang kumukuha ng data
+        companyName = await localStorage.GetItemAsync<string>("selectedCompanyName");
+        var authState = (await authenticationState).User;
+        if (authState.Identity.IsAuthenticated)
+        {
+            var RoleId = authState.FindFirst("RoleId").Value;
+            await GetLoadMenuPermission(RoleId);
+        }
+
+        isLoading = false;
+    }
+
+    async Task ShowLoading()
+    {
+        await Task.Yield();
+
+        isLoading = false;
+    }
+
+    public IEnumerable<SystemMenuObjectPermission> systemMenuObjectPermissionList;
+    protected async Task GetLoadMenuPermission(string RoleId)
+    {
+        var data = await menuService.GetSystemMenuObjectPermissionId(RoleId);
+        if (data is not null)
+            systemMenuObjectPermissionList = data;
+
+        var result = systemMenuObjectPermissionList?.FirstOrDefault(x => x.MenuName == "Chart of Account");
+        if (result?.AllowNavigate == true)
+        {
+            await loadAllAccounts();
+            ApplyFilter();   // initial load
+        }
+        else
+        {
+            navManager.NavigateTo("/NotAuthorized");
+        }
+    }
+
+
+    // ===================== SEARCH =====================
+    // Parehong logic ng GetData / OnInput / ClearFilter: filter ang buong listahan base sa searchText,
+    // tapos Reload ang grid. Habang may search, FLAT ang resulta (kasama ang mga nasa loob ng tree);
+    // kapag walang search, bumabalik sa tree (root lang, expandable).
+    private string searchText = string.Empty;
+    private IEnumerable<ChartOfAccountTree> filteredChartOfAccountsTree = new List<ChartOfAccountTree>();
+
+    bool IsSearching => !string.IsNullOrWhiteSpace(searchText);
+    int ResultCount => IsSearching ? filteredChartOfAccountsTree?.Count() ?? 0 : 0;
+
+    private static bool Has(string? value, string term) =>
+        value?.Contains(term, StringComparison.OrdinalIgnoreCase) ?? false;
+
+    private IEnumerable<ChartOfAccountTree> GetData()
+    {
+        if (chartOfAccountchild == null)
+            return Enumerable.Empty<ChartOfAccountTree>();
+
+        if (!IsSearching)
+            return chartOfAccountsTree ?? Enumerable.Empty<ChartOfAccountTree>();
+
+        var term = searchText.Trim();
+
+        // Description, GLAccountCode, SpecialAccountCode (case-insensitive, contains)
+        return chartOfAccountchild
+            .Where(x => string.IsNullOrEmpty(term) ||
+                        Has(x.Description, term) ||
+                        Has(x.GLAccountCode, term) ||
+                        Has(x.SpecialAccountCode, term))
+            .OrderBy(x => x.GLAccountCode)
+            .ToList();
+    }
+
+    // Itinatago sa field para hindi mag-reset ang grid (at ang mga naka-expand) sa bawat render.
+    private void ApplyFilter()
+    {
+        filteredChartOfAccountsTree = GetData().ToList();
+    }
+
+    async Task OnInput(ChangeEventArgs args)
+    {
+        searchText = args.Value?.ToString() ?? string.Empty;
+        ApplyFilter();
+        if (grids != null) await grids.Reload();
+    }
+
+    // Fallback kung Enter o umalis sa textbox
+    async Task OnSearchChanged(string value)
+    {
+        searchText = value ?? string.Empty;
+        ApplyFilter();
+        if (grids != null) await grids.Reload();
+    }
+
+    private async Task ClearFilter()
+    {
+        searchText = string.Empty;
+        ApplyFilter();
+        if (grids != null) await grids.Reload();
+        StateHasChanged();
+    }
+
+    // Nilalagyan ng <mark> ang tumamang bahagi ng text
+    MarkupString Highlight(string? text)
+    {
+        if (string.IsNullOrEmpty(text)) return new MarkupString(string.Empty);
+        if (!IsSearching) return new MarkupString(System.Net.WebUtility.HtmlEncode(text));
+
+        var term = searchText.Trim();
+        var sb = new System.Text.StringBuilder();
+        var pos = 0;
+        while (true)
+        {
+            var i = text.IndexOf(term, pos, StringComparison.OrdinalIgnoreCase);
+            if (i < 0)
+            {
+                sb.Append(System.Net.WebUtility.HtmlEncode(text.Substring(pos)));
+                break;
+            }
+            sb.Append(System.Net.WebUtility.HtmlEncode(text.Substring(pos, i - pos)));
+            sb.Append("<mark>").Append(System.Net.WebUtility.HtmlEncode(text.Substring(i, term.Length))).Append("</mark>");
+            pos = i + term.Length;
+        }
+        return new MarkupString(sb.ToString());
+    }
+
+    string ParentDescription(ChartOfAccountTree acc) =>
+        acc.ParentId == defaultvalue
+            ? "—"
+            : chartOfAccountchild?.FirstOrDefault(x => x.Id == acc.ParentId)?.Description ?? "—";
+
+    string SpecialClass(ChartOfAccountTree acc) => string.IsNullOrEmpty(acc.SpecialAccount) ? "" : "coa-special";
+    // ===================================================
+
+
+    protected async Task loadGLfAccountsTree()
+    {
+        var AccountsTree = await chartOfAccountsServices.GetChartofAccountTree();
+        chartOfAccountsTree = AccountsTree.Where(e => e.ParentId == defaultvalue);
+        chartOfAccountchild = AccountsTree;
+    }
+
+    protected async Task loadAllAccounts()
+    {
+        await loadGLfAccountsTree();
+    }
+
+    //SAMPLE MESSAGE NOTIFICATION
+    void Dialog() { CustomNotificationMessage.Message(notificationService, true); }
+
+    void RowRender(RowRenderEventArgs<ChartOfAccountTree> accountree)
+    {
+        // Walang expand arrow kapag naka-flat ang resulta ng search
+        accountree.Expandable = !IsSearching && chartOfAccountchild.Any(a => a.ParentId == accountree.Data.Id);
+    }
+
+    void LoadChildData(DataGridLoadChildDataEventArgs<ChartOfAccountTree> accountree)
+    {
+        accountree.Data = chartOfAccountchild.Where(a => a.ParentId == accountree.Item.Id);
+    }
+
+
+    //FOR ACCOUNTDIALOG.RAZOR PAGE UPDATE
+    protected async Task SaveAccountDialog(Guid? Id)
+    {
+        //selectedAccountsTree = new List<ChartOfAccountTree>();
+        await DialogService.OpenAsync<ChartOfAccount_AccountDialog>(
+            $"Account",
+            new Dictionary<string, object> { { "id", (Guid?)Id }, { "RefreshGrid", EventCallback.Factory.Create(this, RefreshGrid) } },
+            new DialogOptions()
+            {
+                Width = "900px",
+                Height = "250px",
+                Resizable = true,
+                Draggable = true
+            });
+    }
+
+
+    protected async Task Edit(DataGridRowMouseEventArgs<ChartOfAccountTree> account)
+    {
+        if (account.Data.AccountId == defaultvalue)
+            await SaveAccountDialog(account.Data.Id);
+        else
+            await SaveGLAccountDialog(account.Data.Id, false);
+        //await EditGLAccountDialog(account.Data.Id);
+    }
+
+    private async Task RefreshGrid()
+    {
+        // Reload ang data at i-apply ulit ang kasalukuyang search para hindi luma ang nasa grid
+        isLoading = true;
+        await loadAllAccounts();
+        ApplyFilter();
+        isLoading = false;
+        StateHasChanged();
+    }
+
+
+    protected async Task SaveGLAccountDialog(Guid? Id, bool IsNew)
+    {
+        await DialogService.OpenAsync<ChartOfAccount_GLAccountDialog>(
+             $"Account Entry",
+            new Dictionary<string, object> { { "IsNew", IsNew }, { "Id", (Guid)Id },
+            { "RefreshGrid", EventCallback.Factory.Create(this, RefreshGrid) } },
+            new DialogOptions()
+            {
+                Width = "60%",
+                Height = "800px",
+                Resizable = true,
+                Draggable = true
+            });
+    }
+
+    //DoubleClick Cell Event
+    protected void OnCellContextMenu(DataGridCellMouseEventArgs<ChartOfAccountTree> account)
+    {
+        selectedAccountsTree = new List<ChartOfAccountTree>() { account.Data };
+
+        var contextMenuItems = new List<ContextMenuItem>
+        {
+            new ContextMenuItem() { Text = "New", Value = 1, Icon = "add" },
+            new ContextMenuItem() { Text = "Edit", Value = 2, Icon = "edit" }
+            // new ContextMenuItem() { Text = "Delete", Value = 3, Icon = "delete" }
+        };
+
+        ContextMenuService.Open(account, contextMenuItems, async (e) =>
+        {
+            switch (e.Value)
+            {
+                case 1:
+                    //VALIDATION MUNA KUNG NAGAMIT NAYUN CODE SA IBANG TRANSACTION BAGO MAG CREATE NG NEW ACCOUNT
+                    var message = await chartOfAccountsServices.GetAccountsIsBeingUsedById(account.Data.Id.ToString());
+                    if (!string.IsNullOrEmpty(message))
+                        await DialogService.Alert(message);
+                    else
+                        await SaveGLAccountDialog(account.Data.Id, true);
+                    break;
+
+                case 2:
+                    if (account.Data.AccountId == defaultvalue)
+                        await SaveAccountDialog(account.Data.Id);
+                    else
+                        await SaveGLAccountDialog(account.Data.Id, false);
+                    break;
+                case 3:
+                    Delete(account.Data.Id);
+                    break;
+            }
+
+        });
+    }
+
+
+    protected async void Delete(Guid Id)
+    {
+
+        // var message = await chartOfAccountsServices.GetAccountsIsBeingUsedById(Id.ToString());
+        // if (!string.IsNullOrEmpty(message))
+        //     await DialogService.Alert(message);
+        // else
+        // {
+        bool hasChild = chartOfAccountchild.Any(c => c.ParentId == Id);
+
+        if (hasChild)
+        {
+            await DialogService.Alert("This account has child records and cannot be deleted.", "Delete Not Allowed");
+            return;
+        }
+
+        if (await DialogService.Confirm("You are about to delete record(s). Do you want to proceed?", "Delete") == true)
+        {
+
+            var data = await gLAccountsServices.DeleteGLAccounts(Id.ToString());
+            if (data != null)
+            {
+
+
+                await DialogService.Alert(data);
+                StateHasChanged();
+
+            }
+            else
+            {
+                requestMessageHandler.isSucccess(false);
+            }
+
+            //}
+        }
+
+    }
+
+
+}
+
+
+
+
+@* EXPORT FUNCTION *@
+
+<div style="display:none">
+    <RadzenDataGrid @ref="exportGrid"
+                    TItem="ChartOfAccountExportRow"
+                    Data="@exportData">
+        <Columns>
+            <RadzenDataGridColumn TItem="ChartOfAccountExportRow"
+                                  Property="Description"
+                                  Title="Description" />
+
+            <RadzenDataGridColumn TItem="ChartOfAccountExportRow"
+                                  Property="ParentAccount"
+                                  Title="Parent Account" />
+
+            <RadzenDataGridColumn TItem="ChartOfAccountExportRow"
+                                  Property="GLAccountCode"
+                                  Title="Account Code" />
+
+            <RadzenDataGridColumn TItem="ChartOfAccountExportRow"
+                                  Property="SpecialAccountCode"
+                                  Title="SAC" />
+
+            <RadzenDataGridColumn TItem="ChartOfAccountExportRow"
+                                  Property="CurrencyCode"
+                                  Title="Currency" />
+
+            <RadzenDataGridColumn TItem="ChartOfAccountExportRow"
+                                  Property="InputTax"
+                                  Title="Default Input Tax Code" />
+
+            <RadzenDataGridColumn TItem="ChartOfAccountExportRow"
+                                  Property="OutputTax"
+                                  Title="Default Output Tax Code" />
+        </Columns>
+    </RadzenDataGrid>
+</div>
+
+
+
+@code{
+    private RadzenDataGrid<ChartOfAccountExportRow> exportGrid;
+
+    private List<ChartOfAccountExportRow> exportData = new();
+
+    private class ChartOfAccountExportRow
+    {
+        public string Description { get; set; } = "";
+        public string ParentAccount { get; set; } = "";
+        public string GLAccountCode { get; set; } = "";
+        public string SpecialAccountCode { get; set; } = "";
+        public string CurrencyCode { get; set; } = "";
+        public string InputTax { get; set; } = "";
+        public string OutputTax { get; set; } = "";
+    }
+
+    private async Task ExportToExcel()
+    {
+        if (chartOfAccountchild == null ||
+            !chartOfAccountchild.Any())
+        {
+            await DialogService.Alert("No accounts available to export.");
+            return;
+        }
+
+        var accounts = chartOfAccountchild.ToList();
+
+        var accountLookup = accounts.ToDictionary(x => x.Id);
+
+        exportData = new List<ChartOfAccountExportRow>();
+
+        void AddAccount(ChartOfAccountTree account, int level)
+        {
+            var parentDescription =
+                account.ParentId == defaultvalue
+                    ? ""
+                    : accountLookup.TryGetValue(account.ParentId, out var parent)
+                        ? parent.Description ?? ""
+                        : "";
+
+            exportData.Add(new ChartOfAccountExportRow
+            {
+                Description = new string(' ', level * 4) +
+                             (level > 0 ? "└─ " : "") +
+                             (account.Description ?? ""),
+
+                ParentAccount = parentDescription,
+                GLAccountCode = account.GLAccountCode ?? "",
+                SpecialAccountCode = account.SpecialAccountCode ?? "",
+                CurrencyCode = account.CurrencyCode ?? "",
+                InputTax = account.InputTax ?? "",
+                OutputTax = account.OutputTax ?? ""
+            });
+
+            foreach (var child in accounts
+                .Where(x => x.ParentId == account.Id)
+                .OrderBy(x => x.GLAccountCode))
+            {
+                AddAccount(child, level + 1);
+            }
+        }
+
+        // Start sa root accounts at isama lahat ng descendants.
+        foreach (var root in accounts
+            .Where(x => x.ParentId == defaultvalue)
+            .OrderBy(x => x.GLAccountCode))
+        {
+            AddAccount(root, 0);
+        }
+
+        if (exportData.Count == 0)
+        {
+            await DialogService.Alert("No accounts available to export.");
+            return;
+        }
+
+        await exportGrid.ExportToExcelAsync(
+     $"{companyName}_ChartOfAccounts.xlsx",
+     new DataGridExcelExportOptions
+     {
+         Scope = DataGridExportScope.All
+     });
+    }
+}

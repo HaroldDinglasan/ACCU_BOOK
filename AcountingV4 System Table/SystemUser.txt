@@ -1,0 +1,66 @@
+CREATE TABLE SystemUser (
+    Oid UNIQUEIDENTIFIER NOT NULL DEFAULT NEWID(),  -- Primary Key
+    StoredPassword NVARCHAR(100) NOT NULL,          -- Password string
+    ChangePasswordOnFirstLogon BIT NOT NULL,        -- 1 or 0 (true/false)
+    UserName NVARCHAR(50) NOT NULL UNIQUE,          -- Username (unique)
+    IsActive BIT NOT NULL DEFAULT 1,                -- Active status
+    OptimisticLockField INT NOT NULL DEFAULT 0,     -- Concurrency field
+    FullName NVARCHAR(150) NOT NULL,                -- User’s full name
+    Remarks NVARCHAR(MAX) NULL,                     -- Optional remarks
+    Picture VARBINARY(MAX) NULL,                    -- Store image (if needed)
+    Signature VARBINARY(MAX) NULL,                  -- Digital signature (optional)
+    Email NVARCHAR(150) NULL,                       -- User email
+    RoleType NVARCHAR(50) NOT NULL                  -- Role (e.g., Admin, User)
+);
+
+
+
+
+------------------------------------------------------------------------------------
+
+
+
+-- Create the SystemUser table
+CREATE TABLE SystemUser (
+    Oid UNIQUEIDENTIFIER NOT NULL DEFAULT NEWID(),  -- Primary Key
+    StoredPassword NVARCHAR(100) NOT NULL,          -- Password string
+    ChangePasswordOnFirstLogon BIT NOT NULL,        -- 1 or 0 (true/false)
+    UserName NVARCHAR(50) NOT NULL UNIQUE,          -- Username (unique)
+    IsActive BIT NOT NULL DEFAULT 1,                -- Active status
+    OptimisticLockField INT NOT NULL DEFAULT 0,     -- Concurrency field
+    FullName NVARCHAR(150) NOT NULL,                -- User’s full name
+    Remarks NVARCHAR(MAX) NULL,                     -- Optional remarks
+    Picture VARBINARY(MAX) NULL,                    -- Store image (if needed)
+    Signature VARBINARY(MAX) NULL,                  -- Digital signature (optional)
+    Email NVARCHAR(150) NULL,                       -- User email
+    RoleType NVARCHAR(50) NOT NULL,                 -- Role (e.g., Admin, User)
+    CONSTRAINT PK_SystemUser PRIMARY KEY (Oid)
+);
+
+-- Insert sample user
+INSERT INTO SystemUser (
+    StoredPassword,
+    ChangePasswordOnFirstLogon,
+    UserName,
+    IsActive,
+    OptimisticLockField,
+    FullName,
+    Remarks,
+    Picture,
+    Signature,
+    Email,
+    RoleType
+)
+VALUES (
+    'Pass123',               -- StoredPassword
+    1,                       -- ChangePasswordOnFirstLogon (true)
+    'JOGARCIA',              -- UserName
+    1,                       -- IsActive (true)
+    0,                       -- OptimisticLockField
+    'John Lloyd Garcia',     -- FullName
+    NULL,                    -- Remarks
+    NULL,                    -- Picture
+    NULL,                    -- Signature
+    NULL,                    -- Email
+    'User'                   -- RoleType
+);

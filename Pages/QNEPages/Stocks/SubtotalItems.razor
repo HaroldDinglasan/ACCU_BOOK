@@ -1,0 +1,313 @@
+﻿@page "/SubtotalItems"
+@page "/SubtotalItemsList/Edit/{id:guid}"
+@attribute [Authorize(Roles = "Admin,User")]
+
+
+<RadzenTemplateForm TItem="Stocks" Data="@stockmodel" Submit="@OnSubmit" InvalidSubmit="@OnInvalidSubmit">
+    <RadzenStack Gap="0.5rem">
+        <RadzenCard Style="Padding: 0.5rem">
+            <RadzenRow JustifyContent="JustifyContent.Start" AlignItems="AlignItems.Center" Gap="0.5rem">
+
+                <RadzenColumn Size="12" SizeSM="5">
+
+                    <RadzenStack AlignItems="AlignItems.Center" Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.Normal">
+
+                        @*MODIFIED 10/06/2026*@
+                        <RadzenButton Size="@smallbtn" Icon="save" BusyText="Saving..." IsBusy="@isBusy"
+                                      Disabled="@btnDiseabled"
+                                      ButtonType="ButtonType.Submit"
+                                      ButtonStyle="ButtonStyle.Primary"
+                                      Text="Save" />
+
+                        <RadzenButton Visible="btnDiseabled" Text="New" Icon="add" Size="@smallbtn"
+                                      BusyText="ButtonStyle.Success"
+                                      ButtonType="@Radzen.ButtonType.Button"
+                                      Click="@OnNew" />
+
+
+
+                        @* <RadzenButton Size="ButtonSize.Small" Visible="@isVisible" ButtonStyle="ButtonStyle.Danger" Click="@navigate" Text="Cancel" Icon="cancel"></RadzenButton> *@
+                    </RadzenStack>
+                </RadzenColumn>
+
+                <RadzenColumn Size="12" SizeSM="7">
+                    <RadzenStack AlignItems="AlignItems.Center" Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End">
+                        <RadzenButton Size="@smallbtn" ButtonStyle="ButtonStyle.Light" Click="@Navigate" Text="Search" Icon="search"></RadzenButton>
+                    </RadzenStack>
+                </RadzenColumn>
+
+            </RadzenRow>
+        </RadzenCard>
+
+        <RadzenCard>
+
+            <RadzenCard Style="padding: 1rem; margin-bottom: 1rem; border-left: 6px solid #588157; border-radius: 10px;">
+                <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.75rem">
+                    <RadzenHeading Size="H4" Text="Subtotal Items" Style="margin: 0; font-weight: 600; color: #3A5A40;" />
+                </RadzenStack>
+            </RadzenCard>
+
+            <RadzenStack Gap="1rem">
+
+                <!-- Main Information -->
+                <RadzenCard Style="
+                    padding: 1.25rem;
+                    border: 1px solid #d6d6d6;
+                    border-radius: 6px;
+                    background-color: #ffffff;
+                    box-shadow: 0 1px 3px rgba(0,0,0,0.08);">
+
+                    <RadzenRow Gap="1rem" AlignItems="AlignItems.Start">
+
+                        <!-- LEFT SIDE -->
+                        <RadzenColumn Size="12" SizeMD="6">
+
+                            <RadzenStack Gap="1rem">
+
+                                <!-- SubTotal Code + Checkbox -->
+                                <RadzenRow AlignItems="AlignItems.Center">
+
+                                    <RadzenColumn Size="12">
+                                        <RadzenFormField Style="width:100%;"
+                                                         Text="Sub Total Code*"
+                                                         AllowFloatingLabel="false">
+
+                                            <RadzenTextBox @bind-Value="stockmodel.StockCode"
+                                                           Name="DiscountCode"
+                                                           class="@GetClassesCodeClass()"
+                                                           Style="
+                                            width:100%;
+                                            height:38px;
+                                            border-radius:4px;" />
+
+                                        </RadzenFormField>
+
+                                        <RadzenRequiredValidator Component="DiscountCode"
+                                                                 Text="SubTotal Code is required"
+                                                                 Popup="false" />
+                                    </RadzenColumn>
+
+                                </RadzenRow>
+
+
+                                <!-- Discount Name -->
+                                <RadzenFormField Style="width:100%;"
+                                                 Text="Sub Total Name*"
+                                                 AllowFloatingLabel="false">
+
+                                    <RadzenTextBox @bind-Value="stockmodel.StockName"
+                                                   Name="DiscountName"
+                                                   class="@GetClassesCodeClass()"
+                                                   Style="
+                                    width:100%;
+                                    height:38px;
+                                    border-radius:4px;" />
+
+                                </RadzenFormField>
+
+                                <RadzenRequiredValidator Component="DiscountName"
+                                                         Text="SubTotal Name is required"
+                                                         Popup="false" />
+
+                            </RadzenStack>
+
+                        </RadzenColumn>
+
+                    </RadzenRow>
+
+
+                    <!-- DESCRIPTION -->
+                    <RadzenRow Style="margin-top:1rem;">
+
+                        <RadzenColumn Size="12">
+
+                            <RadzenFormField Style="width:100%;"
+                                             Text="Description"
+                                             AllowFloatingLabel="false">
+
+                                <RadzenTextArea @bind-Value="stockmodel.Description"
+                                                Style="
+                                width:100%;
+                                min-height:130px;
+                                resize:vertical;
+                                border-radius:4px;" />
+
+                            </RadzenFormField>
+
+                        </RadzenColumn>
+
+                    </RadzenRow>
+
+                </RadzenCard>
+
+            </RadzenStack>
+
+
+        </RadzenCard>
+    </RadzenStack>
+</RadzenTemplateForm>
+
+@code {
+
+    [Parameter]
+    public Guid? Id { get; set; }
+
+    AlignItems alignItems = AlignItems.Center;
+    Density density = Density.Compact;
+    ButtonSize smallbtn = ButtonSize.Small;
+    FilterCaseSensitivity filter = FilterCaseSensitivity.CaseInsensitive;
+
+    bool isLoading = false;
+    bool btnDiseabled = false;
+    bool isVisible = false;
+    bool isBusy;
+
+    async Task ShowLoading()
+    {
+        StateHasChanged();
+        isLoading = true;
+
+        await Task.Yield();
+        StateHasChanged();
+        isLoading = false;
+    }
+
+    //FOR PROPERTY SET VALUE OF OBJECT
+    string btnText = "Save";
+    string redtext;
+
+    private Stocks stockmodel { get; set; } = new Stocks();
+
+    private IEnumerable<VW_StockAccountPresetListing> stockAccountPresetsList { get; set; }
+
+
+    // Page Initialization
+    protected async override Task OnInitializedAsync()
+    {
+        await ShowLoading();
+        await loadAllData();
+        if (Id is not null)
+        {
+            await loadAllDataById();
+        }
+    }
+
+    private async Task loadAllDataById()
+    {
+        await GetStockItemsById();
+
+    }
+
+    private async Task loadAllData()
+    {
+        await GetStockAccountPresets();
+    }
+
+    protected async Task GetStockItemsById()
+    {
+        var data = await stockItemsService.GetStockItemsById(Id.ToString());
+        stockmodel = data is not null ? data : new Stocks();
+    }
+
+    protected async Task GetStockAccountPresets()
+    {
+        var data = await stockItemsService.GetStockAccountPresets();
+        stockAccountPresetsList = data is not null ? data : new List<VW_StockAccountPresetListing>();
+    }
+
+    private async Task OnSubmit()
+    {
+        try
+        {
+            isBusy = true;
+
+            stockmodel.ItemTypeCode = "T";
+
+            var id = await stockItemsService.SaveStockDiscountItems(stockmodel);
+
+            if (id != Guid.Empty)
+            {
+                stockmodel.Id = id;        // keep the saved id on the model (if your model has Id)
+                btnDiseabled = true;       // disables Save, shows New
+
+                notificationService.Notify(new NotificationMessage
+                {
+                    Severity = NotificationSeverity.Success,
+                    Summary = "Success",
+                    Detail = "SubTotal Items saved successfully!"
+                });
+            }
+            else
+            {
+                notificationService.Notify(new NotificationMessage
+                {
+                    Severity = NotificationSeverity.Info,
+                    Summary = "Info",
+                    Detail = "Failed to save discount items"
+                });
+            }
+        }
+        catch (Exception ex)
+        {
+            notificationService.Notify(new NotificationMessage
+            {
+                Severity = NotificationSeverity.Error,
+                Summary = "Error",
+                Detail = $"An unexpected error occurred: {ex.Message}"
+            });
+        }
+        finally
+        {
+            isBusy = false;
+        }
+    }
+
+    private bool showValidationErrors = false;
+
+    // VALIDATION RED BACK GROUND
+    private string GetClassesCodeClass()
+    {
+        if (showValidationErrors && string.IsNullOrWhiteSpace(stockmodel.StockCode))
+            return "invalid-input"; // already defined for red background
+        return "";
+    }
+
+    private void OnInvalidSubmit(FormInvalidSubmitEventArgs args)
+    {
+        notificationService.Notify(new NotificationMessage
+        {
+            Severity = NotificationSeverity.Error,
+            Summary = "Validation",
+            Detail = "Class Code must not be empty.",
+            Duration = 4000
+        });
+    }
+
+    private void OnPrint()
+    {
+        CustomNotificationMessage.Message(notificationService, true);
+    }
+
+    private void Navigate()
+    {
+        navManager.NavigateTo("/SubtotalItemsList");
+    }
+
+    private async Task AppState_StateChanged(ComponentBase Source, string Property)
+    {
+        if (Source != this)
+        {
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    // Start a new Stock Adjustment document
+    // ADDED 10/06/2026
+    private void OnNew()
+    {
+        // forceLoad = true so the page re-initializes even though we're already on Stock Adjustment
+        navManager.NavigateTo("/SubtotalItems", forceLoad: true);
+    }
+
+
+}

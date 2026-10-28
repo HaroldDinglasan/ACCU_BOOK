@@ -1,0 +1,445 @@
+﻿@page "/overview"
+@attribute [Authorize(Roles = "Admin,User")]
+
+@if (monthlySales != null)
+{
+    <div class="ov">
+        <header class="ov-header">
+            <div>
+                <h1>@Greeting, @displayName</h1>
+                <p class="ov-sub">@DateTime.Now.ToString("dddd, MMMM d, yyyy") &middot; Business overview</p>
+            </div>
+            <div class="ov-header-actions">
+                @if (lastUpdated is not null)
+                {
+                    <span class="ov-updated">Updated @lastUpdated.Value.ToString("h:mm tt")</span>
+                }
+                <RadzenButton Icon="refresh" Text="Refresh" Variant="Variant.Outlined" Click="@RefreshOverview" />
+            </div>
+        </header>
+
+        @* ---------- At a glance ---------- *@
+        <RadzenRow Gap="1rem" class="ov-kpis">
+            <RadzenColumn Size="12" SizeSM="6" SizeLG="3">
+                <div class="ov-kpi tone-primary">
+                    <div class="ov-kpi-icon"><RadzenIcon Icon="payments" /></div>
+                    <div>
+                        <div class="ov-kpi-label">Total sales &middot; last @selectedRange months</div>
+                        <div class="ov-kpi-value">@Compact(SalesTotal)</div>
+                        <div class="ov-kpi-hint">Average @Compact(SalesAverage) per month</div>
+                    </div>
+                </div>
+            </RadzenColumn>
+            <RadzenColumn Size="12" SizeSM="6" SizeLG="3">
+                <div class="ov-kpi @TrendTone">
+                    <div class="ov-kpi-icon"><RadzenIcon Icon="@TrendIcon" /></div>
+                    <div>
+                        <div class="ov-kpi-label">Latest month@(string.IsNullOrEmpty(LatestPeriod) ? "" : $" ({LatestPeriod})")</div>
+                        <div class="ov-kpi-value">@Compact(LatestSales)</div>
+                        <div class="ov-kpi-hint tone-text">@TrendText</div>
+                    </div>
+                </div>
+            </RadzenColumn>
+            <RadzenColumn Size="12" SizeSM="6" SizeLG="3">
+                <div class="ov-kpi @(OverdueCount > 0 ? "tone-danger" : "tone-success")">
+                    <div class="ov-kpi-icon"><RadzenIcon Icon="@(OverdueCount > 0 ? "warning" : "check_circle")" /></div>
+                    <div>
+                        <div class="ov-kpi-label">Overdue accounts</div>
+                        <div class="ov-kpi-value">@OverdueCount</div>
+                        <div class="ov-kpi-hint tone-text">@CustomerCount customers &middot; @SupplierCount suppliers</div>
+                    </div>
+                </div>
+            </RadzenColumn>
+            <RadzenColumn Size="12" SizeSM="6" SizeLG="3">
+                <div class="ov-kpi @(NearExpiryCount > 0 ? "tone-warning" : "tone-success")">
+                    <div class="ov-kpi-icon"><RadzenIcon Icon="@(NearExpiryCount > 0 ? "hourglass_bottom" : "inventory_2")" /></div>
+                    <div>
+                        <div class="ov-kpi-label">Items near expiry</div>
+                        <div class="ov-kpi-value">@NearExpiryCount</div>
+                        <div class="ov-kpi-hint tone-text">@(NearExpiryCount > 0 ? "Review before they expire" : "Nothing to review")</div>
+                    </div>
+                </div>
+            </RadzenColumn>
+        </RadzenRow>
+
+        <RadzenRow Gap="1rem">
+
+            @* ---------- Left: sales + expiry ---------- *@
+            <RadzenColumn Size="12" SizeLG="8">
+
+                <section class="ov-panel">
+                    <div class="ov-panel-header">
+                        <div>
+                            <h2>Sales by month</h2>
+                            <p>Total sales recorded in each month.</p>
+                        </div>
+                        <div class="ov-controls">
+                            <RadzenCheckBox @bind-Value="@showDataLabels" Name="dataLabels" />
+                            <RadzenLabel Text="Show values" Component="dataLabels" />
+                            <span class="ov-seg">
+                                @foreach (var m in ranges)
+                                {
+                                    <RadzenButton Text="@($"{m}M")" Size="ButtonSize.Small"
+                                                  ButtonStyle="@(selectedRange == m ? ButtonStyle.Primary : ButtonStyle.Light)"
+                                                  Click="@(() => SetDateRange(m))" />
+                                }
+                            </span>
+                        </div>
+                    </div>
+
+                    @if (chartLoading)
+                    {
+                        <RadzenProgressBar Mode="ProgressBarMode.Indeterminate" ShowValue="false" Style="height:4px; margin-top:.75rem;" />
+                    }
+
+                    @if (!monthlySalesGraph.Any())
+                    {
+                        <div class="ov-empty">No sales recorded for this period.</div>
+                    }
+                    else
+                    {
+                        <RadzenChart class="ov-chart">
+                            <RadzenAreaSeries Data="@monthlySalesGraph" CategoryProperty="Period" ValueProperty="SalesAmount" Title="Sales" Smooth="true">
+                                <RadzenMarkers MarkerType="MarkerType.Circle" />
+                                <RadzenSeriesDataLabels Visible="@showDataLabels" />
+                            </RadzenAreaSeries>
+                            <RadzenCategoryAxis Padding="20" />
+                            <RadzenValueAxis Formatter="@AxisCompact">
+                                <RadzenGridLines Visible="true" />
+                            </RadzenValueAxis>
+                            <RadzenLegend Visible="false" />
+                        </RadzenChart>
+                    }
+                </section>
+
+                <section class="ov-panel">
+                    <div class="ov-panel-header">
+                        <div>
+                            <h2>Items near expiry</h2>
+                            <p>Stock to review first, soonest expiry on top of the list.</p>
+                        </div>
+                    </div>
+
+                    <RadzenDataGrid Density="Density.Compact" Data="@topNearExpiryItem" AllowFiltering="false" AllowPaging="false" AllowSorting="true" EmptyText="No items near expiry.">
+                        <Columns>
+                            <RadzenDataGridColumn TItem="TopNearExpiryItem" Property="@nameof(TopNearExpiryItem.StockName)" Title="Stock" />
+                            <RadzenDataGridColumn TItem="TopNearExpiryItem" Property="@nameof(TopNearExpiryItem.Qty)" TextAlign="TextAlign.Right" Title="Qty" Width="110px">
+                                <Template Context="data">
+                                    @(data.Qty == 0.00m ? "0.00" : data.Qty.ToString("#,0.00"))
+                                </Template>
+                            </RadzenDataGridColumn>
+                            <RadzenDataGridColumn TItem="TopNearExpiryItem" Property="@nameof(TopNearExpiryItem.BatchNoExpiryDate)" Title="Expires" Width="210px">
+                                <Template Context="data">
+                                    <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.5rem">
+                                        <span>@($"{data.BatchNoExpiryDate:d}")</span>
+                                        <RadzenBadge BadgeStyle="@ExpiryStyle(data.BatchNoExpiryDate)" Text="@ExpiryText(data.BatchNoExpiryDate)" IsPill="true" />
+                                    </RadzenStack>
+                                </Template>
+                            </RadzenDataGridColumn>
+                        </Columns>
+                    </RadzenDataGrid>
+                </section>
+            </RadzenColumn>
+
+            @* ---------- Right: balance + overdue ---------- *@
+            <RadzenColumn Size="12" SizeLG="4">
+
+                <section class="ov-panel">
+                    <div class="ov-panel-header">
+                        <div>
+                            <h2>Account balance</h2>
+                            <p>Pick a bank account to see its balance.</p>
+                        </div>
+                    </div>
+
+                    <RadzenDropDownDataGrid TValue="string"
+                                            class="ov-picker"
+                                            AllowClear="true"
+                                            AllowVirtualization="true"
+                                            Density="Density.Compact"
+                                            Data="@bankAccountBalance"
+                                            TextProperty="@nameof(BankAccountBalance.Description)"
+                                            ValueProperty="@nameof(BankAccountBalance.GLAccountCode)"
+                                            AllowColumnResize="true"
+                                            AllowFilteringByAllStringColumns="true"
+                                            Name="DropDownBankAccountBalance"
+                                            @bind-Value="selectedGLAccountCode"
+                                            Change="OnBankAccountChanged">
+                        <Columns>
+                            <RadzenDropDownDataGridColumn Property="@nameof(BankAccountBalance.GLAccountCode)" Title="Account #" Width="150px" />
+                            <RadzenDropDownDataGridColumn Property="@nameof(BankAccountBalance.Description)" Title="Account Name" Width="200px" />
+                        </Columns>
+                    </RadzenDropDownDataGrid>
+
+                    <div class="ov-balance">
+                        <div class="ov-balance-name">@(string.IsNullOrEmpty(SelectedAccountName) ? "No account selected" : SelectedAccountName)</div>
+                        <div class="ov-balance-amount @(string.IsNullOrEmpty(selectedGLAccountCode) ? "is-empty" : null)">@bankaccountamount</div>
+                    </div>
+                </section>
+
+                <section class="ov-panel">
+                    <div class="ov-panel-header">
+                        <div>
+                            <h2>Top overdue customers</h2>
+                            <p>Customers with the largest unpaid balance.</p>
+                        </div>
+                    </div>
+
+                    <RadzenDataGrid Density="Density.Compact" Data="@topOverdueCustomer" AllowFiltering="false" AllowPaging="false" AllowSorting="true" EmptyText="No overdue customers.">
+                        <Columns>
+                            <RadzenDataGridColumn TItem="TopOverdueCustomer" Property="@nameof(TopOverdueCustomer.CompanyName)" Title="Customer">
+                                <Template Context="data">
+                                    <div>@data.CompanyName</div>
+                                    <RadzenProgressBar class="ov-bar" Value="@OverduePct(data.Outstanding)" Max="100" ShowValue="false" />
+                                </Template>
+                            </RadzenDataGridColumn>
+                            <RadzenDataGridColumn TItem="TopOverdueCustomer" Property="@nameof(TopOverdueCustomer.Outstanding)" TextAlign="TextAlign.Right" Title="Overdue" Width="120px">
+                                <Template Context="data">
+                                    <strong class="ov-danger">@(data.Outstanding == 0 ? "—" : data.Outstanding.ToString("#,0.00"))</strong>
+                                </Template>
+                            </RadzenDataGridColumn>
+                        </Columns>
+                    </RadzenDataGrid>
+                </section>
+            </RadzenColumn>
+        </RadzenRow>
+    </div>
+}
+
+@if (isLoading)
+{
+    <Spinner Message="Loading overview..." />
+}
+
+@code {
+    [CascadingParameter]
+    public Task<AuthenticationState> authenticationState { get; set; }
+
+    bool showDataLabels = false;
+    bool isLoading = true;
+    bool chartLoading = false;
+    string displayName = "there";
+    DateTime? lastUpdated;
+
+    readonly int[] ranges = { 3, 6, 12, 24 };
+    int selectedRange = 12;
+
+    protected MothlySalesFilter monthlySalesFilter { get; set; } = new MothlySalesFilter();
+    protected IEnumerable<MonthlySales> monthlySalesGraph { get; set; } = new List<MonthlySales>();
+    MonthlySales[] monthlySales;
+
+    string bankaccountamount = "0.00";
+    protected BankAccountBalanceFilter bankAccountBalanceFilter { get; set; } = new BankAccountBalanceFilter();
+    protected IEnumerable<BankAccountBalance> bankAccountBalance { get; set; } = new List<BankAccountBalance>();
+
+    protected IEnumerable<TopOverdueSupplier> topOverdueSupplier { get; set; } = new List<TopOverdueSupplier>();
+    protected IEnumerable<TopOverdueCustomer> topOverdueCustomer { get; set; } = new List<TopOverdueCustomer>();
+    protected IEnumerable<TopNearExpiryItem> topNearExpiryItem { get; set; } = new List<TopNearExpiryItem>();
+    protected IEnumerable<TopStockReorder> topStockReorderItem { get; set; } = new List<TopStockReorder>();
+
+    // ---------- KPI values ----------
+    int CustomerCount => topOverdueCustomer?.Count() ?? 0;
+    int SupplierCount => topOverdueSupplier?.Count() ?? 0;
+    int NearExpiryCount => topNearExpiryItem?.Count() ?? 0;
+    int OverdueCount => CustomerCount + SupplierCount;
+
+    double[] SalesValues => monthlySalesGraph.Select(x => Convert.ToDouble(x.SalesAmount)).ToArray();
+    double SalesTotal => SalesValues.Sum();
+    double SalesAverage => SalesValues.Length == 0 ? 0 : SalesValues.Average();
+    double LatestSales => SalesValues.Length == 0 ? 0 : SalesValues[^1];
+    string LatestPeriod => Convert.ToString(monthlySalesGraph.LastOrDefault()?.Period) ?? "";
+
+    double? TrendPct
+    {
+        get
+        {
+            var v = SalesValues;
+            if (v.Length < 2 || v[^2] == 0) return null;
+            return (v[^1] - v[^2]) / Math.Abs(v[^2]) * 100;
+        }
+    }
+
+    string TrendTone => TrendPct is null ? "tone-info" : TrendPct >= 0 ? "tone-success" : "tone-danger";
+    string TrendIcon => TrendPct is null ? "show_chart" : TrendPct >= 0 ? "trending_up" : "trending_down";
+    string TrendText => TrendPct is null
+        ? "Not enough data to compare"
+        : $"{(TrendPct >= 0 ? "Up" : "Down")} {Math.Abs(TrendPct.Value):0.#}% vs previous month";
+
+    string Greeting => DateTime.Now.Hour switch
+    {
+        < 12 => "Good morning",
+        < 18 => "Good afternoon",
+        _ => "Good evening"
+    };
+
+    string SelectedAccountName =>
+        bankAccountBalance?.FirstOrDefault(x => x.GLAccountCode == selectedGLAccountCode)?.Description;
+
+    // ---------- Formatting helpers ----------
+    static readonly CultureInfo PH = CultureInfo.CreateSpecificCulture("en-PH");
+
+    string FormatAsPHP(object value) => Convert.ToDouble(value).ToString("C", PH);
+
+    string AxisCompact(object value) => Compact(Convert.ToDouble(value));
+
+    static string Compact(double v)
+    {
+        var a = Math.Abs(v);
+        var s = a >= 1_000_000_000 ? $"{a / 1_000_000_000:0.##}B"
+              : a >= 1_000_000 ? $"{a / 1_000_000:0.##}M"
+              : a >= 1_000 ? $"{a / 1_000:0.##}K"
+              : $"{a:0.##}";
+        return (v < 0 ? "-" : "") + "₱" + s;
+    }
+
+    double OverduePct(object outstanding)
+    {
+        var max = topOverdueCustomer.Any() ? topOverdueCustomer.Max(x => Convert.ToDouble(x.Outstanding)) : 0;
+        return max <= 0 ? 0 : Convert.ToDouble(outstanding) / max * 100;
+    }
+
+    static int? DaysLeft(object value) =>
+        value is DateTime dt ? (int)Math.Ceiling((dt.Date - DateTime.Today).TotalDays) : null;
+
+    static string ExpiryText(object value) => DaysLeft(value) switch
+    {
+        null => "",
+        < 0 => "Expired",
+        0 => "Today",
+        1 => "1 day left",
+        var d => $"{d} days left"
+    };
+
+    static BadgeStyle ExpiryStyle(object value) => DaysLeft(value) is int d && d <= 30 ? BadgeStyle.Danger : BadgeStyle.Warning;
+
+    // ---------- Loading ----------
+    protected override async Task OnInitializedAsync()
+    {
+        ApplyRange(selectedRange);
+
+        var authState = (await authenticationState).User;
+        if (authState.Identity?.IsAuthenticated == true)
+        {
+            displayName = authState.FindFirst(System.Security.Claims.ClaimTypes.GivenName)?.Value
+                          ?? authState.Identity.Name?.Split('@')[0]
+                          ?? displayName;
+            var roleId = authState.FindFirst("RoleId")?.Value;
+
+            if (!string.IsNullOrWhiteSpace(roleId))
+            {
+                await GetLoadMenuPermission(roleId);
+            }
+        }
+    }
+
+    public IEnumerable<SystemMenuObjectPermission> systemMenuObjectPermissionList = new List<SystemMenuObjectPermission>();
+
+    protected async Task GetLoadMenuPermission(string roleId)
+    {
+        var data = await menuService.GetSystemMenuObjectPermissionId(roleId);
+        systemMenuObjectPermissionList = data is not null ? data : new List<SystemMenuObjectPermission>();
+
+        var result = systemMenuObjectPermissionList.FirstOrDefault(x => x.MenuName == "Overview");
+        if (result?.AllowNavigate == true)
+        {
+            await RefreshOverview();
+        }
+        else
+        {
+            navManager.NavigateTo("/NotAuthorized");
+        }
+    }
+
+    protected async Task RefreshOverview()
+    {
+        isLoading = true;
+        StateHasChanged();
+
+        await LoadMonthlySales();
+        await LoadBankAccountBalance();
+        await GetTop3OverdueSuppliers();
+        await GetTop3OverdueCustomers();
+        await GetTop3NearExpiryItems();
+        await GetTop3StockReorders();
+
+        lastUpdated = DateTime.Now;
+        isLoading = false;
+        StateHasChanged();
+    }
+
+    protected void ApplyRange(int months)
+    {
+        selectedRange = months;
+        monthlySalesFilter.DateTo = TimeService.ServerTime;
+        monthlySalesFilter.DateFrom = TimeService.ServerTime.AddMonths(-months + 1);
+    }
+
+    protected async Task SetDateRange(int months)
+    {
+        ApplyRange(months);
+        chartLoading = true;
+        StateHasChanged();
+
+        try
+        {
+            await LoadMonthlySales();
+        }
+        finally
+        {
+            chartLoading = false;
+        }
+    }
+
+    protected async Task LoadMonthlySales()
+    {
+        var data = await overViewServices.GetMonthlySalesResult(monthlySalesFilter);
+        monthlySalesGraph = data is not null ? data : new List<MonthlySales>();
+        monthlySales = monthlySalesGraph.ToArray();
+    }
+
+    protected async Task LoadBankAccountBalance()
+    {
+        var data = await overViewServices.GetBankAccountBalanceResult(bankAccountBalanceFilter);
+        bankAccountBalance = data is not null ? data : new List<BankAccountBalance>();
+
+        // Pumili agad ng unang account para hindi 0.00 ang unang makikita.
+        if (string.IsNullOrEmpty(selectedGLAccountCode) && bankAccountBalance.Any())
+        {
+            selectedGLAccountCode = bankAccountBalance.First().GLAccountCode;
+        }
+
+        OnBankAccountChanged(selectedGLAccountCode);
+    }
+
+    string selectedGLAccountCode;
+
+    protected void OnBankAccountChanged(object value)
+    {
+        var selected = bankAccountBalance?.FirstOrDefault(x => x.GLAccountCode == (string)value);
+        bankaccountamount = selected is not null ? selected.Amount.ToString("N2") : "0.00";
+    }
+
+    protected async Task GetTop3OverdueCustomers()
+    {
+        var data = await overViewServices.GetTop3OverdueCustomer();
+        topOverdueCustomer = data is not null ? data : new List<TopOverdueCustomer>();
+    }
+
+    protected async Task GetTop3OverdueSuppliers()
+    {
+        var data = await overViewServices.GetTop3OverdueSupplier();
+        topOverdueSupplier = data is not null ? data : new List<TopOverdueSupplier>();
+    }
+
+    protected async Task GetTop3NearExpiryItems()
+    {
+        var data = await overViewServices.GetTop3NearExpiryItem();
+        topNearExpiryItem = data is not null ? data : new List<TopNearExpiryItem>();
+    }
+
+    protected async Task GetTop3StockReorders()
+    {
+        var data = await overViewServices.GetTop3StockReorder();
+        topStockReorderItem = data is not null ? data : new List<TopStockReorder>();
+    }
+}

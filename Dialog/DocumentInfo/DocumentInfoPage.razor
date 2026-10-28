@@ -1,0 +1,118 @@
+﻿
+<RadzenStack>
+
+    <RadzenText Text="@documentInfo.DocType"
+                TextStyle="TextStyle.H5" />
+
+    <RadzenFieldset Icon="info">
+
+        <RadzenRow>
+
+            <RadzenColumn Size="5">
+                <b>First Created Date</b>
+            </RadzenColumn>
+            <RadzenColumn Size="6">
+                @documentInfo.FirstCreatedDate.ToString("MMMM dd, yyyy hh:mm tt")
+            </RadzenColumn>
+
+            <RadzenColumn Size="5" Class="mt-2">
+                <b>First Created User</b>
+            </RadzenColumn>
+
+            <RadzenColumn Size="6" Class="mt-2">
+                <RadzenChip Icon="person" ChipStyle="BadgeStyle.Secondary">
+                    @{
+                        var username = securitySystemUsersList?.FirstOrDefault(u => u.Oid == Guid.Parse(documentInfo.FirstCreatedUserId));
+                    }
+                    @username?.FullName
+                </RadzenChip>
+            </RadzenColumn>
+
+
+            <RadzenColumn Size="5">
+                <b>Last Modified Date</b>
+            </RadzenColumn>
+            <RadzenColumn Size="6">
+                @documentInfo.LastModifiedDate.ToString("MMMM dd, yyyy hh:mm tt")
+            </RadzenColumn>
+            
+            <RadzenColumn Size="5" Class="mt-2">
+                <b>Last Modified User</b>
+            </RadzenColumn>
+            <RadzenColumn Size="6" Class="mt-2">
+                <RadzenChip Icon="person" ChipStyle="BadgeStyle.Secondary">
+                    @{
+                        var username = securitySystemUsersList?.FirstOrDefault(u => u.Oid == Guid.Parse(documentInfo.LastModifiedUserId));
+                    }
+                    @username?.FullName
+                </RadzenChip>
+            </RadzenColumn>
+
+            <RadzenColumn Size="5" Class="mt-2">
+                <b>Print Count</b>
+            </RadzenColumn>
+            <RadzenColumn Size="6" Class="mt-2">
+                @documentInfo.PrintCount
+            </RadzenColumn>
+
+        </RadzenRow>
+
+    </RadzenFieldset>
+
+</RadzenStack>
+
+
+@code {
+
+    // [Parameter]
+    // public Guid? Id { get; set; }
+
+    // protected IEnumerable<SecuritySystemUser> securitySystemUsersList { get; set; }
+    // protected DocumentInfo documentInfo { get; set; } = new DocumentInfo();
+    // protected async override Task OnInitializedAsync()
+    // {
+    //     if (Id.HasValue)
+    //     {
+    //         var data = await documentsInfoService.GetDocumentInfoById(Id.Value.ToString());
+    //         documentInfo = data is not null ? data : new DocumentInfo();
+
+    //         var userdata = await systemUserSettingService.GetSystemUserSettings();
+    //         securitySystemUsersList = data is not null ? userdata : new List<SecuritySystemUser>();
+    //     }
+    // }
+
+    [Parameter]
+    public Guid? Id { get; set; }
+
+    protected DocumentInfo documentInfo { get; set; } = new();
+    protected IEnumerable<SecuritySystemUser> securitySystemUsersList { get; set; } = [];
+
+    protected string FirstCreatedUserName { get; set; } = "";
+    protected string LastModifiedUserName { get; set; } = "";
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (!Id.HasValue)
+            return;
+
+        documentInfo = await documentsInfoService.GetDocumentInfoById(Id.Value.ToString())
+                      ?? new DocumentInfo();
+
+        securitySystemUsersList =
+            await systemUserServices.GetSystemUserSettings()
+            ?? [];
+
+        if (Guid.TryParse(documentInfo.FirstCreatedUserId, out var firstUserId))
+        {
+            FirstCreatedUserName =
+                securitySystemUsersList.FirstOrDefault(x => x.Oid == firstUserId)?.FullName ?? "";
+        }
+
+        if (Guid.TryParse(documentInfo.LastModifiedUserId, out var lastUserId))
+        {
+            LastModifiedUserName =
+                securitySystemUsersList.FirstOrDefault(x => x.Oid == lastUserId)?.FullName ?? "";
+        }
+    }
+   
+}

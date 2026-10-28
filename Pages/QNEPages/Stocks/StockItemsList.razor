@@ -1,0 +1,206 @@
+﻿@page "/StockItemsList"
+@attribute [Authorize(Roles = "Admin,User")]
+
+<RadzenStack Gap="0.2rem">
+
+    <RadzenRow JustifyContent="JustifyContent.Start" AlignItems="AlignItems.Center" Gap="0.5rem">
+        <RadzenColumn Size="12" SizeSM="7">
+            <RadzenStack AlignItems="AlignItems.Center" Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.Normal">
+                <RadzenTextBox Disabled=@(filteredStockItemsList == null) @bind-Value="@searchText"
+                               Placeholder="Search..."
+                               Style="font-size:smaller; width:30rem;"
+                               Change="@(args => ApplyFilter())" />
+                <RadzenButton Disabled=@(filteredStockItemsList == null) Icon="search" Click="@ApplyFilter" Text="Find" />
+                <RadzenButton Disabled=@(filteredStockItemsList == null) Icon="delete" Click="@ClearFilter" Text="Clear" />
+            </RadzenStack>
+        </RadzenColumn>
+        <RadzenColumn Size="12" SizeSM="5">
+            <RadzenStack AlignItems="AlignItems.Center" Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End">
+                <RadzenButton Text="New" Click="@navigate" ButtonStyle="ButtonStyle.Primary" Icon="add"></RadzenButton>
+            </RadzenStack>
+        </RadzenColumn>
+    </RadzenRow>
+
+
+    <RadzenDataGrid @ref="grids" @bind-Value=selectedStock RowDoubleClick="() => Edit(selectedStock.FirstOrDefault().Id)" TItem="VW_StocksListing" AllowPaging="true" PageSize="30"
+                     AllowColumnReorder="true" AllowAlternatingRows="false"
+                    IsLoading=@isLoading Sort="@ShowLoading" Page="@ShowLoading" Group="@ShowLoading" Filter="@ShowLoading"
+                    Data="@filteredStockItemsList" AllowColumnPicking="true" Style="height: 85vh; overflow: hidden;"
+                    KeyProperty="Id" PagerHorizontalAlign="HorizontalAlign.Left" AllowColumnResize="true" Density="@density"
+                    AllowSorting="true" ShowPagingSummary="true" AllowFiltering="true"
+                    FilterMode="FilterMode.CheckBoxList" FilterCaseSensitivity="@filter" LogicalFilterOperator="LogicalFilterOperator.Or">
+
+        <HeaderTemplate>
+            <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="1rem" Wrap="FlexWrap.Wrap">
+                <span>
+                    Stock Items <RadzenBadge Visible="@(status != string.Empty)" Shade="Shade.Dark" BadgeStyle="BadgeStyle.Danger" Text="@status" class="rz-ms-2" />
+                </span>
+            </RadzenStack>
+        </HeaderTemplate>
+
+
+        <Columns>
+
+            <RadzenDataGridColumn Visible=true Width="160px" TItem="VW_StocksListing" Property="StockCode" Title="Stock #"></RadzenDataGridColumn>
+            <RadzenDataGridColumn Visible=true TItem="VW_StocksListing" Property="StockName" Title="Stock Name"></RadzenDataGridColumn>
+            <RadzenDataGridColumn Visible=true TItem="VW_StocksListing" Property="CategoryCode" Title="Category"></RadzenDataGridColumn>
+            <RadzenDataGridColumn Visible=false Width="160px" TItem="VW_StocksListing" Property="BaseUOM" Title="Base UOM"></RadzenDataGridColumn>
+            <RadzenDataGridColumn Visible=true Width="100px" TItem="VW_StocksListing" Property="ClassCode" Title="Class"></RadzenDataGridColumn>
+            <RadzenDataGridColumn Visible=true Width="200px" TItem="VW_StocksListing" TextAlign="TextAlign.Right" Property="CurrentBalance" Title="Balance">
+                <Template Context="data">
+                    <span>@(data.CurrentBalance == 0.00M ? "" : data.CurrentBalance.ToString("#,0.0000"))</span>
+                </Template>
+            </RadzenDataGridColumn>
+        </Columns>
+    </RadzenDataGrid>
+
+
+
+</RadzenStack>
+
+
+
+@code {
+    string status = string.Empty;
+    RadzenDataGrid<VW_StocksListing> grids;
+    IList<VW_StocksListing> selectedStock { get; set; }
+    IEnumerable<VW_StocksListing> stockList { get; set; }
+
+
+    FilterCaseSensitivity filter = FilterCaseSensitivity.CaseInsensitive;
+    Density density = Density.Compact;
+    AlignItems alignItems = AlignItems.Center;
+    Variant variant = Variant.Flat;
+
+    bool isloading;
+    bool isLoading = false;
+
+    async Task ShowLoading()
+    {
+        StateHasChanged();
+        isLoading = true;
+
+        await Task.Yield();
+        StateHasChanged();
+        isLoading = false;
+    }
+
+    [CascadingParameter]
+    public Task<AuthenticationState> authenticationState { get; set; }
+    protected async override Task OnInitializedAsync()
+    {
+        var authState = (await authenticationState).User;
+        if (authState.Identity.IsAuthenticated)
+        {
+            var RoleId = authState.FindFirst("RoleId").Value;
+            GetLoadMenuPermission(RoleId);
+        }
+
+    }
+
+
+    private SystemMenuObjectPermission? permission;
+    protected async void GetLoadMenuPermission(string RoleId)
+    {
+        permission = await permissionService.GetPermissionAsync(
+         RoleId,
+         "Stock Items");
+
+        if (permission is null)
+            return;
+        isloading = true;
+
+        await ShowLoading();
+        await loadAllData();
+        StateHasChanged();
+    }
+
+    protected async Task loadAllData()
+    {
+        await GetStocksItemList();
+    }
+
+    protected async Task GetStocksItemList()
+    {
+        var data = await stockItemsService.GetStocksItemList();
+        stockList = data is not null ? data : new List<VW_StocksListing>();
+        filteredStockItemsList = stockList; // enable search filter
+
+    }
+
+    protected void navigate()
+    {
+        navManager.NavigateTo("/StockItems");
+    }
+
+    
+    protected void Edit(Guid Id)
+    {
+        navManager.NavigateTo($"/StockItemsList/Edit/{Id}");
+    }
+
+
+    //DoubleClick Cell Event
+    protected void OnCellContextMenu(DataGridCellMouseEventArgs<VW_StocksListing> stockItems)
+    {
+        selectedStock = new List<VW_StocksListing>() { stockItems.Data };
+
+        var contextMenuItems = new List<ContextMenuItem>
+    {
+        new ContextMenuItem() { Text = "New", Value = 1, Icon = "add" },
+        new ContextMenuItem() { Text = "Edit", Value = 2, Icon = "edit" },
+        new ContextMenuItem() { Text = "Delete", Value = 3, Icon = "delete" }
+    };
+
+        contextMenuService.Open(stockItems, contextMenuItems, (e) =>
+        {
+            switch (e.Value)
+            {
+                case 1:
+                    navigate();
+                    break;
+                case 2:
+                    Edit(stockItems.Data.Id);
+
+                    //await AddUpdateGLAccountDialog(stockItems.Data.Id, false);
+                    break;
+                case 3:
+                    // Delete(stockItems.Data.Id);
+                    break;
+
+            }
+            contextMenuService.Close();
+
+        });
+    }
+
+    private string searchText = string.Empty;
+    private IEnumerable<VW_StocksListing> filteredStockItemsList;
+    private void ApplyFilter()
+    {
+        if (string.IsNullOrWhiteSpace(searchText))
+        {
+            filteredStockItemsList = stockList;
+        }
+        else
+        {
+            filteredStockItemsList = stockList.Where(x =>
+                (!string.IsNullOrEmpty(x.StockCode) && x.StockCode.Contains(searchText, StringComparison.OrdinalIgnoreCase)) ||
+                (!string.IsNullOrEmpty(x.CategoryCode) && x.CategoryCode.Contains(searchText, StringComparison.OrdinalIgnoreCase)) ||
+                (!string.IsNullOrEmpty(x.ClassCode) && x.ClassCode.Contains(searchText, StringComparison.OrdinalIgnoreCase)) ||
+                (!string.IsNullOrEmpty(x.StockName) && x.StockName.Contains(searchText, StringComparison.OrdinalIgnoreCase))
+
+            );
+        }
+        StateHasChanged();
+    }
+    private void ClearFilter()
+    {
+        searchText = string.Empty;
+        filteredStockItemsList = stockList;
+        StateHasChanged();
+    }
+
+}
+
+

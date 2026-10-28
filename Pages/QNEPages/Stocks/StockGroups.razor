@@ -1,0 +1,202 @@
+﻿@page "/Groups"
+@page "/GroupsList/Edit/{id:guid}"
+@attribute [Authorize(Roles = "Admin,User")]
+
+
+
+<RadzenTemplateForm TItem="StockGroupsModel" Data="@stockgroupsmodel" Submit="@OnSubmit" InvalidSubmit="@OnInvalidSubmit">
+    <RadzenStack Gap="0.5rem">
+        <RadzenCard Style="Padding: 0.5rem">
+            <RadzenRow JustifyContent="JustifyContent.Start" AlignItems="AlignItems.Center" Gap="0.5rem">
+
+                <RadzenColumn Size="12" SizeSM="5">
+                    <RadzenStack AlignItems="AlignItems.Center" Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.Normal">
+                        <RadzenButton Size="ButtonSize.Small" Disabled="@isDisable" IsBusy="@isBusy" ButtonType="ButtonType.Submit" Text="Save" Icon="save"></RadzenButton>
+                        @* <RadzenButton Size="ButtonSize.Small" Visible="@isVisible" ButtonStyle="ButtonStyle.Danger" Click="@navigate" Text="Cancel" Icon="cancel"></RadzenButton> *@
+                    </RadzenStack>
+                </RadzenColumn>
+
+                <RadzenColumn Size="12" SizeSM="7">
+                    <RadzenStack AlignItems="AlignItems.Center" Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End">
+                        <RadzenButton Size="@smallbtn" ButtonStyle="ButtonStyle.Light" Click="@Navigate" Text="Search" Icon="search"></RadzenButton>
+                    </RadzenStack>
+                </RadzenColumn>
+
+            </RadzenRow>
+        </RadzenCard>
+
+        <RadzenCard>
+
+            <RadzenCard Style="padding: 1rem; margin-bottom: 1rem; border-left: 6px solid #588157; border-radius: 10px;">
+                <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.75rem">
+                    <RadzenHeading Size="H4" Text="Stock Groups" Style="margin: 0; font-weight: 600; color: #3A5A40;" />
+                </RadzenStack>
+            </RadzenCard>
+
+            <RadzenStack Gap="0.5rem">
+                <RadzenRow AlignItems="AlignItems.Center">
+
+                    <RadzenColumn Size="12" SizeMD="6">
+                        <RadzenFormField Style="width:100%" Text="Group Code*" AllowFloatingLabel="false">
+                            <RadzenTextBox @bind-Value="stockgroupsmodel.GroupCode"
+                                           Name="GroupCode"
+                                           class="@GetGroupCodeClass()"
+                                           Style="width:100%;" />
+                        </RadzenFormField>
+                        <RadzenRequiredValidator Component="GroupCode" Text="Group Code is required" Popup="false" />
+
+                    </RadzenColumn>
+
+                    <RadzenColumn Size="12" SizeMD="6" Style="display:flex; align-items:center;">
+                        <RadzenCheckBox Style="margin-left:20px;" @bind-Value="stockgroupsmodel.IsActive" />
+                        <label style="margin-left:5px;">Active</label>
+                    </RadzenColumn>
+
+                </RadzenRow>
+
+                <RadzenRow>
+
+                    <RadzenColumn Size="12">
+                        <RadzenFormField Style="width:100%" Text="Description" AllowFloatingLabel="false">
+                            <RadzenTextBox @bind-Value="stockgroupsmodel.Description" Style="width:100%;" />
+                        </RadzenFormField>
+                    </RadzenColumn>
+
+                </RadzenRow>
+
+            </RadzenStack>
+        </RadzenCard>
+    </RadzenStack>
+</RadzenTemplateForm>
+
+@code {
+
+    [Parameter]
+    public Guid? Id { get; set; }
+    AlignItems alignItems = AlignItems.Center;
+    Density density = Density.Compact;
+    ButtonSize smallbtn = ButtonSize.Small;
+
+    bool isLoading = false;
+    bool isDisable = false;
+    bool isVisible = false;
+    bool isBusy;
+
+    async Task ShowLoading()
+    {
+        StateHasChanged();
+        isLoading = true;
+
+        await Task.Yield();
+        StateHasChanged();
+        isLoading = false;
+    }
+
+    //FOR PROPERTY SET VALUE OF OBJECT
+    string btnText = "Save";
+    string redtext;
+
+    // STOCK GROUPS MODEL
+    private StockGroupsModel stockgroupsmodel { get; set; } = new StockGroupsModel();
+
+    // Page Initialization
+    protected async override Task OnInitializedAsync()
+    {
+        await ShowLoading();
+        await loadAllData();
+        if (Id is not null)
+        {
+            await loadAllDataById();
+        }
+    }
+
+    private async Task loadAllDataById()
+    {
+        await GetStockGroupsById();
+
+    }
+
+    private async Task loadAllData()
+    {
+    }
+
+    protected async Task GetStockGroupsById()
+    {
+        var data = await stockItemsService.GetStockGroupsById(Id.ToString());
+        stockgroupsmodel = data is not null ? data : new StockGroupsModel();
+    }
+
+    private async Task OnSubmit()
+    {
+        try
+        {
+            isBusy = true;
+
+            var id = await stockItemsService.SaveStockGroup(stockgroupsmodel);
+
+            if (id != Guid.Empty)
+            {
+                notificationService.Notify(new NotificationMessage
+                {
+                    Severity = NotificationSeverity.Success,
+                    Summary = "Success",
+                    Detail = "Stock Group saved successfully!"
+                });
+            }
+            else
+            {
+                notificationService.Notify(new NotificationMessage
+                {
+                    Severity = NotificationSeverity.Info,
+                    Summary = "Info",
+                    Detail = "Failed to save group"
+                });
+            }
+        }
+        catch (Exception ex)
+        {
+            notificationService.Notify(new NotificationMessage
+            {
+                Severity = NotificationSeverity.Error,
+                Summary = "Error",
+                Detail = $"An unexpected error occurred: {ex.Message}"
+            });
+        }
+        finally
+        {
+            isBusy = false;
+        }
+    }
+
+    private bool showValidationErrors = false;
+
+    private string GetGroupCodeClass()
+    {
+        if (showValidationErrors && string.IsNullOrWhiteSpace(stockgroupsmodel.GroupCode))
+            return "invalid-input"; // already defined for red background
+        return "";
+    }
+
+    private void OnInvalidSubmit(FormInvalidSubmitEventArgs args)
+    {
+        notificationService.Notify(new NotificationMessage
+        {
+            Severity = NotificationSeverity.Error,
+            Summary = "Validation",
+            Detail = "Group Code must not be empty.",
+            Duration = 4000
+        });
+    }
+
+    private void OnPrint()
+    {
+        CustomNotificationMessage.Message(notificationService, true);
+    }
+
+    private void Navigate()
+    {
+        navManager.NavigateTo("/GroupsList");
+    }
+
+
+}

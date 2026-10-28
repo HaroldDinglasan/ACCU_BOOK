@@ -1,0 +1,245 @@
+﻿@page "/Purchasers"
+@page "/Purchasers/Edit/{id:int}"
+@attribute [Authorize(Roles = "Admin,User")]
+
+
+@if (isLoading)
+{
+    <Spinner />
+}
+else
+{
+    <RadzenTemplateForm TItem="Purchasers" Data="purchasers" Submit="@OnSubmit">
+        <RadzenStack Gap="0.2rem">
+
+            <!-- TOOLBAR ACTION CARD -->
+
+            <CrudToolbar Title="@(Id.HasValue ? "Edit Purchasers" : "Create Purchasers")"
+                         Subtitle="Manage purchasers information"
+                         Icon="badge"
+                         ButtonSize="@smallbtn"
+                         SaveText="Save"
+                         SaveBusy="@busy"
+                         SaveDisabled="@btnDiseabled"
+                         BackText="Back to Search"
+                         OnBackSearch="@Navigate">
+            </CrudToolbar>
+
+           
+            <!-- MAIN FORM BODY -->
+            <RadzenRow Gap="0.5rem">
+
+                <!-- LEFT COLUMN: SALES PERSON INFORMATION -->
+                <RadzenColumn Size="12" SizeLG="12">
+                    <RadzenCard>
+                        <RadzenStack Gap="0.5rem" Style="margin-bottom: 1rem;">
+                            <RadzenText TextStyle="TextStyle.H6" Style="color: var(--rz-primary);"> Purchasers Details</RadzenText>
+                            @*   <RadzenHr Style="margin: 0 0 0.5rem 0;" /> *@
+                        </RadzenStack>
+
+                        <RadzenRow Gap="0.5rem">
+                            <!-- Left Sub-Column -->
+                            <RadzenColumn Size="12" SizeMD="6">
+                                <RadzenStack Gap="0.5rem">
+                                    <RadzenFormField Text="StaffCode *" AllowFloatingLabel="false" Style="width:100%">
+                                        <RadzenTextBox Name="StaffCode" @bind-Value="purchasers.StaffCode" Style="width:100%" />
+                                    </RadzenFormField>
+                                    <RadzenRequiredValidator Component="StaffCode" Text="'Staff Code' must not be empty." Style="position: relative"></RadzenRequiredValidator>
+
+                                    <RadzenFormField Text="Name" AllowFloatingLabel="false" Style="width:100%">
+                                        <RadzenTextBox @bind-Value="purchasers.Name" Style="width:100%" />
+                                    </RadzenFormField>
+
+                                    <RadzenFormField Text="Mobile No" AllowFloatingLabel="false" Style="width:100%">
+                                        <RadzenTextBox @bind-Value="purchasers.MobileNo" Style="width:100%" />
+                                    </RadzenFormField>
+
+                                    <RadzenFormField Text="Date Joined" AllowFloatingLabel="false" Style="width:100%">
+                                        <RadzenDatePicker @bind-Value="purchasers.DateJoined" DateFormat="MM/dd/yyyy" Style="width:100%" />
+                                    </RadzenFormField>
+
+                                    <RadzenFormField Text="Salary" AllowFloatingLabel="false" Style="width:100%">
+                                        <RadzenNumeric @bind-Value="purchasers.Salary" Style="width:100%" />
+                                    </RadzenFormField>
+
+                                    <RadzenFormField Text="Tax File" AllowFloatingLabel="false" Style="width:100%">
+                                        <RadzenNumeric @bind-Value="purchasers.TaxFile" Style="width:100%" />
+                                    </RadzenFormField>
+
+                                    <RadzenFormField Text="Remarks" AllowFloatingLabel="false" Style="width:100%">
+                                        <RadzenTextArea @bind-Value="purchasers.Remarks" Rows="2" Style="width:100%; resize: vertical;" />
+                                    </RadzenFormField>
+
+
+                                </RadzenStack>
+                            </RadzenColumn>
+
+                            <!-- Right Sub-Column -->
+                            <RadzenColumn Size="12" SizeMD="6">
+                                <RadzenStack Gap="0.5rem">
+
+                                    
+                                    <RadzenFormField Text="Gender" AllowFloatingLabel="false" Style="width:100%">
+                                        <RadzenDropDown TValue="string" Data="@gendersList" @bind-Value="purchasers.Gender" ValueProperty="@nameof(Gender.Code)" TextProperty="@nameof(Gender.Description)" Style="width:100%" />
+                                    </RadzenFormField>
+
+                                  
+                                    <RadzenFormField Text="IC No" AllowFloatingLabel="false" Style="width:100%">
+                                        <RadzenTextBox @bind-Value="purchasers.IDNo" Style="width:100%" />
+                                    </RadzenFormField>
+
+                                    <RadzenFormField Text="Email" AllowFloatingLabel="false" Style="width:100%">
+                                        <RadzenTextBox @bind-Value="purchasers.Email" Style="width:100%" />
+                                    </RadzenFormField>
+
+                                    <RadzenFormField Text="Date Left" AllowFloatingLabel="false" Style="width:100%">
+                                        <RadzenDatePicker @bind-Value="purchasers.DateLeft" DateFormat="MM/dd/yyyy" Style="width:100%" />
+                                    </RadzenFormField>
+
+                                    <RadzenFormField Text="EPF" AllowFloatingLabel="false" Style="width:100%">
+                                        <RadzenTextBox @bind-Value="purchasers.EPF" Style="width:100%" />
+                                    </RadzenFormField>
+
+                                    <RadzenFormField Text="SOCSO" AllowFloatingLabel="false" Style="width:100%">
+                                        <RadzenTextBox @bind-Value="purchasers.SOCSO" Style="width:100%" />
+                                    </RadzenFormField>
+
+                                    
+                                    <RadzenFormField Text="Default Team" AllowFloatingLabel="false" Style="width:100%">
+                                        <RadzenTextBox @bind-Value="purchasers.DefaultTeam" Style="width:100%" />
+                                    </RadzenFormField>
+
+                                    <RadzenCard Variant="Variant.Flat" Style="padding: 0.75rem; background: rgba(0,0,0,0.02); border: 1px dashed var(--rz-divider);">
+                                        <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.Start" Gap="1.5rem">
+                                            <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.5rem">
+                                                <RadzenCheckBox TValue="bool" @bind-Value="purchasers.IsDefault" Name="IsDefault" />
+                                                <RadzenLabel Text="Default" Component="IsDefault" Style="font-weight: bold;" />
+                                            </RadzenStack>
+                                            <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.5rem">
+                                                <RadzenCheckBox TValue="bool" @bind-Value="purchasers.IsActive" Name="IsActive" />
+                                                <RadzenLabel Text="Active" Component="IsActive" Style="font-weight: bold;" />
+                                            </RadzenStack>
+
+                                            <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.5rem">
+                                                <RadzenCheckBox TValue="bool" @bind-Value="purchasers.IsManager" Name="IsManager" />
+                                                <RadzenLabel Text="Manager" Component="IsManager" Style="font-weight: bold;" />
+                                            </RadzenStack>
+                                        </RadzenStack>
+                                    </RadzenCard>
+                                </RadzenStack>
+                            </RadzenColumn>
+                        </RadzenRow>
+                    </RadzenCard>
+                </RadzenColumn>
+
+                <!-- RIGHT COLUMN: COMMISSION CONFIGURATION -->
+            @*     <RadzenColumn Size="12" SizeLG="6">
+                    <RadzenCard Style="height: 100%;">
+                        <RadzenStack Gap="0.5rem" Style="margin-bottom: 1rem;">
+                            <RadzenText TextStyle="TextStyle.H6" Style="color: var(--rz-primary);">Commission Settings</RadzenText>
+
+                        </RadzenStack>
+
+                  
+                    </RadzenCard>
+                </RadzenColumn> *@
+
+            </RadzenRow>
+        </RadzenStack>
+    </RadzenTemplateForm>
+}
+
+
+@code {
+    [Parameter] public int? Id { get; set; }
+    [CascadingParameter] public Task<AuthenticationState> authenticationState { get; set; }
+
+    bool isLoading = true;
+    bool busy = false;
+    bool btnDiseabled = false;
+    ButtonSize smallbtn = ButtonSize.Small;
+
+    protected Purchasers purchasers { get; set; } = new Purchasers();
+
+    protected async override Task OnInitializedAsync()
+    {
+
+        var authState = (await authenticationState).User;
+        if (authState.Identity.IsAuthenticated)
+        {
+            var RoleId = authState.FindFirst("RoleId").Value;
+            await GetLoadMenuPermission(RoleId);
+        }
+
+    }
+    private SystemMenuObjectPermission? permission;
+    protected async Task GetLoadMenuPermission(string RoleId)
+    {
+
+        permission = await permissionService.GetPermissionAsync(
+         RoleId,
+         "Purchasers");
+
+        if (permission is null)
+            return;
+        isLoading = true;
+        await loadAllData();
+        if (Id.HasValue)
+        {
+            await loadAllDataById();
+        }
+        StateHasChanged();
+    }
+
+    protected async Task loadAllData()
+    {
+        isLoading = false;
+    }
+
+
+    protected async Task loadAllDataById()
+    {
+        await GetPurchasersById();
+        isLoading = false;
+    }
+
+
+
+    protected async Task GetPurchasersById()
+    {
+        var data = await supplierServices.GetPurchasersById(Id);
+        purchasers = data is not null ? data : new Purchasers();
+
+    }
+
+    protected async Task OnSubmit()
+    {
+        busy = true;
+        var data = await supplierServices.SavePurchasers(purchasers);
+        if (data is not null)
+        {
+            if (data.Contains("Success"))
+            {
+                await DialogService.Alert(data);
+                btnDiseabled = true;
+                busy = false;
+            }
+            else
+            {
+                await DialogService.Alert(data);
+                busy = false;
+            }
+        }
+    }
+
+    protected void Navigate()
+    {
+        navManager.NavigateTo("/PurchasersList");
+    }
+
+    protected List<Gender> gendersList = new() { new Gender
+        { Code = "M", Description = "Male" }, new Gender { Code = "F", Description = "Female" },
+     new Gender { Code = "N", Description = "Undefined" }};
+
+   
+}

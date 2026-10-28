@@ -1,0 +1,212 @@
+﻿@page "/Agentslist"
+@attribute [Authorize(Roles = "Admin,User")]
+
+
+<RadzenStack Gap="0.2rem">
+
+   
+    <RadzenDataGrid @ref="grid" Visible="true" @bind-Value=@selectedSalesPersons
+                    IsLoading=@isLoading Sort="@ShowLoading" Page="@ShowLoading" Group="@ShowLoading" Filter="@ShowLoading"
+                    Data="@GetSalesPersons()"
+                    TItem="SalesPersons"
+                    RowDoubleClick="() => Edit(selectedSalesPersons.FirstOrDefault().Id)"
+                    AllowVirtualization="true"
+                    ColumnWidth="200px"
+                    AllowSorting="true"
+                    AllowFiltering="true"
+                    ShowPagingSummary="true"
+                    ShowMultiColumnSortingIndex="true"
+                    FilterMode="FilterMode.CheckBoxList"
+                    Style="height: 84vh"
+                    AllowColumnPicking="true"
+                    AllowColumnResize="true"
+                    FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive">
+        <HeaderTemplate>
+            <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.Center"
+                         Style="width: 100%;">
+                <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem;">
+                    <RadzenButton Size="ButtonSize.Small" Text="New"
+                                  ButtonStyle="ButtonStyle.Primary"
+                                  Icon="add"
+                                  Click="@AddSalesPerson" />
+
+                    <!-- DIVIDER -->
+                    <div style="border-left: 2px solid #ccc; height: 2rem; margin: 0 0.5rem;"></div>
+
+                    <RadzenTextBox InputSize="InputSize.Medium" @bind-Value="@searchText"
+                                   @ref="textBox"
+                                   @oninput="@(args => OnInput(args))"
+                                   Placeholder="Search..."
+                                   Style="width:30rem;" />
+
+                    <RadzenButton Size="ButtonSize.Small" Icon="delete"
+                                  Click="@ClearFilter"
+                                  Text="Clear" />
+                </RadzenStack>
+            </RadzenStack>
+        </HeaderTemplate>
+        <Columns>
+            <RadzenDataGridColumn Width="70px" TItem="SalesPersons" Property="@nameof(SalesPersons.StaffCode)" Title="Agent #" />
+            <RadzenDataGridColumn Width="200px" TItem="SalesPersons" Property="@nameof(SalesPersons.Name)" Title="Name" />
+            <RadzenDataGridColumn Width="70px" TItem="SalesPersons" Title="Gender" TextAlign="TextAlign.Center">
+                <Template Context="data">
+                    @{
+                        var genderDescription = gendersList.FirstOrDefault(g => g.Code == data.Gender).Description;
+                    }
+                    @genderDescription
+                </Template>
+            </RadzenDataGridColumn>
+            <RadzenDataGridColumn Width="110px" TItem="SalesPersons" Property="@nameof(SalesPersons.MobileNo)" Title="Mobile No" />
+            <RadzenDataGridColumn Width="110px" TItem="SalesPersons" Property="@nameof(SalesPersons.Email)" Title="Email" />
+            <RadzenDataGridColumn Visible="false" TItem="SalesPersons" Property="@nameof(SalesPersons.IsManager)" Title="Is Manager">
+                <Template Context="data">
+                    @if (data.IsManager)
+                    {
+                        <RadzenBadge IsPill="true" BadgeStyle="BadgeStyle.Success" Text="Yes" />
+                    }
+                    else
+                    {
+                        <RadzenBadge IsPill="true" Variant="Variant.Outlined" BadgeStyle="BadgeStyle.Secondary" Text="No" />
+                    }
+
+                </Template>
+            </RadzenDataGridColumn>
+
+            <RadzenDataGridColumn Visible="false" TItem="SalesPersons" Property="@nameof(SalesPersons.IsDefault)" Title="Is Default">
+                <Template Context="data">
+                    @if (data.IsDefault)
+                    {
+                        <RadzenBadge IsPill="true" BadgeStyle="BadgeStyle.Success" Text="Yes" />
+                    }
+                    else
+                    {
+                        <RadzenBadge IsPill="true" Variant="Variant.Outlined" BadgeStyle="BadgeStyle.Secondary" Text="No" />
+                    }
+
+                </Template>
+            </RadzenDataGridColumn>
+
+            <RadzenDataGridColumn TItem="SalesPersons" Title="Commission Type">
+                <Template Context="data">
+                    @{
+                        var genderDescription = commissionTypes.FirstOrDefault(g => g.Id == data.CommissionType).Description;
+                    }
+                    @genderDescription
+                </Template>
+            </RadzenDataGridColumn>
+            <RadzenDataGridColumn TItem="SalesPersons" Title="Commission By Date">
+                <Template Context="data">
+                    @{
+                        var genderDescription = commissionTypes.FirstOrDefault(g => g.Id == data.CommissionByDate).Description;
+                    }
+                    @genderDescription
+                </Template>
+            </RadzenDataGridColumn>
+        </Columns>
+    </RadzenDataGrid>
+</RadzenStack>
+
+
+@code {
+    [CascadingParameter]
+    public Task<AuthenticationState> authenticationState { get; set; }
+
+    RadzenTextBox textBox;
+    RadzenDataGrid<SalesPersons> grid;
+    protected IList<SalesPersons> selectedSalesPersons { get; set; }
+
+    bool isLoading;
+    protected async override Task OnInitializedAsync()
+    {
+
+        var authState = (await authenticationState).User;
+        if (authState.Identity.IsAuthenticated)
+        {
+            var RoleId = authState.FindFirst("RoleId").Value;
+            GetLoadMenuPermission(RoleId);
+        }
+
+    }
+
+    private SystemMenuObjectPermission? permission;
+    protected async void GetLoadMenuPermission(string RoleId)
+    {
+        isLoading = true;
+        permission = await permissionService.GetPermissionAsync(
+         RoleId,
+         "Agents");
+
+        if (permission is null)
+            return;
+
+        await ShowLoading();
+        await GetSalesPersonList();
+        StateHasChanged();
+    }
+
+    int totalSalesPersons = 0;
+    protected IEnumerable<SalesPersons> salespersonList;
+    protected async Task GetSalesPersonList()
+    {
+        var data = await salesService.GetSalesPersonsLists();
+        salespersonList = data is not null ? data : new List<SalesPersons>();
+        totalSalesPersons = salespersonList.Count();
+    }
+
+    private string searchText = "";
+    private IEnumerable<SalesPersons> GetSalesPersons()
+    {
+        if (salespersonList == null)
+            return Enumerable.Empty<SalesPersons>();
+        return salespersonList
+        .Where(x => string.IsNullOrEmpty(searchText) ||
+                (x.StaffCode?.Contains(searchText, StringComparison.OrdinalIgnoreCase) ?? false) ||
+                (x.Name?.Contains(searchText, StringComparison.OrdinalIgnoreCase) ?? false))
+                .OrderBy(x => x.StaffCode);
+
+    }
+
+    async Task OnInput(ChangeEventArgs args)
+    {
+        searchText = args.Value?.ToString() ?? string.Empty;
+        await grid.Reload();
+    }
+
+    private async Task ClearFilter()
+    {
+        searchText = string.Empty;
+        await grid.Reload();
+        StateHasChanged();
+    }
+
+    async Task ShowLoading()
+    {
+        await Task.Yield();
+
+        isLoading = false;
+    }
+
+    private void AddSalesPerson()
+    {
+        navManager.NavigateTo("/Agents");
+    }
+
+      protected void Edit(int Id)
+    {
+        navManager.NavigateTo($"/Agents/Edit/{Id}");
+    }
+
+
+    protected List<Gender> gendersList = new() { new Gender
+        { Code = "M", Description = "Male" }, new Gender { Code = "F", Description = "Female" },
+     new Gender { Code = "N", Description = "Undefined" }};
+
+
+    protected List<CommissionType> commissionTypes = new() { new CommissionType
+        { Id = 0, Description = "Payment in days" }, new CommissionType { Id = 1, Description = "Payment in months" }};
+
+
+    protected List<CommissionDate> commissionDate = new() { new CommissionDate
+        { Id = 0, Description = "By invoice date" }, new CommissionDate { Id = 1, Description = "By due date" }};
+
+}

@@ -1,0 +1,187 @@
+@attribute [Authorize(Roles = "Admin, User")]
+@inject DialogService dialogService
+@inject NavigationManager navigationManager
+@inject NotificationService notificationService
+@inject HttpClient http
+
+<RadzenStack Gap="1rem" Orientation="Orientation.Vertical" Style="height:100%; padding:20px;">
+
+    <RadzenDataGrid TItem="TransactionsCode"
+                    Data="@transactionsCodes"
+                    SelectionMode="DataGridSelectionMode.Single"
+                    RowSelect="@OnRowSelect"
+                    AllowPaging="false"
+                    Style="height:400px"
+                    GridLines="DataGridGridLines.Both">
+
+        <Columns>
+
+            <RadzenDataGridColumn TItem="TransactionsCode"
+                                  Property="Name"
+                                  Title="Name"
+                                  Width="220px" />
+
+            <RadzenDataGridColumn TItem="TransactionsCode"
+                                  Property="Format"
+                                  Title="Format"
+                                  Width="160px" />
+
+            <RadzenDataGridColumn TItem="TransactionsCode"
+                                  Property="Sample"
+                                  Title="Sample"
+                                  Width="160px" />
+
+            <RadzenDataGridColumn TItem="TransactionsCode"
+                                  TextAlign="TextAlign.Center"
+                                  Property="Table"
+                                  Title="Table"
+                                  Width="120px" />
+
+            <RadzenDataGridColumn Title="Reset Monthly" Width="140px" TextAlign="TextAlign.Center">
+                <Template Context="item">
+                    @(item.ResetMonthly == 1 ? "Reset Montly" : "No")
+                </Template>
+            </RadzenDataGridColumn>
+
+        </Columns>
+
+    </RadzenDataGrid>
+
+    <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" Gap="0.5rem">
+
+        <RadzenButton Text="Cancel"
+                      Variant="Variant.Flat"
+                      Style="width:120px"
+                      Click="@OnCancel" />
+
+        <RadzenButton Text="Okay"
+                      ButtonStyle="ButtonStyle.Primary"
+                      Style="width:120px"
+                      Click="@OnSubmit" />
+    </RadzenStack>
+
+
+</RadzenStack>
+
+
+@code {
+    [Parameter] public Guid? Id { get; set; }
+
+    TransactionsCode? selectedTransaction;
+
+    List<TransactionsCode> transactionsCodes = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await GetStockTransactionCodeStockOut();
+    }
+
+    private async Task GetStockTransactionCodeStockOut()
+    {
+        // 91 value is a table id of StockOut Page, use for calling stockcode running numbers
+        var data = await stockItemsService.GetStockTransactionCodeStockOut(91);
+        transactionsCodes = data?.ToList() ?? new List<TransactionsCode>();
+
+        // Set default Sample Value
+        foreach (var item in transactionsCodes)
+        {
+            if (string.IsNullOrWhiteSpace(item.Sample))
+            {
+                item.Sample = GetDefaultSample(item.Name);
+            }
+
+            // Set default Table value
+            if (string.IsNullOrWhiteSpace(item.Table))
+            {
+                item.Table = GetDefaultTable(item.Name);
+            }
+
+            // Set default Reset Monthly value
+            if (item.ResetMonthly == 0)
+                item.ResetMonthly = GetDefaultResetMonthly(item.Name);
+        }
+    }
+
+    private async Task loadAllData()
+    {
+        await GetStockTransactionCodeStockOut();
+    }
+
+    // Default Sample column value
+    private string GetDefaultSample(string name)
+    {
+        name = name?.Trim();
+
+        string prefix = name switch
+        {
+            "Stock Issue" => "SI",
+            "Stock Tranfer Out" => "STO",
+            _ => string.Empty
+        };
+
+        if (string.IsNullOrEmpty(prefix))
+            return string.Empty;
+
+        string year = DateTime.Now.ToString("yy");
+        string month = DateTime.Now.ToString("MM");
+
+        // Random 3 digit number
+        int randomNum = new Random().Next(1, 1000);
+        string runningNumber = randomNum.ToString("D3");
+
+        return $"{prefix}{year}{month}/{runningNumber}";
+    }
+
+    void OnRowSelect(TransactionsCode item)
+    {
+        selectedTransaction = item;
+    }
+
+    // Default Table column value
+    private string GetDefaultTable(string name)
+    {
+        name = name?.Trim();
+
+        return name switch
+        {
+            "Stock Issue" => "Stock Out",
+            "Stock Tranfer Out" => "Stock Out",
+            _ => string.Empty
+        };
+    }
+
+    // Default Reset Montly value
+    private int GetDefaultResetMonthly(string name)
+    {
+        name = name?.Trim();
+
+        return name switch
+        {
+            "Stock Issue" => 1,
+            "Stock Tranfer Out" => 1,
+            _ => 0
+        };
+    }
+
+    private void OnSubmit()
+    {
+        if (selectedTransaction == null)
+        {
+            notificationService.Notify(
+                NotificationSeverity.Warning,
+                "Selection Required",
+                "Please select a transaction code first"
+            );
+            return;
+        }
+        dialogService.Close(selectedTransaction);
+    }
+
+    private void OnCancel()
+    {
+        dialogService.Close(null);
+    }
+
+
+
+}

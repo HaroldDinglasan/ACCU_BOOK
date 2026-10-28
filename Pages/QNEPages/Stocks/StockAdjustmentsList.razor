@@ -1,0 +1,262 @@
+﻿@page "/StockAdjustmentsList"
+@inject StockItemsService stockItemsService
+@attribute [Authorize(Roles = "Admin,User")]
+@inject HttpClient http
+@inject NavigationManager navManager
+@inject ContextMenuService contextMenuService
+@inject IJSRuntime JSRuntime
+
+<RadzenStack Gap="0.2rem">
+
+    <RadzenDataGrid @ref="grids" @bind-Value=@selectedStockAdjustment
+                    RowDoubleClick="() => Edit(selectedStockAdjustment.FirstOrDefault().Id)"
+                    TItem="StockAdjustmentsModel"
+                    IsLoading=@isLoading Sort="@ShowLoading" Page="@ShowLoading" Group="@ShowLoading" Filter="@ShowLoading"
+                    Data="@filteredStockItemsList"
+                    AllowVirtualization="true"
+                    ColumnWidth="200px"
+                    AllowSorting="true"
+                    AllowFiltering="true"
+                    ShowPagingSummary="true"
+                    ShowMultiColumnSortingIndex="true"
+                    FilterMode="FilterMode.CheckBoxList"
+                    Style="height: 84vh"
+                    AllowColumnPicking="true"
+                    FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive"
+                    RowRender="@RowRender">
+
+        <HeaderTemplate>
+            <RadzenStack Orientation="Orientation.Horizontal"
+                         AlignItems="AlignItems.Center"
+                         Style="width: 100%;">
+                <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem;">
+                    <RadzenButton Text="New"
+                                  Click="@navigate"
+                                  ButtonStyle="ButtonStyle.Primary"
+                                  Icon="add" />
+
+                    <!-- DIVIDER -->
+                    <div style="border-left: 2px solid #ccc; height: 2rem; margin: 0 0.5rem;"></div>
+
+                    <RadzenTextBox Disabled=@(filteredStockItemsList == null)
+                                   @bind-Value="@searchText"
+                                   Placeholder="Search..."
+                                   Style="width:30rem;"
+                                   Change="@(args => ApplyFilter())" />
+
+                    <RadzenButton Disabled=@(filteredStockItemsList == null)
+                                  Icon="search"
+                                  Click="@ApplyFilter"
+                                  Text="Find" />
+
+                    <RadzenButton Disabled=@(filteredStockItemsList == null)
+                                  Icon="delete"
+                                  Click="@ClearFilter"
+                                  Text="Clear" />
+
+                    <RadzenBadge Visible="@(status != string.Empty)" Shade="Shade.Dark" BadgeStyle="BadgeStyle.Danger" Text="@status" class="rz-ms-2" />
+
+                </RadzenStack>
+            </RadzenStack>
+
+        </HeaderTemplate>
+
+        <Columns>
+
+            <RadzenDataGridColumn Filterable="false" Width="120px" Visible=true Title="Status">
+                <Template Context="data">
+                    @if (data.IsCancelled == true)
+                    {
+                        <RadzenBadge IsPill="true" Text="Cancelled" BadgeStyle="BadgeStyle.Danger" />
+                    }
+                </Template>
+            </RadzenDataGridColumn>
+
+            <RadzenDataGridColumn Visible=true Width="90px" TItem="StockAdjustmentsModel" Property="@nameof(StockAdjustmentsModel.StockAdjustmentDate)" FormatString="{0:d}" Title="Date"></RadzenDataGridColumn>
+
+            <RadzenDataGridColumn Visible=true Width="100px" TItem="StockAdjustmentsModel" Property="@nameof(StockAdjustmentsModel.StockAdjustmentCode)" Title="Stock Adj #"></RadzenDataGridColumn>
+
+            <RadzenDataGridColumn Visible=true Width="200px" TItem="StockAdjustmentsModel" Property="@nameof(StockAdjustmentsModel.Description)" Title="Description"></RadzenDataGridColumn>
+
+            <RadzenDataGridColumn Visible=true Width="120px" TItem="StockAdjustmentsModel" Property="@nameof(StockAdjustmentsModel.ReferenceNo)" Title="Ref #"></RadzenDataGridColumn>
+
+            <RadzenDataGridColumn Visible=true Width="120px" TItem="StockAdjustmentsModel" Title="Total Amount">
+                <Template Context="data">
+                    @(data.TotalAmount < 0
+                                        ? $"({Math.Abs(data.TotalAmount):N2})"
+                                        : data.TotalAmount.ToString("N2"))
+                </Template>
+            </RadzenDataGridColumn>
+
+            <RadzenDataGridColumn Visible=true Width="120px" TItem="StockAdjustmentsModel"
+                                  Property="@nameof(StockAdjustmentsModel.FirstCreatedUser)" Title="First Created User" />
+
+            <RadzenDataGridColumn Visible=true Width="120px"
+                                  TItem="StockAdjustmentsModel"
+                                  Property="@nameof(StockAdjustmentsModel.FirstCreatedDate)"
+                                  Title="First Created Date"
+                                  FormatString="{0:MM/dd/yyyy}" />
+
+            <RadzenDataGridColumn Visible=true Width="120px" TItem="StockAdjustmentsModel"
+                                  Property="@nameof(StockAdjustmentsModel.LastModifiedUser)" Title="Last Modified User" />
+
+            <RadzenDataGridColumn Visible=true Width="120px"
+                                  TItem="StockAdjustmentsModel"
+                                  Property="@nameof(StockAdjustmentsModel.LastModifiedDate)"
+                                  Title="Last Modified Date"
+                                  FormatString="{0:MM/dd/yyyy}" />
+
+            <RadzenDataGridColumn Visible=true Width="120px" TItem="StockAdjustmentsModel"
+                                  Property="@nameof(StockAdjustmentsModel.PrintCount)" Title="Doc Info Print Count" />
+
+        </Columns>
+
+    </RadzenDataGrid>
+</RadzenStack>
+
+
+@code {
+    string status = string.Empty;
+    private RadzenDataGrid<StockAdjustmentsModel> grids;
+    private IList<StockAdjustmentsModel> selectedStockAdjustment { get; set; }
+
+    private IEnumerable<StockAdjustmentsModel> stockAdjustmentList { get; set; }
+
+    FilterCaseSensitivity filter = FilterCaseSensitivity.CaseInsensitive;
+    Density density = Density.Compact;
+    AlignItems alignItems = AlignItems.Center;
+    Variant variant = Variant.Flat;
+
+    bool isLoading;
+
+    protected async override Task OnInitializedAsync()
+    {
+        await ShowLoading();
+        await loadAllData();
+    }
+
+    private async Task loadAllData()
+    {
+        await GetStockAdjustmentList();
+    }
+
+    private async Task GetStockAdjustmentList()
+    {
+        var data = await stockItemsService.GetStockAdjustmentList();
+        stockAdjustmentList = data is not null ? data : new List<StockAdjustmentsModel>();
+        filteredStockItemsList = stockAdjustmentList; // enable search filter
+    }
+
+    protected void Edit(Guid Id)
+    {
+        navManager.NavigateTo($"/StockAdjustmentsList/Edit/{Id}");
+    }
+
+    //DoubleClick Cell Event
+    protected void OnCellContextMenu(DataGridCellMouseEventArgs<StockAdjustmentsModel> stockItems)
+    {
+        selectedStockAdjustment = new List<StockAdjustmentsModel>() { stockItems.Data };
+
+        var contextMenuItems = new List<ContextMenuItem>
+    {
+        new ContextMenuItem() { Text = "New", Value = 1, Icon = "add" },
+        new ContextMenuItem() { Text = "Edit", Value = 2, Icon = "edit" },
+        new ContextMenuItem() { Text = "Delete", Value = 3, Icon = "delete" }
+    };
+
+        contextMenuService.Open(stockItems, contextMenuItems, (e) =>
+        {
+            switch (e.Value)
+            {
+                case 1:
+                    navigate();
+                    break;
+                case 2:
+                    Edit(stockItems.Data.Id);
+                    // Edit(stockItems.Data.Id);
+
+                    //await AddUpdateGLAccountDialog(stockItems.Data.Id, false);
+                    break;
+                case 3:
+                    // Delete(stockItems.Data.Id);
+                    break;
+
+            }
+            contextMenuService.Close();
+
+        });
+    }
+
+    private void navigate()
+    {
+        navManager.NavigateTo("/StockAdjustments");
+    }
+
+    private string searchText = string.Empty;
+
+    private IEnumerable<StockAdjustmentsModel> filteredStockItemsList;
+
+    private void ApplyFilter()
+    {
+        if (string.IsNullOrWhiteSpace(searchText))
+        {
+            filteredStockItemsList = stockAdjustmentList;
+        }
+        else
+        {
+            string search = searchText.Trim();
+
+            filteredStockItemsList = stockAdjustmentList.Where(x =>
+                // Date search
+                x.StockAdjustmentDate.ToString("MM/dd/yyyy")
+                    .Contains(search, StringComparison.OrdinalIgnoreCase) ||
+
+                x.StockAdjustmentDate.ToString("M/d/yyyy")
+                    .Contains(search, StringComparison.OrdinalIgnoreCase) ||
+
+                x.StockAdjustmentDate.ToString("MM/yyyy")
+                    .Contains(search, StringComparison.OrdinalIgnoreCase) ||
+
+                x.StockAdjustmentDate.ToString("M/yyyy")
+                    .Contains(search, StringComparison.OrdinalIgnoreCase) ||
+
+                // Stock Adjustment Code
+                (!string.IsNullOrEmpty(x.StockAdjustmentCode) &&
+                 x.StockAdjustmentCode.Contains(search, StringComparison.OrdinalIgnoreCase)) ||
+
+                // Description
+                (!string.IsNullOrEmpty(x.Description) &&
+                 x.Description.Contains(search, StringComparison.OrdinalIgnoreCase)) ||
+
+                // Reference No
+                (!string.IsNullOrEmpty(x.ReferenceNo) &&
+                 x.ReferenceNo.Contains(search, StringComparison.OrdinalIgnoreCase))
+            );
+        }
+
+        StateHasChanged();
+    }
+
+    private void ClearFilter()
+    {
+        searchText = string.Empty;
+        filteredStockItemsList = stockAdjustmentList;
+        StateHasChanged();
+    }
+
+    async Task ShowLoading()
+    {
+        await Task.Yield();
+
+        isLoading = false;
+    }
+
+    private void RowRender(RowRenderEventArgs<StockAdjustmentsModel> args)
+    {
+        if (args.Data.IsCancelled == true)
+        {
+            args.Attributes.Add("style", "background-color: #fdecea;");
+        }
+    }
+
+}

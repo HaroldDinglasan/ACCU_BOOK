@@ -1,0 +1,312 @@
+﻿@page "/NotAuthorized"
+@inject NavigationManager Navigation
+@inject IJSRuntime JS
+
+<PageTitle>Access Denied</PageTitle>
+
+<style>
+    .ab-page {
+        --ab-primary: #3b8591;
+        --ab-primary-hover: #2f6e79;
+        --ab-border: #e3e8ee;
+        --ab-tile-bg: #eef1f5;
+        --ab-tile-fg: #5b6b7c;
+        --ab-muted: #6b7785;
+        padding: 1.25rem 1.5rem;
+    }
+
+    /* Page header (like "Create Customer / Manage customer information") */
+    .ab-page-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 1rem;
+        margin-bottom: 1.25rem;
+    }
+
+    .ab-page-header-left {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+    }
+
+    .ab-page-title {
+        font-weight: 600;
+        font-size: 0.95rem;
+        line-height: 1.2;
+        margin: 0;
+    }
+
+    .ab-page-sub {
+        font-size: 0.85rem;
+        color: var(--ab-muted);
+        margin: 0;
+    }
+
+    /* Cards */
+    .ab-card {
+        background: var(--rz-base-background-color, #fff);
+        border: 1px solid var(--ab-border);
+        border-radius: 1rem;
+        box-shadow: 0 1px 4px rgba(16, 24, 40, 0.06);
+        padding: 1.5rem;
+    }
+
+    .ab-card-header {
+        display: flex;
+        align-items: flex-start;
+        gap: 1rem;
+        margin-bottom: 1.25rem;
+    }
+
+    .ab-card-header-text {
+        flex: 1;
+    }
+
+    .ab-card-title {
+        font-weight: 700;
+        font-size: 1.1rem;
+        margin: 0;
+    }
+
+    .ab-card-sub {
+        font-size: 0.9rem;
+        color: var(--ab-muted);
+        margin: 0.15rem 0 0;
+    }
+
+    /* Icon tile */
+    .ab-tile {
+        width: 40px;
+        height: 40px;
+        flex-shrink: 0;
+        border-radius: 0.6rem;
+        background: var(--ab-tile-bg);
+        color: var(--ab-tile-fg);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+        .ab-tile .rzi {
+            font-size: 1.35rem;
+        }
+
+    /* Status pill (like the green ACTIVE badge) */
+    .ab-pill {
+        padding: 0.15rem 0.7rem;
+        border-radius: 999px;
+        font-size: 0.7rem;
+        font-weight: 700;
+        letter-spacing: 0.04em;
+        color: #fff;
+        background: #e5484d;
+        white-space: nowrap;
+    }
+
+    /* Big message block */
+    .ab-hero {
+        display: flex;
+        align-items: center;
+        gap: 1.25rem;
+        padding: 1.25rem;
+        border: 1px dashed var(--ab-border);
+        border-radius: 0.75rem;
+        background: #fafbfc;
+    }
+
+    .ab-hero-icon {
+        width: 72px;
+        height: 72px;
+        flex-shrink: 0;
+        border-radius: 1rem;
+        background: rgba(229, 72, 77, 0.10);
+        color: #e5484d;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+        .ab-hero-icon .rzi {
+            font-size: 2.5rem;
+        }
+
+    .ab-hero-code {
+        font-size: 0.8rem;
+        font-weight: 700;
+        color: #e5484d;
+        letter-spacing: 0.15em;
+    }
+
+    .ab-hero-title {
+        font-size: 1.25rem;
+        font-weight: 700;
+        margin: 0.1rem 0 0.35rem;
+    }
+
+    .ab-hero-text {
+        margin: 0;
+        color: var(--ab-muted);
+        font-size: 0.92rem;
+    }
+
+    /* Option cards (like "Group company" / "Deferred VAT" boxes) */
+    .ab-option {
+        display: flex;
+        gap: 0.9rem;
+        align-items: flex-start;
+        border: 1px solid var(--ab-border);
+        border-radius: 0.6rem;
+        padding: 0.9rem 1rem;
+        margin-bottom: 0.9rem;
+    }
+
+        .ab-option:last-child {
+            margin-bottom: 0;
+        }
+
+        .ab-option .rzi {
+            color: var(--ab-primary);
+            font-size: 1.4rem;
+            margin-top: 0.1rem;
+        }
+
+    .ab-option-title {
+        font-weight: 600;
+        font-size: 0.9rem;
+        margin: 0;
+    }
+
+    .ab-option-text {
+        font-size: 0.85rem;
+        color: var(--ab-muted);
+        margin: 0.1rem 0 0;
+    }
+
+    /* Buttons */
+    .ab-btn-primary.rz-button.rz-primary {
+        background: var(--ab-primary);
+        border-color: var(--ab-primary);
+    }
+
+        .ab-btn-primary.rz-button.rz-primary:hover {
+            background: var(--ab-primary-hover);
+        }
+
+    @@media (max-width: 600px) {
+        .ab-hero {
+            flex-direction: column;
+            text-align: center;
+        }
+    }
+</style>
+
+<div class="ab-page">
+
+    @* ===== Page header ===== *@
+    <div class="ab-page-header">
+        <div class="ab-page-header-left">
+            <div class="ab-tile"><RadzenIcon Icon="gpp_bad" /></div>
+            <div>
+                <p class="ab-page-title">Access Denied</p>
+                <p class="ab-page-sub">You are not authorized to view this page</p>
+            </div>
+            <RadzenButton Text="Go Back"
+                          Icon="arrow_back"
+                          ButtonStyle="ButtonStyle.Light"
+                          Variant="Variant.Flat"
+                          Size="ButtonSize.Small"
+                          Click="GoBack" />
+        </div>
+
+        <RadzenButton Text="Back to Home"
+                      Icon="home"
+                      ButtonStyle="ButtonStyle.Primary"
+                      Size="ButtonSize.Small"
+                      class="ab-btn-primary"
+                      Click="GoHome" />
+    </div>
+
+    <RadzenRow Gap="1.25rem">
+
+        @* ===== Left card: main message ===== *@
+        <RadzenColumn Size="12" SizeLG="8">
+            <div class="ab-card">
+                <div class="ab-card-header">
+                    <div class="ab-tile"><RadzenIcon Icon="lock" /></div>
+                    <div class="ab-card-header-text">
+                        <h3 class="ab-card-title">No access right</h3>
+                        <p class="ab-card-sub">Your account does not have permission for this resource.</p>
+                    </div>
+                    <span class="ab-pill">403 FORBIDDEN</span>
+                </div>
+
+                <div class="ab-hero">
+                    <div class="ab-hero-icon"><RadzenIcon Icon="block" /></div>
+                    <div>
+                        <div class="ab-hero-code">ERROR 403</div>
+                        <h4 class="ab-hero-title">You can't access this page</h4>
+                        <p class="ab-hero-text">
+                            The page you're trying to open requires a role or permission that isn't
+                            assigned to your account. If you think this is a mistake, please contact
+                            your system administrator.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </RadzenColumn>
+
+        @* ===== Right card: what to do ===== *@
+        <RadzenColumn Size="12" SizeLG="4">
+            <div class="ab-card">
+                <div class="ab-card-header">
+                    <div class="ab-tile"><RadzenIcon Icon="tune" /></div>
+                    <div class="ab-card-header-text">
+                        <h3 class="ab-card-title">What you can do</h3>
+                        <p class="ab-card-sub">Suggested next steps.</p>
+                    </div>
+                </div>
+
+                <div class="ab-option">
+                    <RadzenIcon Icon="account_circle" />
+                    <div>
+                        <p class="ab-option-title">Check your account</p>
+                        <p class="ab-option-text">Make sure you're signed in with the correct user.</p>
+                    </div>
+                </div>
+
+                <div class="ab-option">
+                    <RadzenIcon Icon="admin_panel_settings" />
+                    <div>
+                        <p class="ab-option-title">Request access</p>
+                        <p class="ab-option-text">Ask your administrator to grant the required role.</p>
+                    </div>
+                </div>
+
+                <div class="ab-option">
+                    <RadzenIcon Icon="logout" />
+                    <div style="flex: 1;">
+                        <p class="ab-option-title">Use another account</p>
+                        <p class="ab-option-text">Sign out and log in with a different user.</p>
+                        <RadzenButton Text="Switch Account"
+                                      Icon="swap_horiz"
+                                      ButtonStyle="ButtonStyle.Primary"
+                                      Variant="Variant.Outlined"
+                                      Size="ButtonSize.Small"
+                                      class="rz-mt-2"
+                                      Click="SwitchAccount" />
+                    </div>
+                </div>
+            </div>
+        </RadzenColumn>
+
+    </RadzenRow>
+</div>
+
+@code {
+    private void GoHome() => Navigation.NavigateTo("/");
+
+    private async Task GoBack() => await JS.InvokeVoidAsync("history.back");
+
+    private void SwitchAccount() => Navigation.NavigateTo("/logout", forceLoad: true);
+}

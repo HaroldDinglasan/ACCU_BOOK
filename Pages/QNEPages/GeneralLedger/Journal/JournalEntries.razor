@@ -1,0 +1,1250 @@
+﻿@page "/JournalEntries"
+@page "/JournalEntries/Edit/{Id:guid}"
+@attribute [Authorize(Roles = "Admin,User")]
+
+@if (isloading)
+{
+    <Spinner />
+}
+@if (isloading)
+{
+    <Spinner />
+}
+<RadzenTemplateForm TItem="Journals" Data="journals" Submit="@OnSubmit">
+    <RadzenStack Gap="0.5rem" class="gl-form gl-flow">
+
+        <!-- TOOLBAR -->
+        <CrudToolbar Title="@(Id.HasValue ? "Edit Journal" : "Create Journal")"
+                     Subtitle="Manage journal information"
+                     Icon="badge"
+                     ButtonSize="@smallbtn"
+                     SaveText="Save"
+                     SaveBusy="@busy"
+                     SaveDisabled=@(btnDiseabled || journals.IsCancelled is true )
+                     BackText="Back to Search"
+                     OnBackSearch="@Navigate" />
+
+        <!-- HEADER: 3 grupo (Document / Accounting / Options) -->
+        <RadzenCard class="gl-card is-compact">
+            <div class="gl-doc-head">
+                <div class="gl-card-icon is-sm"><RadzenIcon Icon="menu_book" /></div>
+                <div class="gl-doc-title"><h2>Journal Entry</h2></div>
+                @if (!string.IsNullOrEmpty(journals.JournalCode))
+                {
+                    <span class="gl-doc-code">@journals.JournalCode</span>
+                }
+                <RadzenBadge Visible="@(status != string.Empty)" Shade="Shade.Dark" BadgeStyle="BadgeStyle.Danger" Text="@status" IsPill="true" />
+                <span class="gl-spacer"></span>
+                <RadzenButton Visible="Id.HasValue" ButtonStyle="ButtonStyle.Light" Variant="Variant.Outlined" Size="ButtonSize.Small" Icon="info" Text="Document info" Click="@OpenDocumentInfoDialog" />
+            </div>
+
+            <div class="gl-groups">
+
+                <!-- ============ GROUP 1: DOCUMENT ============ -->
+                <div class="gl-group">
+                    <div class="gl-group-title"><RadzenIcon Icon="description" /> Document</div>
+
+                    <div class="gl-pair">
+                        <div class="gl-field">
+                            <RadzenLabel Text="Doc Date" Component="DocDate" class="gl-flabel" />
+                            <RadzenDatePicker Name="DocDate" Change="SetDocumentNo" class="@redtext" @bind-Value="@journals.JournalDate" DateFormat="MM/dd/yyyy" Style="width:100%" />
+                        </div>
+                        <div class="gl-field">
+                            <RadzenLabel Text="Journal #" Component="JournalNo" class="gl-flabel" />
+                            <div class="gl-field-row">
+                                <RadzenTextBox Name="JournalNo" class="@redtext" @bind-Value="@journals.JournalCode" Style="width:100%;" />
+                                <RadzenButton @ref=@button class="gl-icon-btn" Icon="format_list_numbered" ButtonStyle="ButtonStyle.Primary" Variant="Variant.Outlined"
+                                              title="Choose number format" Click="@(args => popup.ToggleAsync(button.Element))" />
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="gl-field">
+                        <RadzenLabel Text="Description*" Component="Description" class="gl-flabel" />
+                        <div class="gl-field-row">
+                            <RadzenDropDown AllowFiltering="true" AllowClear="true" Name="Description" @bind-Value=@journals.Description Data=@descriptionsList
+                                            class="gl-edit-dd" TextProperty="Description" ValueProperty="Description" ShowValueTemplateOnEmpty="true" Style="width:100%">
+                                <ValueTemplate Context="data">
+                                    <RadzenTextBox @bind-Value=@journals.Description Style="width:100%;" />
+                                </ValueTemplate>
+                            </RadzenDropDown>
+                            <RadzenButton class="gl-icon-btn" Icon="edit_note" ButtonStyle="ButtonStyle.Primary" Variant="Variant.Outlined"
+                                          title="Manage descriptions" Click="@OpenDescriptionDialog" />
+                        </div>
+                        <RadzenRequiredValidator Component="Description" Text="'Description' must not be empty." Popup="true" />
+                    </div>
+                </div>
+
+                <!-- ============ GROUP 2: ACCOUNTING ============ -->
+                <div class="gl-group">
+                    <div class="gl-group-title"><RadzenIcon Icon="account_balance_wallet" /> Accounting</div>
+
+                    <div class="gl-field">
+                        <RadzenLabel Text="Project" Component="Project" class="gl-flabel" />
+                        <RadzenDropDownDataGrid Name="Project" class="@redtext" @bind-Value=@journals.ProjectId AllowSorting="false" Style="width:100%;"
+                                                PageSize=10 Data="@projectList" AllowVirtualization="true" AllowColumnResize="true"
+                                                AllowClear="true" FilterCaseSensitivity="@filter" AllowFilteringByAllStringColumns="true"
+                                                TextProperty="ProjectCode" Density="@density" ValueProperty="Id"
+                                                Change="@(args => OnProjectChanged(args))">
+                            <Columns>
+                                <RadzenDropDownDataGridColumn Width="15%" Property="ProjectCode" Title="Project Code"></RadzenDropDownDataGridColumn>
+                                <RadzenDropDownDataGridColumn Width="15%" Property="Description" Title="Description"></RadzenDropDownDataGridColumn>
+                                <RadzenDropDownDataGridColumn Width="8%" Property="IsActive" Title="Active">
+                                    <Template Context="data2"><RadzenCheckBox TValue="bool" Value="data2.IsActive"></RadzenCheckBox></Template>
+                                </RadzenDropDownDataGridColumn>
+                            </Columns>
+                        </RadzenDropDownDataGrid>
+                    </div>
+
+                    <div class="gl-pair is-wide-left">
+                        <div class="gl-field">
+                            <RadzenLabel Text="Currency*" Component="Currency" class="gl-flabel" />
+                            <RadzenDropDownDataGrid Name="Currency" class="@redtext" @bind-Value=@journals.CurrencyId AllowSorting="false" Style="width:100%;" PageSize=10 AllowColumnResize="true"
+                                                    AllowClear="true" FilterCaseSensitivity="@filter" AllowFilteringByAllStringColumns="true"
+                                                    TextProperty="CurrencyCode" Density="@density" Data="@currencyList" ValueProperty="Id">
+                                <Columns>
+                                    <RadzenDropDownDataGridColumn Width="10%" Property="CurrencyCode" Title="CurrencyCode"></RadzenDropDownDataGridColumn>
+                                    <RadzenDropDownDataGridColumn Width="10%" Property="Description" Title="Description"></RadzenDropDownDataGridColumn>
+                                </Columns>
+                            </RadzenDropDownDataGrid>
+                            <RadzenRequiredValidator Component="Currency" Text="'Currency' must not be empty." Popup="true" />
+                        </div>
+                        <div class="gl-field">
+                            <RadzenLabel Text="Rate" Component="Rate" class="gl-flabel" />
+                            <RadzenNumeric Name="Rate" ShowUpDown="false" Disabled="@(IsForeignCurrency != true)" class="@redtext" @bind-Value=@journals.CurrencyRate Style="width:100%;" Placeholder="Exchange Rate"></RadzenNumeric>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ============ GROUP 3: OPTIONS ============ -->
+                <div class="gl-group">
+                    <div class="gl-group-title"><RadzenIcon Icon="tune" /> Options</div>
+
+                    <div class="gl-opts-row">
+                        <div class="gl-opt">
+                            <RadzenSwitch Name="IsTaxInclusive" @bind-Value=journals.IsTaxInclusive Change="@IsTaxInclusiveChanged" />
+                            <RadzenLabel Text="Tax inclusive" Component="IsTaxInclusive" />
+                        </div>
+                        @if (Id is not null)
+                        {
+                            <div class="@(journals.IsCancelled == true ? "gl-opt is-danger" : "gl-opt")">
+                                <RadzenSwitch Name="IsCancelled" @bind-Value="@journals.IsCancelled" Change=@(args => OnSwitchChanged("IsCancelled")) />
+                                <RadzenLabel Text="Cancelled" Component="IsCancelled" />
+                            </div>
+                        }
+                    </div>
+                </div>
+
+            </div>
+        </RadzenCard>
+
+        <!-- DETAILS + NOTES (tabs). Lumalaki ang table ayon sa dami ng row -->
+        <RadzenCard class="gl-card is-compact gl-grid-card">
+            <RadzenTabs class="gl-tabs" RenderMode="TabRenderMode.Client">
+                <Tabs>
+
+                    <RadzenTabsItem Text="Journal details" Icon="list_alt">
+                        <div class="gl-tab-body">
+                            <div class="gl-tab-toolbar">
+                                <RadzenButton ButtonStyle="ButtonStyle.Success" Icon="add" Text="Add New" Size="ButtonSize.Small"
+                                              Click="@(() => InsertAfterRow(journalDetailsList.LastOrDefault()))" title="Add new row after this row"
+                                              Disabled="@(journalDetailsToInsert.Any() || journalDetailsToUpdate.Any() || journals.IsCancelled is true )" />
+                            </div>
+
+                            @* TABLE DETAILS *@
+                            <div class="gl-grid-wrap">
+                                <RadzenDataGrid class="gl-detail-grid" Density="Density.Compact" EmptyText="No details yet. Click Add New to start."
+                                                EditMode="@editMode" @ref="grid" ColumnWidth="90px"
+                                                Data="@journalDetailsList" AllowColumnResize=true RowCreate="@OnCreateRow" RowRender="@RowRender"
+                                                TItem="JournalDetails" RowUpdate="@OnUpdateRow">
+                                    <Columns>
+
+                                        <RadzenDataGridColumn Width="45px" TextAlign="TextAlign.Center" Property="Action" Frozen="true" FrozenPosition="FrozenColumnPosition.Left">
+                                            <Template Context="data">
+                                                <RadzenButton Icon="edit" ButtonStyle="ButtonStyle.Secondary" Variant="Variant.Text" Size="ButtonSize.ExtraSmall"
+                                                              Click="@(args => EditRow(data))" title="Edit this row"
+                                                              Disabled="@(journals.IsCancelled is true )" />
+                                            </Template>
+                                            <EditTemplate Context="data">
+                                                <RadzenButton Icon="check" ButtonStyle="ButtonStyle.Success" Variant="Variant.Text" Size="ButtonSize.ExtraSmall" Click="@((args) => SaveRow(data))" title="Save" />
+                                            </EditTemplate>
+                                        </RadzenDataGridColumn>
+
+                                        <RadzenDataGridColumn Width="8rem" TItem="JournalDetails" Property="@nameof(JournalDetails.GLAccountId)" Title="Account" TextAlign="TextAlign.Center">
+                                            <Template Context="data">
+                                                @{
+                                                    var stock = glaccountaccountonlylist?.FirstOrDefault(s => s.Id == data.GLAccountId);
+                                                }
+                                                @stock?.GLAccountCode
+                                            </Template>
+                                            <EditTemplate Context="data">
+                                                <RadzenDropDownDataGrid @bind-Value="data.GLAccountId" Style="width: 100%; font-size:12px" PageSize="10" Data="@glaccountaccountonlylist" AllowVirtualization="true" AllowColumnResize="true"
+                                                                        Change="@(args => OnGLAccountChanged(args, data))"
+                                                                        AllowClear="true" AllowSorting="false" FilterCaseSensitivity="@filter" AllowFilteringByAllStringColumns="true"
+                                                                        TextProperty="GLAccountCode" Density="@density" ValueProperty="Id">
+                                                    <Columns>
+                                                        <RadzenDropDownDataGridColumn Width="6%" Property=@nameof(GLAccounts.GLAccountCode) Title="Account #" />
+                                                        <RadzenDropDownDataGridColumn Width="10%" Property=@nameof(GLAccounts.Description) Title="Account Name" />
+                                                    </Columns>
+                                                </RadzenDropDownDataGrid>
+                                            </EditTemplate>
+                                        </RadzenDataGridColumn>
+                                        <RadzenDataGridColumn Width="10rem" TItem="JournalDetails" Title="Account Name" TextAlign="TextAlign.Center">
+                                            <Template Context="data">
+                                                @{
+                                                    var stock = glaccountaccountonlylist?.FirstOrDefault(s => s.Id == data.GLAccountId);
+                                                }
+                                                @stock?.Description
+                                            </Template>
+                                        </RadzenDataGridColumn>
+
+                                        <RadzenDataGridColumn TItem="JournalDetails" Property="@nameof(JournalDetails.Description)" Title="Description" TextAlign="TextAlign.Center">
+                                            <EditTemplate Context="data">
+                                                <RadzenTextBox Style="width: 100%; font-size:12px" @bind-Value="data.Description"></RadzenTextBox>
+                                            </EditTemplate>
+                                        </RadzenDataGridColumn>
+
+                                        <RadzenDataGridColumn TItem="JournalDetails" Title="Project" TextAlign="TextAlign.Center">
+                                            <Template Context="data">
+                                                @{
+                                                    var project = projectList?.FirstOrDefault(s => s.Id == data.ProjectId);
+                                                }
+                                                @project?.ProjectCode
+                                            </Template>
+                                            <EditTemplate Context="data">
+                                                <RadzenDropDownDataGrid class="@redtext" @bind-Value=@data.ProjectId AllowSorting="false" Style="width: 100%;" PageSize=10 Data="@projectList" AllowVirtualization="true" AllowColumnResize="true"
+                                                                        AllowClear="true" FilterCaseSensitivity="@filter" AllowFilteringByAllStringColumns="true"
+                                                                        TextProperty="ProjectCode" Density="@density" ValueProperty="Id">
+                                                    <Columns>
+                                                        <RadzenDropDownDataGridColumn Width="15%" Property="ProjectCode" Title="Project Code"></RadzenDropDownDataGridColumn>
+                                                        <RadzenDropDownDataGridColumn Width="15%" Property="Description" Title="Description"></RadzenDropDownDataGridColumn>
+                                                        <RadzenDropDownDataGridColumn Width="8%" Property="IsActive" Title="Active">
+                                                            <Template Context="data2"><RadzenCheckBox TValue="bool" Value="data2.IsActive"></RadzenCheckBox></Template>
+                                                        </RadzenDropDownDataGridColumn>
+                                                    </Columns>
+                                                </RadzenDropDownDataGrid>
+                                            </EditTemplate>
+                                        </RadzenDataGridColumn>
+
+                                        <RadzenDataGridColumn TItem="JournalDetails" Property="@nameof(JournalDetails.ReferenceNo)" Title="Reference/Tax Inv#" TextAlign="TextAlign.Center">
+                                            <EditTemplate Context="data">
+                                                <RadzenTextBox Style="width: 100%; font-size:12px" @bind-Value="data.ReferenceNo"></RadzenTextBox>
+                                            </EditTemplate>
+                                        </RadzenDataGridColumn>
+
+                                        <RadzenDataGridColumn Visible=true TItem="JournalDetails" Property="@nameof(JournalDetails.Debit)" Title="Debit" TextAlign="TextAlign.Right">
+                                            <Template Context="data">
+                                                @(data.Debit == 0.0000M ? "" : data.Debit.ToString("N2"))
+                                            </Template>
+                                            <EditTemplate Context="data">
+                                                <RadzenNumeric Style="width: 100%; font-size:12px" Disabled="@IsDisable" Change="@(args => OnCreditDebitChanged(data, isDebit: true))" TValue="decimal" @bind-Value="data.Debit" Format="#.0000"></RadzenNumeric>
+                                            </EditTemplate>
+                                        </RadzenDataGridColumn>
+
+                                        <RadzenDataGridColumn Visible=true TItem="JournalDetails" Property="@nameof(JournalDetails.Credit)" Title="Credit" TextAlign="TextAlign.Right">
+                                            <Template Context="data">
+                                                @(data.Credit == 0.0000M ? "" : data.Credit.ToString("N2"))
+                                            </Template>
+                                            <EditTemplate Context="data">
+                                                <RadzenNumeric Style="width: 100%; font-size:12px" Disabled="@IsDisable" Change="@(args => OnCreditDebitChanged(data, isDebit: false))" TValue="decimal" @bind-Value="data.Credit" Format="#.0000"></RadzenNumeric>
+                                            </EditTemplate>
+                                        </RadzenDataGridColumn>
+
+                                        <RadzenDataGridColumn Visible=true TItem="JournalDetails" Property="@nameof(JournalDetails.TaxCodeId)" Title="TaxCode" TextAlign="TextAlign.Right">
+                                            <Template Context="data">
+                                                @{
+                                                    var taxcode = alltaxCodesList?.FirstOrDefault(t => t.Id == data.TaxCodeId);
+                                                }
+                                                @taxcode?.TaxCode
+                                            </Template>
+                                            <EditTemplate Context="data">
+                                                <RadzenDropDownDataGrid Change="@(args => TransactionHelper(data))" @bind-Value="data.TaxCodeId" AllowSorting="false" Style="font-size:12px" PageSize="10" Data="@taxCodesList"
+                                                                        AllowClear="true" FilterCaseSensitivity="@filter" AllowFilteringByAllStringColumns="true"
+                                                                        TextProperty="TaxCode" Density="@density" ValueProperty="Id">
+                                                    <Columns>
+                                                        <RadzenDropDownDataGridColumn Width="100px" Property="TaxCode" Title="Vat #" />
+                                                        <RadzenDropDownDataGridColumn Width="100px" Property="Rate" Title="Rate" />
+                                                        <RadzenDropDownDataGridColumn Width="100px" Property="VatType" Title="VatType" />
+                                                        <RadzenDropDownDataGridColumn Width="250px" Property="Description" Title="Description" />
+                                                    </Columns>
+                                                </RadzenDropDownDataGrid>
+                                            </EditTemplate>
+                                        </RadzenDataGridColumn>
+
+                                        <RadzenDataGridColumn Visible=true TItem="JournalDetails" Property="@nameof(JournalDetails.TaxDebit)" Title="TaxDebit" TextAlign="TextAlign.Center">
+                                            <Template Context="data">
+                                                @(data.TaxDebit == 0.0000M ? "" : data.TaxDebit.ToString("N4"))
+                                            </Template>
+                                            <EditTemplate Context="data">
+                                                <RadzenNumeric Style="width: 100%; font-size:12px" Disabled="@IsDisable" Change="@(args => TransactionHelper(data))" TValue="decimal" @bind-Value="data.TaxDebit" Format="#.0000"></RadzenNumeric>
+                                            </EditTemplate>
+                                        </RadzenDataGridColumn>
+
+                                        <RadzenDataGridColumn Visible=true TItem="JournalDetails" Property="@nameof(JournalDetails.TaxCredit)" Title="TaxCredit" TextAlign="TextAlign.Center">
+                                            <Template Context="data">
+                                                @(data.TaxCredit == 0.0000M ? "" : data.TaxCredit.ToString("N4"))
+                                            </Template>
+                                            <EditTemplate Context="data">
+                                                <RadzenNumeric Style="width: 100%; font-size:12px" Disabled="@IsDisable" Change="@(args => TransactionHelper(data))" TValue="decimal" @bind-Value="data.TaxCredit" Format="#.0000"></RadzenNumeric>
+                                            </EditTemplate>
+                                        </RadzenDataGridColumn>
+
+                                        <RadzenDataGridColumn Visible=true TItem="JournalDetails" Property="@nameof(JournalDetails.GLBIRClsInfo)" Title="BIR Classification" TextAlign="TextAlign.Center" />
+
+                                        <RadzenDataGridColumn Visible=true TItem="JournalDetails" Property="@nameof(JournalDetails.IsCreditable)" Title="Creditable/Payable" TextAlign="TextAlign.Center">
+                                            <Template Context="data">
+                                                <div style="cursor:pointer;width:100%;height:100%;"
+                                                     @onclick="() => ToggleCreditable(data)">
+                                                    @(data.IsCreditable ? "Creditable" : "Payable")
+                                                </div>
+                                            </Template>
+                                        </RadzenDataGridColumn>
+
+                                        <RadzenDataGridColumn TItem="JournalDetails" Property="@nameof(JournalDetails.WTaxCode)" Title="WTax Code" TextAlign="TextAlign.Center">
+                                            <Template Context="data">
+                                                @{
+                                                    var wtaxcode = wTaxCodesList?.FirstOrDefault(w => w.Id == data.WTaxCode);
+                                                }
+                                                @wtaxcode?.Code
+                                            </Template>
+
+                                            @* WTAXCODE DROPDOWN *@
+                                            <EditTemplate Context="data">
+                                                <RadzenDropDownDataGrid @bind-Value="data.WTaxCode" AllowSorting="false" Style="font-size:12px" PageSize="10" Data="@FilteredWTaxCodesList"
+                                                                        AllowClear="true" FilterCaseSensitivity="@filter" AllowFilteringByAllStringColumns="true"
+                                                                        TextProperty="Code" Density="@density" ValueProperty="Id" Change="@(args => TransactionHelper(data))">
+                                                    <Columns>
+                                                        <RadzenDropDownDataGridColumn Width="100px" Property="Code" Title="Code" />
+                                                        <RadzenDropDownDataGridColumn Width="100px" Property="Rate" Title="Rate">
+                                                            <Template Context="wtaxcode">
+                                                                @((wtaxcode.Rate * 100).ToString("0.00") + "%")
+                                                            </Template>
+                                                        </RadzenDropDownDataGridColumn>
+                                                        <RadzenDropDownDataGridColumn Width="250px" Property="Description" Title="Description" />
+                                                    </Columns>
+                                                </RadzenDropDownDataGrid>
+                                            </EditTemplate>
+                                        </RadzenDataGridColumn>
+
+                                        <RadzenDataGridColumn TItem="JournalDetails" Title="WTax Rate" TextAlign="TextAlign.Center">
+                                            <Template Context="data">
+                                                @{
+                                                    var wtaxcode = wTaxCodesList?.FirstOrDefault(w => w.Id == data.WTaxCode);
+                                                }
+                                                @((wtaxcode?.Rate * 100).GetValueOrDefault().ToString("0.00") + "%")
+                                            </Template>
+                                        </RadzenDataGridColumn>
+
+                                        <RadzenDataGridColumn Visible=false TItem="JournalDetails" Property="@nameof(JournalDetails.IsTaxInclusive)" Title="Is TaxInclusive" TextAlign="TextAlign.Center" />
+                                        <RadzenDataGridColumn Visible=false TItem="JournalDetails" Property="@nameof(JournalDetails.TaxExclusiveDebit)" Title="TaxExclusiveDebit" TextAlign="TextAlign.Center" />
+                                        <RadzenDataGridColumn Visible=false TItem="JournalDetails" Property="@nameof(JournalDetails.TaxExclusiveCredit)" Title="TaxExclusiveCredit" TextAlign="TextAlign.Center" />
+                                        <RadzenDataGridColumn Visible=false TItem="JournalDetails" Property="@nameof(JournalDetails.TaxExclusiveDebitLocal)" Title="TaxExclusiveDebitLocal" TextAlign="TextAlign.Center" />
+                                        <RadzenDataGridColumn Visible=false TItem="JournalDetails" Property="@nameof(JournalDetails.TaxExclusiveCreditLocal)" Title="TaxExclusiveCreditLocal" TextAlign="TextAlign.Center" />
+                                        <RadzenDataGridColumn Visible=false TItem="JournalDetails" Property="@nameof(JournalDetails.Pos)" Title="Pos" TextAlign="TextAlign.Center" />
+
+                                        <RadzenDataGridColumn Visible=true TItem="JournalDetails" Property="@nameof(JournalDetails.WTaxDebit)" Title="WTaxDebit" TextAlign="TextAlign.Center">
+                                            <Template Context="data">
+                                                @(data.WTaxDebit == 0.0000M ? "" : data.WTaxDebit.ToString("N4"))
+                                            </Template>
+                                            <EditTemplate Context="data">
+                                                <RadzenNumeric Style="width: 100%; font-size:12px" Disabled="@IsDisable" Change="@(args => TransactionHelper(data))" TValue="decimal" @bind-Value="data.WTaxDebit" Format="#.0000"></RadzenNumeric>
+                                            </EditTemplate>
+                                        </RadzenDataGridColumn>
+
+                                        <RadzenDataGridColumn Visible=true TItem="JournalDetails" Property="@nameof(JournalDetails.WTaxCredit)" Title="WTaxCredit" TextAlign="TextAlign.Center">
+                                            <Template Context="data">
+                                                @(data.WTaxCredit == 0.0000M ? "" : data.WTaxCredit.ToString("N4"))
+                                            </Template>
+                                            <EditTemplate Context="data">
+                                                <RadzenNumeric Style="width: 100%; font-size:12px" Disabled="@IsDisable" Change="@(args => TransactionHelper(data))" TValue="decimal" @bind-Value="data.WTaxCredit" Format="#.0000"></RadzenNumeric>
+                                            </EditTemplate>
+                                        </RadzenDataGridColumn>
+
+                                        <RadzenDataGridColumn Width="45px" TextAlign="TextAlign.Center" Property="Action" Frozen="true" FrozenPosition="FrozenColumnPosition.Right">
+                                            <Template Context="data">
+                                                <RadzenButton Icon="delete" ButtonStyle="ButtonStyle.Danger" title="Delete" Variant="Variant.Text" Size="ButtonSize.ExtraSmall" Click="@(args => DeleteRow(data))" Disabled="@(journalDetailsList.Count == 1 || journals.IsCancelled is true)" />
+                                            </Template>
+                                        </RadzenDataGridColumn>
+
+                                    </Columns>
+                                </RadzenDataGrid>
+                            </div>
+                            @* END OF TABLE DETAILS *@
+                        </div>
+                    </RadzenTabsItem>
+
+                    <RadzenTabsItem Text="Notes" Icon="sticky_note_2">
+                        <div class="gl-tab-body">
+                            <RadzenTextArea Name="Notes" Placeholder="Enter notes here..." @bind-Value=@journals.Notes
+                                            class="@($"gl-notes-area {redtext}")" Style="width:100%;" />
+                        </div>
+                    </RadzenTabsItem>
+
+                </Tabs>
+            </RadzenTabs>
+        </RadzenCard>
+
+        <!-- SUMMARY -->
+        <div class="gl-summary is-sticky is-sm">
+            <div class="gl-summary-note">
+                @*    @if (Different == 0)
+                {
+                    <span class="gl-status-chip is-ok"><RadzenIcon Icon="check_circle" /> Balanced</span>
+                }
+                else
+                {
+                    <span class="gl-status-chip is-bad"><RadzenIcon Icon="error" /> Out of balance</span>
+                } *@
+            </div>
+            <div class="gl-sum-item">
+                <span class="gl-sum-label">Difference</span>
+                <span class="gl-sum-value"><small>@(currencyList?.FirstOrDefault(c => c.Id == journals.CurrencyId)?.CurrencyCode)</small>@($"{Different:N2}")</span>
+            </div>
+            <div class="gl-sum-item is-main">
+                <span class="gl-sum-label">Debit</span>
+                <span class="gl-sum-value"><small>@(currencyList?.FirstOrDefault(c => c.Id == journals.CurrencyId)?.CurrencyCode)</small>@($"{Debit:N2}")</span>
+            </div>
+            <div class="gl-sum-item is-main">
+                <span class="gl-sum-label">Credit</span>
+                <span class="gl-sum-value"><small>@(currencyList?.FirstOrDefault(c => c.Id == journals.CurrencyId)?.CurrencyCode)</small>@($"{Credit:N2}")</span>
+            </div>
+
+        </div>
+
+    </RadzenStack>
+
+    <RadzenPopup @ref=popup Lazy=true class="gl-popup">
+        <RadzenDataGrid RowDoubleClick="() => SetDocumentNoPopup(selectedtransactionCodesList.FirstOrDefault().Id)"
+                        TItem="TransactionsCode"
+                        @ref=transactionsCodeGrid
+                        @bind-Value="@selectedtransactionCodesList"
+                        Data=@transactionCodesList>
+            <Columns>
+                <RadzenDataGridColumn TItem="TransactionsCode" Property="@nameof(TransactionsCode.Format)" Title="Format" TextAlign="TextAlign.Center" Width="300px">
+                    <Template Context="transactionCode">
+                        @transactionCode.Format
+                    </Template>
+                </RadzenDataGridColumn>
+            </Columns>
+        </RadzenDataGrid>
+    </RadzenPopup>
+</RadzenTemplateForm>
+
+
+
+
+
+@* //FOR POP UP DIALOG *@
+<style type="text/css">
+    .my-popup {
+        display: none;
+        position: absolute;
+        overflow: hidden;
+        height: 160px;
+        width: 300px;
+        border: var(--rz-panel-border);
+        background-color: var(--rz-panel-background-color);
+        box-shadow: var(--rz-panel-shadow);
+        border-radius: var(--rz-border-radius)
+    }
+</style>
+
+@code {
+    [Parameter]
+    public Guid? Id { get; set; }
+
+    [CascadingParameter]
+    public Task<AuthenticationState> authenticationState { get; set; }
+
+
+    AlignItems alignItems = AlignItems.Center;
+    Density density = Density.Compact;
+    TextStyle textStyle = TextStyle.Body2;
+    FilterCaseSensitivity filter = FilterCaseSensitivity.CaseInsensitive;
+    Variant btnVariantText = Variant.Text;
+    ButtonSize smallbtn = ButtonSize.Small;
+
+
+    //FOR POP UP DIALOG
+    RadzenButton button;
+    RadzenPopup popup;
+    RadzenDataGrid<TransactionsCode> transactionsCodeGrid;
+    protected IList<TransactionsCode> selectedtransactionCodesList { get; set; }
+
+    //FOR PROPERTY SET VALUE OF OBJECT
+    string btnText = "Save";
+    bool busy = false;
+    string status = string.Empty;
+    string redtext;
+
+    //for diseabled quotatuion details table
+    protected bool IsDisable = true;
+
+    //for loading data
+    bool isloading = true;
+    bool btnDiseabled = false;
+
+
+
+    protected Journals journals { get; set; } = new Journals();
+
+    //FOR QUOTATION DETAILS GRID
+    // Add this after initializing quotationsDetailsList to ensure a first row is loaded by default
+    RadzenDataGrid<JournalDetails> grid;
+    DataGridEditMode editMode = DataGridEditMode.Single;
+    List<JournalDetails> journalDetailsToInsert = new List<JournalDetails>();
+    List<JournalDetails> journalDetailsToUpdate = new List<JournalDetails>();
+    protected List<JournalDetails> journalDetailsList { get; set; }
+
+    //ALL LIST FOR DROPDOWN BOX INPUT
+    protected IEnumerable<Projects> projectList { get; set; }
+    protected IEnumerable<Currencies> currencyList { get; set; }
+    protected IEnumerable<Creditors> supplieraccountList { get; set; }
+    protected IEnumerable<Terms> termList { get; set; }
+    protected IEnumerable<Purchasers> purchaserList { get; set; }
+
+    protected IEnumerable<WTaxCodes> wTaxCodesList { get; set; }
+    protected IEnumerable<TaxCodes> taxCodesList { get; set; }
+    protected IEnumerable<TaxCodes> alltaxCodesList { get; set; }
+
+    protected IEnumerable<Descriptions> descriptionsList { get; set; }
+    protected IEnumerable<TransactionsCode> transactionCodesList { get; set; }
+
+    protected DescriptionFilter descriptionFilter { get; set; } = new DescriptionFilter();
+    protected TransactionCodesFilter transactionCodesFilter = new TransactionCodesFilter();
+    protected TaxCodeFilter taxCodeFilter = new TaxCodeFilter();
+
+    string value = "";
+    IEnumerable<string> companyNames;
+
+    string? userId;//USER GUID
+
+
+    protected async override Task OnInitializedAsync()
+    {
+
+        var authState = (await authenticationState).User;
+        if (authState.Identity.IsAuthenticated)
+        {
+            var RoleId = authState.FindFirst("RoleId").Value;
+
+            //USER GUID
+            var userguid = authState.FindFirst(x => x.Type == System.Security.Claims.ClaimTypes.NameIdentifier);
+            userId = userguid.Value;
+
+            GetLoadMenuPermission(RoleId);
+        }
+
+    }
+
+    private SystemMenuObjectPermission? permission;
+    protected async void GetLoadMenuPermission(string RoleId)
+    {
+        permission = await permissionService.GetPermissionAsync(
+         RoleId,
+         "Journal Entries");
+
+        if (permission is null)
+            return;
+
+        SetTransactionCodeData();
+        InitializeDetailsRows();
+        await loadAllData();
+        if (Id is not null)
+        {
+            await loadAllDataById();
+        }
+        StateHasChanged();
+    }
+
+
+
+    protected void SetTransactionCodeData()
+    {
+
+        journals.ObjectType = 120; // FOR QNE XPObjectType TABLE QnEBS.BO.GL.Journal
+
+
+        descriptionFilter.OwnerCode = "Journals.Description";
+        transactionCodesFilter.TableId = 1;
+    }
+
+
+    protected void LoadDocumentStatus()
+    {
+        var statusList = new List<string>();
+        // if (bill.FromDocId != Guid.Empty)
+        //     statusList.Add("Posted From Purchase");
+
+        if (journals.IsCancelled)
+            statusList.Add("Cancelled");
+
+        if (statusList.Any())
+        {
+            status = $"({string.Join(", ", statusList)})";
+        }
+
+        StateHasChanged();
+    }
+
+    protected GLTransactions gLTransactions { get; set; } = new GLTransactions();
+    protected async Task OnSubmit()
+    {
+
+        busy = true;
+        //SAVING
+        if (journalDetailsToInsert.Any() || journalDetailsToUpdate.Any())
+        {
+            NotificationHelper.ShowWarning(notificationService, "Unsaved Details", "Please click the 'Save' (checkmark) button for any active or newly added detail rows in the grid before saving.");
+            busy = false;
+            return;
+        }
+
+        if (!journalDetailsList.Any(x => x.Description != null))
+        {
+            NotificationHelper.ShowError(notificationService, "Unsaved Details", "Please insert at least one data on details before saving.");
+            busy = false;
+            return;
+        }
+
+        var data = await journalServices.SaveJournalHeaderAndDetails(journals, journalDetailsList);
+        if (data is not null)
+        {
+            if (data.Contains("Success"))
+            {
+                var info = await documentsInfoService.SaveDocumentInfo(documentInfo);
+                await DialogService.Alert(data + info);
+                btnDiseabled = true;
+                busy = false;
+            }
+            else
+            {
+                await DialogService.Alert(data);
+                btnDiseabled = false;
+            }
+
+        }
+        btnDiseabled = true;
+        // bill = new();
+        // billDetailsList = new();
+        // InitializeQuotationDetailsRows();
+        StateHasChanged();
+    }
+
+
+    DialogPosition position;
+    bool closeDialogOnOverlayClick;
+    bool showMask;
+    bool resizable;
+    protected DocumentInfo documentInfo { get; set; } = new DocumentInfo();
+    async Task OpenDocumentInfoDialog()
+    {
+        await DialogService.OpenSideAsync<DocumentInfoPage>(
+            "Document Info",
+            new Dictionary<string, object?>
+            {
+            { "Id", (Guid?)Id }
+            },
+            options: new SideDialogOptions
+            {
+                CloseDialogOnOverlayClick = closeDialogOnOverlayClick,
+                Resizable = resizable,
+                Position = position,
+                ShowMask = showMask,
+                MinHeight = 250.0,
+                MinWidth = 500.0
+            });
+
+    }
+    protected void SetDocumentInfo()
+    {
+        documentInfo.DocumentId = journals.Id.ToString();
+        documentInfo.FirstCreatedUserId = userId;
+        documentInfo.LastModifiedUserId = userId;
+        documentInfo.DocType = "Journal";
+    }
+
+    protected async Task loadAllData()
+    {
+        await GetTransactionNo();
+        await GetSupplierList();
+        await GetTermList();
+        await GetCurrencyList();
+        SetDefaultCurrency();
+        await GetGLAccountLists();
+        await GetTaxCodesList();
+        await GetWTaxCodesList();
+        await GetDescriptions();
+        SetDefaultDescriptions();
+        await GetProjectList();
+        await SetDocumentNo();
+        await GetStockBundle();
+        SetDocumentInfo();
+
+        isloading = false;
+    }
+
+    protected async Task loadAllDataById()
+    {
+        await GetDocumentInfoById();
+        await GetHeaderById();
+        await GetDetailsById();
+        SetDocumentInfo();
+        LoadDocumentStatus();
+        isloading = false;
+    }
+
+    protected IEnumerable<GLAccounts> glaccountaccountonlylist { get; set; }
+    protected async Task GetGLAccountLists()
+    {
+        var data = await gLAccountsServices.GetGLAccountAccountOnlyList();
+        glaccountaccountonlylist = data is not null ? data : new List<GLAccounts>();
+    }
+
+    // protected async Task GetDuedate()
+    // {
+    //     int terms = termList.FirstOrDefault(t => t.Id == journalDetailsList.TermId)?.TermDays ?? 0;
+
+    //     bill.DueDate = await termsDayMonthServices.ComputeDaysMonth(journals.JournalDate, terms);
+
+    // }
+
+
+    //Get Currencies From db.Currencies
+    protected async Task GetCurrencyList()
+    {
+        var data = await currenciesService.GetCurrencies();
+        currencyList = data is not null ? data : new List<Currencies>();
+
+    }
+    protected void SetDefaultCurrency()
+    {
+        var selectedcurrency = currencyList.FirstOrDefault(c => c.Id == 1);
+        journals.CurrencyId = selectedcurrency.Id;
+        journals.CurrencyRate = selectedcurrency.DefaultPurchaseRate;
+    }
+
+    protected async Task GetSupplierList()
+    {
+        var data = await suppliersServices.GetSupplierLists();
+        supplieraccountList = data is not null ? data : new List<Creditors>();
+    }
+    protected async Task GetTermList()
+    {
+        var data = await termService.GetTermsLists();
+        termList = data is not null ? data : new List<Terms>();
+    }
+
+    protected async Task GetProjectList()
+    {
+        var data = await projectService.GetProjectsLists();
+        projectList = data is not null ? data : new List<Projects>();
+    }
+
+
+    protected async Task GetDescriptions()
+    {
+        var data = await descriptionsService.GetDescriptions(descriptionFilter);
+        descriptionsList = data is not null ? data : new List<Descriptions>();
+    }
+    protected void SetDefaultDescriptions()
+    {
+        var selectedcurrency = descriptionsList.FirstOrDefault(c => c.IsDefault == true);
+        journals.Description = selectedcurrency.Description;
+    }
+
+    private void ToggleCreditable(JournalDetails data)
+    {
+        data.IsCreditable = !data.IsCreditable;
+    }
+    private async void OnGLAccountChanged(object GLAccountId, JournalDetails JournalDetails)
+    {
+        // var selectedCreditor = supplieraccountList.FirstOrDefault(c => c.Id == bill.CreditorId);
+        //var taxcode = taxCodesList?.FirstOrDefault(s => s.TaxCode == "I - N/A");
+        if (GLAccountId != null && GLAccountId is Guid selectedGLAccountId)
+        {
+            var selectedGLaccount = glaccountaccountonlylist?.FirstOrDefault(s => s.Id == selectedGLAccountId);
+            if (selectedGLaccount != null)
+            {
+                IsDisable = false;
+                //JournalDetails.BillId = bill.Id;
+                JournalDetails.Description = journals.Description;
+                JournalDetails.GLAccountId = selectedGLAccountId;
+                //JournalDetails.TaxCodeId = taxcode.Id;
+                // JournalDetails.WTaxCode = selectedCreditor?.DefaultWTaxCodeId;
+                // JournalDetails.ProjectId = bill.ProjectId;
+                // billDetails.ReferenceNo = bill.ReferenceNo;
+                // billDetails.DepartmentId = bill.DepartmentId;
+                // billDetails.CostCentreId = bill.CostCentreId;
+
+                // billDetails.WTaxCode = selectedGLaccount?.DefaultWTaxCodeId;
+
+                // bill.Tax
+            }
+        }
+        else
+        {
+            IsDisable = true;
+            JournalDetails = new();
+        }
+
+        StateHasChanged();
+    }
+
+    ///FOR INSERT BUNDLED ITEM <summary>
+    ///
+    /// </summary>
+    protected List<StockBundlesModel> stockbundleDetailList { get; set; } = new();
+    private async Task GetStockBundle()
+    {
+        var data = await stockItemsService.GetStockBundlesList();
+        stockbundleDetailList = data is not null ? data.ToList() : new List<StockBundlesModel>();
+    }
+
+    protected async Task GetTransactionNo()
+    {
+        var data = await transactionCodeService.GetTransactionNo(transactionCodesFilter);
+        transactionCodesList = data is not null ? data : new List<TransactionsCode>();
+    }
+
+
+    //FOR RUNNING NUMBERS
+    protected TransactionsCode selectedTransacCode => transactionCodesList.FirstOrDefault(sa => sa.IsDefault == true);
+    protected RunningNumbers runningNumbers { get; set; } = new RunningNumbers();
+
+    protected async Task SetDocumentNoPopup(int Id)
+    {
+        await SetDocumentNo();
+    }
+    protected async Task SetDocumentNo()
+    {
+        runningNumbers.DocDate = journals.JournalDate;
+        runningNumbers.Format = selectedTransacCode?.Format;
+        runningNumbers.ColumnName = "JournalCode";
+        runningNumbers.TableName = "Journals";
+
+        await GetNextDocumentCodeAsync();
+        await popup.CloseAsync();
+
+    }
+    private async Task GetNextDocumentCodeAsync()
+    {
+
+        var data = await runningNumberService.GetNextRunningNumber(runningNumbers);
+        journals.JournalCode = data is not null ? data : string.Empty;
+
+    }
+
+    protected void SetRedText()
+    {
+        redtext = journals.IsCancelled == true ? "rz-color-danger-darker" : "";
+    }
+
+
+    protected async Task GetDocumentInfoById()
+    {
+        var data = await documentsInfoService.GetDocumentInfoById(Id.ToString());
+        documentInfo = data is not null ? data : new DocumentInfo();
+    }
+
+    protected async Task GetHeaderById()
+    {
+        var data = await journalServices.GetHeadersById(Id.ToString());
+        journals = data is not null ? data : new Journals();
+        redtext = journals.IsCancelled == true ? "rz-color-danger-darker" : "";
+        SetRedText();
+    }
+
+
+    protected async Task GetDetailsById()
+    {
+        var data = await journalServices.GetDetailsById(Id.ToString());
+        journalDetailsList = data is not null ? data.ToList() : new List<JournalDetails>();
+    }
+
+
+
+    //Tax Code List
+    //FOR TAXCODE DROPDOWN
+    protected async Task GetTaxCodesList()
+    {
+        taxCodeFilter.IsOutOrIn = false;// true for Output Tax Codes
+        taxCodeFilter.IsActive = true; // true for Active Tax Codes
+
+        var data = await allTaxCodeService.GetTaxCodes(taxCodeFilter);
+        taxCodesList = data is not null ? data : new List<TaxCodes>();
+
+
+        //Get All TaxCodesList
+        var allTaxCodedata = await allTaxCodeService.GetAllTaxCodes();
+        alltaxCodesList = allTaxCodedata is not null ? allTaxCodedata : new List<TaxCodes>();
+
+
+
+    }
+
+    //FOR WTAXCODE DROPDOWN
+    //CreditableAccount != null IS REFERRING TO CREDIABLE ACCOUNT WHICH IS CREDITABLE WTAX ON GLACCOUNT
+    protected IEnumerable<WTaxCodes> FilteredWTaxCodesList => wTaxCodesList?.Where(w => w.CreditableAccount != null) ?? Enumerable.Empty<WTaxCodes>();
+    protected async Task GetWTaxCodesList()
+    {
+        // wTaxCodesList = await http.GetFromJsonAsync<List<WTaxCodes>>("api/AllTaxCodes/GetWTaxCodesList?companyCode=" + CompCode);
+        var data = await allTaxCodeService.GetWTaxCodes();
+        wTaxCodesList = data is not null ? data : new List<WTaxCodes>();
+    }
+
+    protected void OnCreditorChanged(object Id)
+    {
+        if (Id is not null)
+        {
+            if (supplieraccountList.FirstOrDefault(sa => sa.Id == (Guid)Id) is var selectedsuppliers && selectedsuppliers != null)
+            {
+                LoadHeaderDataModel(selectedsuppliers);
+            }
+        }
+        else
+        {
+            ClearHeaderDataModel();
+        }
+    }
+
+    bool IsForeignCurrency = false;
+    public void LoadHeaderDataModel(Creditors selectedsuppliers)
+    {
+        var currency = currencyList.FirstOrDefault(c => c.Id == selectedsuppliers.CurrencyId);
+
+        // bill.CreditorId = selectedsuppliers.Id;
+        // bill.GLAccountId = selectedsuppliers.GLAccountId;
+        // bill.CurrencyId = selectedsuppliers.CurrencyId;
+        // bill.CurrencyRate = currency?.DefaultPurchaseRate ?? 0;
+        // IsForeignCurrency = currency.IsForeign; /// for editing CurrencyRate Textbox
+        // bill.ObjectType = 9; /// object value is from XPObjectType Table
+
+        // bill.BillFrom = string.Join(Environment.NewLine, selectedsuppliers.CompanyName, selectedsuppliers.Address1); ///merge of Creditor Name and Address
+
+    }
+
+    public void ClearHeaderDataModel()
+    {
+        SetDefaultCurrency();
+        // bill.CreditorId = null;
+        // bill.BillFrom = string.Empty;
+        IsForeignCurrency = false;
+
+    }
+
+
+    private void OnProjectChanged(object projectId)
+    {
+        int? selectedprojectId = projectId as int?;
+
+        foreach (var detail in journalDetailsList)
+        {
+            detail.ProjectId = selectedprojectId;
+        }
+
+        StateHasChanged();
+    }
+
+    protected void IsTaxInclusiveChanged()
+    {
+        foreach (var row in journalDetailsList)
+        {
+            row.IsTaxInclusive = journals.IsTaxInclusive;
+            JournalTransactionHelper.Compute(row);
+        }
+        // LoadSubtotalRow();
+        LoadAllTaxTotalNetCreditDebit();
+    }
+
+
+    private async Task OnSwitchChanged(string switchName)
+    {
+        // bool hasTransfer = purchaseordersHeader.TransferToInfo != null;
+        // bool hasTransfer = !string.IsNullOrWhiteSpace(purchaseordersHeader.TransferToInfo);
+
+        if (Id is null)
+        {
+            journals.IsCancelled = false;
+            NotificationHelper.ShowWarning(
+                notificationService,
+                "",
+                "Please click the 'Save' (checkmark) button for any active or newly added detail rows in the grid before saving."
+            );
+            return;
+        }
+
+        await SetSwitchValue(switchName);
+        SetRedText();
+    }
+
+    private ForCloseCancelledDocumentsModel forCloseCancelledDocumentsModel = new ForCloseCancelledDocumentsModel();
+    private async Task SetSwitchValue(string switchName)
+    {
+
+        forCloseCancelledDocumentsModel = new()
+        {
+            Id = Id,
+            TableName = "Journals",
+            SwitchName = switchName,
+            IsCancelled = journals.IsCancelled
+        };
+
+        await headerSwitchServices.UpdateForCloseOrCancelled(forCloseCancelledDocumentsModel);
+    }
+
+
+    protected void Navigate()
+    {
+        navManager.NavigateTo("/JournalEntriesList");
+    }
+
+
+    protected void InitializeDetailsRows()
+    {// Initialize with 5 rows and set default Pos index
+        journalDetailsList = Enumerable.Range(1, 5)
+           .Select(i => new JournalDetails
+           {
+               Pos = i,
+               JournalId = Id ?? journals.Id,
+               IsTaxInclusive = journals.IsTaxInclusive
+           })
+           .ToList();
+    }
+
+
+    // Helper to reset Pos index after any add/delete
+    private void ResetPosIndexes()
+    {
+        for (int i = 0; i < journalDetailsList.Count; i++)
+        {
+            journalDetailsList[i].Pos = i + 1;
+        }
+    }
+
+
+    //insert after row
+    async Task InsertAfterRow(JournalDetails journalDetails)
+    {
+        // If there's an active edit, prevent adding another row until it's saved.
+
+        if (journalDetailsToInsert.Any() || journalDetailsToUpdate.Any())
+        {
+            NotificationHelper.ShowWarning(notificationService, "Unsaved Details", "Please click the 'Save' (checkmark) button for any active or newly added detail rows in the grid before saving.");
+            return;
+        }
+
+
+
+        if (!grid.IsValid) return;
+        if (editMode == DataGridEditMode.Single)
+        {
+            Reset();
+        }
+        var newjournalDetails = new JournalDetails();
+
+        //Set QuotationId to new inserted row
+        newjournalDetails.JournalId = Id ?? journals.Id;
+        newjournalDetails.IsTaxInclusive = journals.IsTaxInclusive;
+        // Assign a sequential Pos for new rows, inserting after the current row's Pos
+        journalDetailsToInsert.Add(newjournalDetails);
+        var index = journalDetailsList.IndexOf(journalDetails);
+        if (index >= 0)
+        {
+            journalDetailsList.Insert(index + 1, newjournalDetails); // Insert after selected row
+        }
+        else
+        {
+            journalDetailsList.Add(newjournalDetails);
+        }
+
+
+        ResetPosIndexes();
+
+        if (journalDetails is not null)
+        {
+            await grid.InsertAfterRow(newjournalDetails, journalDetails);
+        }
+        else
+        {
+            await grid.InsertRow(newjournalDetails);
+        }
+
+        await grid.Reload();
+        StateHasChanged();
+    }
+
+    async Task EditRow(JournalDetails journalDetails)
+    {
+        if (journalDetailsToInsert.Any() || journalDetailsToUpdate.Any())
+        {
+            NotificationHelper.ShowWarning(notificationService, "Unsaved Details", "Please click the 'Save' (checkmark) button for any active or newly added detail rows in the grid before saving.");
+            return;
+        }
+
+        if (!grid.IsValid) return;
+        if (editMode == DataGridEditMode.Single)
+        {
+            Reset();
+        }
+
+        journalDetailsToUpdate.Add(journalDetails);
+        await grid.EditRow(journalDetails);
+        StateHasChanged(); // Ensure UI updates and list is reflected
+    }
+
+    async Task SaveRow(JournalDetails journalDetails)
+    {
+
+        await grid.UpdateRow(journalDetails);
+        await grid.Reload();
+        StateHasChanged();
+    }
+
+    void OnUpdateRow(JournalDetails journalDetails)
+    {
+        Reset(journalDetails);
+
+    }
+
+    void OnCreateRow(JournalDetails journalDetails)
+    {
+        journalDetailsToInsert.Remove(journalDetails);
+    }
+
+    protected DeleteModel deleteModel { get; set; } = new();
+    async Task DeleteRow(JournalDetails journalDetails)
+    {
+
+        if (journalDetailsToInsert.Any() || journalDetailsToUpdate.Any())
+        {
+            NotificationHelper.ShowWarning(notificationService, "Unsaved Details", "Please click the 'Save' (checkmark) button for any active or newly added detail rows in the grid before saving.");
+            return;
+        }
+
+        if (await DialogService.Confirm("You are about to delete record(s). Do you want to proceed?", "Delete") == true)
+        {
+            deleteModel.Id = journalDetails.Id;
+            deleteModel.TableName = "JournalDetails";
+            // var data = await deleteServices.DeleteDataOnDetailRows(deleteModel);
+
+            Reset(journalDetails);
+            journalDetailsList.Remove(journalDetails); // Remove from main list
+            ResetPosIndexes();
+            await grid.Reload();
+            StateHasChanged();
+        }
+    }
+
+
+    void Reset(JournalDetails journalDetails)
+    {
+        journalDetailsToInsert.Remove(journalDetails);
+        journalDetailsToUpdate.Remove(journalDetails);
+    }
+
+    void Reset()
+    {
+        journalDetailsToInsert.Clear();
+        journalDetailsToUpdate.Clear();
+    }
+
+    private void OnCreditDebitChanged(JournalDetails journalDetails, bool isDebit)
+    {
+        if (isDebit)
+        {
+            if (journalDetails.Debit != 0)
+                journalDetails.Credit = 0;
+            journalDetails.IsCreditable = false;
+        }
+        else
+        {
+            if (journalDetails.Credit != 0)
+                journalDetails.Debit = 0;
+            journalDetails.IsCreditable = true;
+        }
+
+        TransactionHelper(journalDetails);
+        StateHasChanged();
+    }
+
+
+    private void TransactionHelper(JournalDetails row)
+    {
+        // row.Debit
+        // row.Credit
+
+        // dapaat dito kapag nagentry ako data sa debit matatanggal yung lamn ng credit at vice versa. hindi dapat parehas magkakalaman yan dapat is either sa dalawa lang ang meron laman si row.Debit or si row.Credit.
+
+    
+        row.TaxRate = taxCodesList.FirstOrDefault(tax => tax.Id == row.TaxCodeId)?.TaxRate ?? 0;
+        row.WTaxRate = wTaxCodesList.FirstOrDefault(tax => tax.Id == row.WTaxCode)?.Rate ?? 0;
+        // BillsTransactionHelper.Compute(row);
+        JournalTransactionHelper.Compute(row);
+        // ConvertPackUOM(row);
+
+    }
+
+
+
+    // public decimal Amount => journalDetailsList?.Where(x => x.ItemTypeCode != "D" && x.ItemTypeCode != "T").Sum(x => x.Amount) ?? 0.00m;
+    // public decimal AmountLocal => journalDetailsList?.Where(x => x.ItemTypeCode != "D" && x.ItemTypeCode != "T").Sum(x => x.AmountLocal) ?? 0.00m;
+    // //public decimal DiscountAmount => journalDetailsList?.Where(x => x.ItemTypeCode != "D" && x.ItemTypeCode != "T").Sum(p => p.DiscountAmount) ?? 0.00m;
+    // // public decimal DiscountAmountLocal => journalDetailsList?.Where(x => x.ItemTypeCode != "D" && x.ItemTypeCode != "T").Sum(p => p.DiscountAmountLocal) ?? 0.00m;
+    // public decimal NetAmount => journalDetailsList?.Where(x => x.ItemTypeCode != "D" && x.ItemTypeCode != "T").Sum(p => p.NetAmount) ?? 0.00m;
+    // public decimal NetAmountLocal => journalDetailsList?.Where(x => x.ItemTypeCode != "D" && x.ItemTypeCode != "T").Sum(p => p.NetAmountLocal) ?? 0.00m;
+    // public decimal TaxAmount => journalDetailsList?.Where(x => x.ItemTypeCode != "D" && x.ItemTypeCode != "T").Sum(p => p.TaxAmount) ?? 0.00m;
+    // public decimal TaxAmountLocal => journalDetailsList?.Where(x => x.ItemTypeCode != "D" && x.ItemTypeCode != "T").Sum(p => p.TaxAmountLocal) ?? 0.00m;
+    // public decimal SubAmount => journalDetailsList?.Where(x => x.ItemTypeCode != "D" && x.ItemTypeCode != "T").Sum(p => p.SubAmount) ?? 0.00m;
+    // public decimal SubAmountLocal => journalDetailsList?.Where(x => x.ItemTypeCode != "D" && x.ItemTypeCode != "T").Sum(p => p.SubAmountLocal) ?? 0.00m;
+    // public decimal TaxExclusiveAmount => journalDetailsList?.Where(x => x.ItemTypeCode != "D" && x.ItemTypeCode != "T").Sum(p => p.TaxExclusiveAmount) ?? 0.00m;
+    // public decimal TaxExclusiveAmountLocal => journalDetailsList?.Where(x => x.ItemTypeCode != "D" && x.ItemTypeCode != "T").Sum(p => p.TaxExclusiveAmountLocal) ?? 0.00m;
+    // public decimal WTaxAmount => journalDetailsList?.Where(x => x.ItemTypeCode != "D" && x.ItemTypeCode != "T").Sum(p => p.WTaxAmount) ?? 0.00m;
+    // public decimal WTaxAmountLocal => journalDetailsList?.Where(x => x.ItemTypeCode != "D" && x.ItemTypeCode != "T").Sum(p => p.WTaxAmountLocal) ?? 0.00m;
+
+    // public decimal DueAmount => (bill?.NetTotalAmountLocal ?? 0m) - (bill?.WTaxTotalAmountLocal ?? 0m);
+    // // protected decimal? TaxableLocal => quotationsDetailsList?.Where(p => p.ItemTypeCode != "T").Sum(p => p.TaxExclusiveAmountLocal) ?? 0.00m;
+    // protected decimal? TaxLocal => quotationsDetailsList?.Where(p => p.ItemTypeCode != "T").Sum(p => p.TaxAmountLocal) ?? 0.00m;
+
+    public decimal TotalDebit => journalDetailsList?.Sum(x => x.NetDebit) ?? 0.00m;
+    public decimal TotalCredit => journalDetailsList?.Sum(x => x.NetCredit) ?? 0.00m;
+
+    public decimal TotalWTaxDebit => journalDetailsList?.Sum(p => p.WTaxDebit) ?? 0.00m;
+    public decimal TotalWTaxCredit => journalDetailsList?.Sum(p => p.WTaxCredit) ?? 0.00m;
+
+    public decimal Debit => TotalDebit - TotalWTaxDebit;
+    public decimal Credit => TotalCredit - TotalWTaxCredit;
+    public decimal Different => Math.Abs(Debit - Credit);
+
+    private void LoadAllTaxTotalNetCreditDebit()
+    {
+
+
+        ///INCLUDE HERE THE TAX, WTAX, AMOUT, ALL DETAILS AMOUNT
+        var filteredList = journalDetailsList;
+
+        journals.TotalDebit = filteredList?.Sum(x => x.NetDebit) ?? 0.00m;
+        journals.TotalCredit = filteredList?.Sum(x => x.NetCredit) ?? 0.00m;
+
+    }
+
+    protected void RowRender(RowRenderEventArgs<JournalDetails> args)
+    {
+        LoadAllTaxTotalNetCreditDebit();
+
+    }
+
+
+    protected async void OpenDescriptionDialog()
+    {
+        var result = await DialogService.OpenAsync<DescriptionsDialog>("Descriptions",
+            new Dictionary<string, object> { { "OwnerCode", descriptionFilter.OwnerCode } },
+            new DialogOptions() { Width = "60rem", Height = "54rem", Resizable = true, Draggable = true });
+        if (result == true)
+        {
+            await GetDescriptions();
+            StateHasChanged();
+        }
+    }
+
+}

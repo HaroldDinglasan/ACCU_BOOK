@@ -1,0 +1,171 @@
+﻿@page "/ABSystemRoleList"
+@attribute [Authorize(Roles = "Admin")]
+
+
+<RadzenStack Gap="0.2rem">
+    <RadzenDataGrid @ref="grid" Visible="true" @bind-Value=@selectedSystemRole
+                    IsLoading=@isLoading Sort="@ShowLoading" Page="@ShowLoading" Group="@ShowLoading" Filter="@ShowLoading"
+                    Data="@SystemRoleList()"
+                    TItem="SystemRole"
+                    RowDoubleClick="() => Edit(selectedSystemRole.FirstOrDefault().Oid)"
+                    AllowVirtualization="true"
+                    ColumnWidth="200px"
+                    AllowSorting="true"
+                    AllowFiltering="true"
+                    ShowPagingSummary="true"
+                    ShowMultiColumnSortingIndex="true"
+                    FilterMode="FilterMode.CheckBoxList"
+                    Style="height: 84vh"
+                    AllowColumnPicking="true"
+                    FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive">
+        <HeaderTemplate>
+
+            <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.Center"
+                         Style="width: 100%;">
+                <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem;">
+                    <RadzenButton Size="ButtonSize.Small" Text="New"
+                                  ButtonStyle="ButtonStyle.Primary"
+                                  Icon="add"
+                                  Click="@Add" />
+
+                    <!-- DIVIDER -->
+                    <div style="border-left: 2px solid #ccc; height: 2rem; margin: 0 0.5rem;"></div>
+
+                    <RadzenTextBox InputSize="InputSize.Medium" @bind-Value="@searchText"
+                                   @ref="textBox"
+                                   @oninput="@(args => OnInput(args))"
+                                   Placeholder="Search..."
+                                   Style="width:30rem;" />
+
+                    <RadzenButton Size="ButtonSize.Small" Icon="delete"
+                                  Click="@ClearFilter"
+                                  Text="Clear" />
+                </RadzenStack>
+            </RadzenStack>
+        </HeaderTemplate>
+        <Columns>
+
+         
+            <RadzenDataGridColumn Visible=false TItem="SystemRole" Property="@nameof(SystemRole.Oid)" Title="Id" />
+            <RadzenDataGridColumn Width="110px" TItem="SystemRole" Property="@nameof(SystemRole.Name)" Title="Role Name" />
+            <RadzenDataGridColumn Width="350px" TItem="SystemRole" Title="Role">
+                <Template Context="data">
+                    <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem" AlignItems="AlignItems.Center">
+                        <RadzenStack Gap="0">
+                            <RadzenText TextStyle="TextStyle.Subtitle2" class="rz-mb-0 rz-text-wrap">@data.Name</RadzenText>
+                            <RadzenText TextStyle="TextStyle.Caption" class="rz-mb-0 rz-text-wrap">@data.Description</RadzenText>
+                        </RadzenStack>
+                    </RadzenStack>
+                </Template>
+                <FooterTemplate>
+                    Total: <b>@totalData</b>
+                </FooterTemplate>
+            </RadzenDataGridColumn>
+            <RadzenDataGridColumn TItem="SystemRole" Title="Can Edit Model">
+                <Template Context="data">
+                    @if (data.CanEditModel)
+                    {
+                        <RadzenIcon Icon="done" IconColor="@Colors.Success" />
+                    }
+                    else
+                    {
+                        <RadzenIcon Icon="cancel" IconColor="@Colors.Danger" />
+                    }
+
+                </Template>
+            </RadzenDataGridColumn>
+            <RadzenDataGridColumn TItem="SystemRole" Title="Administrative">
+                <Template Context="data">
+                    @if (data.IsAdministrative)
+                    {
+                        <RadzenIcon Icon="done" IconColor="@Colors.Success" />
+                    }
+                    else
+                    {
+                        <RadzenIcon Icon="cancel" IconColor="@Colors.Danger" />
+                    }
+
+                </Template>
+            </RadzenDataGridColumn>
+            <RadzenDataGridColumn Visible=false TItem="SystemRole" Property="@nameof(SystemRole.OptimisticLockField)" Title="OptimisticLockField" />
+
+        </Columns>
+    </RadzenDataGrid>
+</RadzenStack>
+
+@code {
+    [CascadingParameter]
+    public Task<AuthenticationState> authenticationState { get; set; }
+
+    RadzenTextBox textBox;
+    RadzenDataGrid<SystemRole> grid;
+    IEnumerable<SystemRole> systemRoleList;
+    protected IList<SystemRole> selectedSystemRole { get; set; }
+
+    bool isLoading;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = (await authenticationState).User;
+        if (authState.Identity.IsAuthenticated)
+        {
+            await ShowLoading();
+            await GetSystemRoleList();
+            StateHasChanged();
+        }
+    }
+
+    int totalData = 0;
+    private async Task GetSystemRoleList()
+    {
+        var data = await systemRoleServices.GetSystemRoleLists();
+        systemRoleList = data is not null ? data : new List<SystemRole>();
+        totalData = systemRoleList.Count();
+    }
+
+    private string searchText = "";
+    private IEnumerable<SystemRole> SystemRoleList()
+    {
+        if (systemRoleList == null)
+            return Enumerable.Empty<SystemRole>();
+
+
+        return systemRoleList
+       .Where(x => string.IsNullOrEmpty(searchText) ||
+               (x.Name?.Contains(searchText, StringComparison.OrdinalIgnoreCase) ?? false));
+    }
+
+    async Task OnInput(ChangeEventArgs args)
+    {
+        searchText = args.Value?.ToString() ?? string.Empty;
+        await grid.Reload();
+    }
+
+    private async Task ClearFilter()
+    {
+        searchText = string.Empty;
+        await grid.Reload();
+        StateHasChanged();
+    }
+
+    protected void Edit(Guid Id)
+    {
+
+        // navManager.NavigateTo($"/SecurityUser/Edit/{Id}");
+        navManager.NavigateTo($"/ABSystemRole/Edit/{Id}");
+        // navManager.NavigateTo("/SecurityUser");
+    }
+
+    private void Add()
+    {
+        navManager.NavigateTo("/ABSystemRole");
+    }
+
+    async Task ShowLoading()
+    {
+        await Task.Yield();
+
+        isLoading = false;
+    }
+
+}
