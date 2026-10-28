@@ -1,0 +1,226 @@
+﻿@page "/StockAssemblyOrderList"
+@inject StockItemsService stockItemsService
+@attribute [Authorize(Roles = "Admin,User")]
+@inject HttpClient http
+@inject NavigationManager navManager
+@inject ContextMenuService contextMenuService
+@inject IJSRuntime JSRuntime
+
+<RadzenStack Gap="0.2rem">
+
+    <RadzenDataGrid @ref="grids" @bind-Value=@selectedStockAssemblyOrder
+                    RowDoubleClick="() => Edit(selectedStockAssemblyOrder.FirstOrDefault().Id)"
+                    TItem="StockAssemblyOrderModel"
+                    IsLoading=@isLoading Sort="@ShowLoading" Page="@ShowLoading" Group="@ShowLoading" Filter="@ShowLoading"
+                    Data="@filteredStockItemsList"
+                    AllowVirtualization="true"
+                    ColumnWidth="200px"
+                    AllowSorting="true"
+                    AllowFiltering="true"
+                    ShowPagingSummary="true"
+                    ShowMultiColumnSortingIndex="true"
+                    FilterMode="FilterMode.CheckBoxList"
+                    Style="height: 84vh"
+                    AllowColumnPicking="true"
+                    FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive">
+
+        <HeaderTemplate>
+            <RadzenStack Orientation="Orientation.Horizontal"
+                         AlignItems="AlignItems.Center"
+                         Style="width: 100%;">
+                <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem;">
+                    <RadzenButton Text="New"
+                                  Click="@navigate"
+                                  ButtonStyle="ButtonStyle.Primary"
+                                  Icon="add" />
+
+                    <!-- DIVIDER -->
+                    <div style="border-left: 2px solid #ccc; height: 2rem; margin: 0 0.5rem;"></div>
+
+                    <RadzenTextBox Disabled=@(filteredStockItemsList == null)
+                                   @bind-Value="@searchText"
+                                   Placeholder="Search..."
+                                   Style="width:30rem;"
+                                   Change="@(args => ApplyFilter())" />
+
+                    <RadzenButton Disabled=@(filteredStockItemsList == null)
+                                  Icon="search"
+                                  Click="@ApplyFilter"
+                                  Text="Find" />
+
+                    <RadzenButton Disabled=@(filteredStockItemsList == null)
+                                  Icon="delete"
+                                  Click="@ClearFilter"
+                                  Text="Clear" />
+
+                    <RadzenBadge Visible="@(status != string.Empty)" Shade="Shade.Dark" BadgeStyle="BadgeStyle.Danger" Text="@status" class="rz-ms-2" />
+
+                </RadzenStack>
+            </RadzenStack>
+
+        </HeaderTemplate>
+
+        <Columns>
+
+            <RadzenDataGridColumn Filterable="false" Width="150px" Visible=true Title="Status">
+
+                <Template Context="data">
+                    @{
+                        var (text, style) = StatusHelper.Get(
+                        data.IsClosed == true,
+                        data.IsCancelled == true,
+                        data.TransferToInfo);
+                    }
+
+                    <RadzenBadge IsPill="true" Text="@text" BadgeStyle="@style" />
+                </Template>
+            </RadzenDataGridColumn>
+
+            <RadzenDataGridColumn Visible=true Width="120px" TItem="StockAssemblyOrderModel" Property="@nameof(StockAssemblyOrderModel.AssemblyOrderDate)" FormatString="{0:d}" Title="Date"></RadzenDataGridColumn>
+
+            <RadzenDataGridColumn Visible=true Width="150px" TItem="StockAssemblyOrderModel" Property="@nameof(StockAssemblyOrderModel.AssemblyOrderCode)" Title="Assembly Order #"></RadzenDataGridColumn>
+
+            <RadzenDataGridColumn Visible=true Width="450px" TItem="StockAssemblyOrderModel" Property="@nameof(StockAssemblyOrderModel.Description)" Title="Description"></RadzenDataGridColumn>
+
+            <RadzenDataGridColumn Visible=true Width="160px" TItem="StockAssemblyOrderModel" Property="@nameof(StockAssemblyOrderModel.BatchNo)" Title="Batch No"></RadzenDataGridColumn>
+
+            <RadzenDataGridColumn Visible=true Width="160px" TItem="StockAssemblyOrderModel" Property="@nameof(StockAssemblyOrderModel.SerialNumber)" Title="Serial No"></RadzenDataGridColumn>
+
+            <RadzenDataGridColumn TItem="StockAssemblyOrderModel"
+                                  Width="160px"
+                                  Property="@nameof(StockAssemblyOrderModel.TotalCost)"
+                                  Title="Total Cost"
+                                  FormatString="{0:N2}" />
+
+        </Columns>
+
+    </RadzenDataGrid>
+</RadzenStack>
+
+
+@code {
+    string status = string.Empty;
+    private RadzenDataGrid<StockAssemblyOrderModel> grids;
+    private IList<StockAssemblyOrderModel> selectedStockAssemblyOrder { get; set; }
+
+    private IEnumerable<StockAssemblyOrderModel> stockAssemblyOrderList { get; set; }
+
+    FilterCaseSensitivity filter = FilterCaseSensitivity.CaseInsensitive;
+    Density density = Density.Compact;
+    AlignItems alignItems = AlignItems.Center;
+    Variant variant = Variant.Flat;
+
+    bool isLoading;
+
+    protected async override Task OnInitializedAsync()
+    {
+        await ShowLoading();
+        await loadAllData();
+    }
+
+    private async Task loadAllData()
+    {
+        await GetStockAssemblyOrderList();
+    }
+
+    private async Task GetStockAssemblyOrderList()
+    {
+        var data = await stockItemsService.GetStockAssemblyOrderList();
+        stockAssemblyOrderList = data is not null ? data : new List<StockAssemblyOrderModel>();
+        filteredStockItemsList = stockAssemblyOrderList; // enable search filter
+    }
+
+    protected void Edit(Guid Id)
+    {
+        navManager.NavigateTo($"/StockAssemblyOrderList/Edit/{Id}");
+    }
+
+    //DoubleClick Cell Event
+    protected void OnCellContextMenu(DataGridCellMouseEventArgs<StockAssemblyOrderModel> stockItems)
+    {
+        selectedStockAssemblyOrder = new List<StockAssemblyOrderModel>() { stockItems.Data };
+
+        var contextMenuItems = new List<ContextMenuItem>
+    {
+        new ContextMenuItem() { Text = "New", Value = 1, Icon = "add" },
+        new ContextMenuItem() { Text = "Edit", Value = 2, Icon = "edit" },
+        new ContextMenuItem() { Text = "Delete", Value = 3, Icon = "delete" }
+    };
+
+        contextMenuService.Open(stockItems, contextMenuItems, (e) =>
+        {
+            switch (e.Value)
+            {
+                case 1:
+                    navigate();
+                    break;
+                case 2:
+                    Edit(stockItems.Data.Id);
+                    // Edit(stockItems.Data.Id);
+
+                    //await AddUpdateGLAccountDialog(stockItems.Data.Id, false);
+                    break;
+                case 3:
+                    // Delete(stockItems.Data.Id);
+                    break;
+
+            }
+            contextMenuService.Close();
+
+        });
+    }
+
+    private void navigate()
+    {
+        navManager.NavigateTo("/StockAssemblyOrder");
+    }
+
+    private string searchText = string.Empty;
+    private IEnumerable<StockAssemblyOrderModel> filteredStockItemsList;
+    private void ApplyFilter()
+    {
+        if (string.IsNullOrWhiteSpace(searchText))
+        {
+            filteredStockItemsList = stockAssemblyOrderList;
+        }
+        else
+        {
+            string search = searchText.Trim();
+
+            filteredStockItemsList = stockAssemblyOrderList.Where(x =>
+                // Date search
+                x.AssemblyOrderDate.ToString("MM/dd/yyyy")
+                    .Contains(search, StringComparison.OrdinalIgnoreCase) ||
+
+                x.AssemblyOrderDate.ToString("M/d/yyyy")
+                    .Contains(search, StringComparison.OrdinalIgnoreCase) ||
+
+                x.AssemblyOrderDate.ToString("MM/yyyy")
+                    .Contains(search, StringComparison.OrdinalIgnoreCase) ||
+
+                x.AssemblyOrderDate.ToString("M/yyyy")
+                    .Contains(search, StringComparison.OrdinalIgnoreCase) ||
+
+                (!string.IsNullOrEmpty(x.AssemblyOrderCode) && x.AssemblyOrderCode.Contains(searchText, StringComparison.OrdinalIgnoreCase)) ||
+
+                (!string.IsNullOrEmpty(x.Description) && x.Description.Contains(searchText, StringComparison.OrdinalIgnoreCase))
+
+            );
+        }
+        StateHasChanged();
+    }
+    private void ClearFilter()
+    {
+        searchText = string.Empty;
+        filteredStockItemsList = stockAssemblyOrderList;
+        StateHasChanged();
+    }
+
+    async Task ShowLoading()
+    {
+        await Task.Yield();
+
+        isLoading = false;
+    }
+
+}

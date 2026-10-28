@@ -1,0 +1,378 @@
+﻿@page "/SecurityUser"
+@page "/SecurityUser/Edit/{id:guid}"
+
+@attribute [Authorize(Roles = "Admin")]
+
+@if (isloading)
+{
+    <Spinner />
+}
+
+<RadzenTemplateForm TItem="SecuritySystemUser" Data="securitySystemUser" Submit="@OnSubmit">
+    <RadzenStack Gap="0.5rem">
+        <!-- TOOLBAR ACTION CARD -->
+        <CrudToolbar Title="@(Id.HasValue ? "Edit Security User" : "Create Security User")"
+                     Subtitle="Manage security user information"
+                     Icon="badge"
+                     ButtonSize="@smallbtn"
+                     SaveText="Save"
+                     SaveBusy="@busy"
+                     SaveDisabled="@btnDiseabled"
+                     BackText="Back to Search"
+                     OnBackSearch="@Navigate">
+        </CrudToolbar>
+
+        <!-- Form Fields Container -->
+        <RadzenCard>
+            <RadzenText TextStyle="TextStyle.H6" Style="color: var(--rz-primary);">
+                Security Users <RadzenBadge Visible="@(securitySystemUser.IsActive == false)" Shade="Shade.Dark" BadgeStyle="BadgeStyle.Danger" Text="@status" class="rz-ms-2" />
+            </RadzenText>
+
+            <RadzenRow Gap="1rem" AlignItems="AlignItems.End">
+
+                <RadzenColumn Size="12" SizeMD="4">
+                    <RadzenFormField Text="UserName" AllowFloatingLabel="false" Style="width: 100%;">
+                        <ChildContent>
+                            <RadzenTextBox Name="UserName" @bind-Value="@securitySystemUser.UserName" Style="width: 100%;" />
+                        </ChildContent>
+                        <Helper>
+                            <RadzenRequiredValidator Component="UserName" Text="*UserName Required." />
+                        </Helper>
+                    </RadzenFormField>
+                </RadzenColumn>
+
+     
+                <RadzenColumn Size="12" SizeMD="4">
+                    <RadzenFormField Text="FullName" AllowFloatingLabel="false" Style="width: 100%;">
+                        <ChildContent>
+                            <RadzenTextBox Name="FullName" @bind-Value="@securitySystemUser.FullName" Style="width: 100%;" />
+                        </ChildContent>
+                        <Helper>
+                            <RadzenRequiredValidator Component="FullName" Text="*FullName Required." />
+                        </Helper>
+                    </RadzenFormField>
+                </RadzenColumn>
+
+                <RadzenColumn Size="12" SizeMD="3">
+                    <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.5rem" Style="height: 100%; padding-bottom: 0.5rem;">
+                        <RadzenSwitch Name="IsActive" Style="transform: scale(0.8);" Change=@IsActiveChange @bind-Value="@securitySystemUser.IsActive" />
+                        <RadzenText Text="Active" Component="IsActive" />
+
+                        <RadzenSwitch Name="ChangePasswordOnFirstLogon" Style="transform: scale(0.8);" @bind-Value="@securitySystemUser.ChangePasswordOnFirstLogon" />
+                        <RadzenText Text="Change Password On First Logon" Component="ChangePasswordOnFirstLogon" />
+                    </RadzenStack>
+                </RadzenColumn>
+            </RadzenRow>
+
+            <RadzenRow Gap="1rem" AlignItems="AlignItems.End">
+                <RadzenColumn Size="12" SizeMD="4">
+                    <RadzenFormField Text="Email" AllowFloatingLabel="false" Style="width: 100%;">
+                        <ChildContent>
+                            <RadzenTextBox Name="Email" @bind-Value="@securitySystemUser.Email" Style="width: 100%;" />
+                        </ChildContent>
+                    </RadzenFormField>
+                </RadzenColumn>
+
+                <RadzenColumn Size="12" SizeMD="8">
+                    <RadzenFormField Text="Remarks" AllowFloatingLabel="false" Style="width: 100%;">
+                        <ChildContent>
+                            <RadzenTextBox Name="Remarks" @bind-Value="@securitySystemUser.Remarks" Style="width: 100%;" />
+                        </ChildContent>
+                    </RadzenFormField>
+                </RadzenColumn>
+            </RadzenRow>
+
+
+            <br />
+
+            <RadzenDataGrid EditMode="@editMode" @ref="grid" Style="width: 100%;" @bind-Value=@selectedSecuritySystemRole
+                            Data="@securitySystemRoleList" AllowColumnResize=true RowCreate="@OnCreateRow"
+                            RowDoubleClick="() => Edit(selectedSecuritySystemRole.FirstOrDefault().Oid)"
+                            AllowAlternatingRows="false"
+                            TItem="SecuritySystemRole" RowUpdate="@OnUpdateRow" RowRender="@RowRender">
+                @*   <HeaderTemplate>
+                        <RadzenButton ButtonStyle="ButtonStyle.Success" Icon="add" Text="Add New Order" Size="ButtonSize.ExtraSmall" Click="@InsertRow" Disabled="@(editMode == DataGridEditMode.Single && quotationsDetailsToInsert.Count() > 0)" />
+                    </HeaderTemplate> *@
+                <HeaderTemplate>
+
+                    <RadzenButton ButtonStyle="ButtonStyle.Success" Icon="add" Text="New Role"
+                                  Click="@(() => OpenRoleDialog(securitySystemRoleList.LastOrDefault()))" title="Add new role"
+                                  Disabled="@(securitySystemRoleToInsert.Any() || securitySystemRoleToUpdate.Any())" />
+
+            
+
+                </HeaderTemplate>
+                <Columns>
+                    <RadzenDataGridColumn TItem="SecuritySystemRole" Property="@nameof(SecuritySystemRole.Name)" Title="Name" />
+                    <RadzenDataGridColumn TItem="SecuritySystemRole" Property="@nameof(SecuritySystemRole.IsAdministrative)" Title="Administrative">
+                        <Template Context="data">
+                            @if (data.IsAdministrative)
+                            {
+                                <RadzenIcon Icon="done" IconColor="@Colors.Success" />
+                            }
+                            else
+                            {
+                                <RadzenIcon Icon="cancel" IconColor="@Colors.Danger" />
+                            }
+
+                        </Template>
+
+                    </RadzenDataGridColumn>
+                    <RadzenDataGridColumn TItem="SecuritySystemRole" Property="@nameof(SecuritySystemRole.CanEditModel)" Title="Can Edit Model">
+                        <Template Context="data">
+                            @if (data.CanEditModel)
+                            {
+                                <RadzenIcon Icon="done" IconColor="@Colors.Success" />
+                            }
+                            else
+                            {
+                                <RadzenIcon Icon="cancel" IconColor="@Colors.Danger" />
+                            }
+
+                        </Template>
+                    </RadzenDataGridColumn>
+
+                </Columns>
+            </RadzenDataGrid>
+            @* END OF TABLE DETAILS*@
+
+        </RadzenCard>
+    </RadzenStack>
+</RadzenTemplateForm>
+<style>
+    .my-class td {
+        border-top: 1px solid black;
+        border-bottom: 1px solid black;
+    }
+</style>
+@code {
+    [Parameter]
+    public Guid? Id { get; set; }
+    [CascadingParameter] public Task<AuthenticationState> authenticationState { get; set; }
+
+
+    bool busy = false;
+    bool btnDiseabled = false;
+    ButtonSize smallbtn = ButtonSize.Small;
+    InputSize inputSize = InputSize.Small;
+    AlignItems alignItems = AlignItems.Center;
+    string status = string.Empty;
+    string redtext;
+    //for loading data
+    bool isloading = true;
+
+    RadzenDataGrid<SecuritySystemRole> grid;
+    DataGridEditMode editMode = DataGridEditMode.Single;
+    List<SecuritySystemRole> securitySystemRoleToInsert = new List<SecuritySystemRole>();
+    List<SecuritySystemRole> securitySystemRoleToUpdate = new List<SecuritySystemRole>();
+    protected ObservableCollection<SecuritySystemRole> securitySystemRoleList { get; set; }
+    protected IList<SecuritySystemRole> selectedSecuritySystemRole { get; set; }
+
+    string? userId;//USER GUID
+
+    protected async override Task OnInitializedAsync()
+    {
+        await base.OnInitializedAsync();
+        var authState = (await authenticationState).User;
+        if (authState.Identity.IsAuthenticated)
+        {
+            var RoleId = authState.FindFirst("RoleId").Value;
+
+            //USER GUID
+            var userguid = authState.FindFirst(x => x.Type == System.Security.Claims.ClaimTypes.NameIdentifier);
+            userId = userguid.Value;
+
+            //  GetLoadMenuPermission(RoleId);
+
+
+            // InitializeDetailsRows();
+            // await loadAllData();
+            if (Id is not null)
+            {
+                await loadAllDataById();
+            }
+
+            StateHasChanged();
+            isloading = false;
+        }
+
+    }
+    protected async Task loadAllDataById()
+    {
+        //await GetDocumentInfoById();
+        await GetSecuritySystemUserById();
+        await GetSecuritySystemRoleById();
+
+        //  LoadQuotationStatus();
+        isloading = false;
+    }
+
+    protected SecuritySystemUser securitySystemUser { get; set; } = new SecuritySystemUser();
+    protected async Task GetSecuritySystemUserById()
+    {
+        var data = await systemUserServices.GetSecuritySystemUserById(Id.ToString());
+        securitySystemUser = data is not null ? data : new SecuritySystemUser();
+        // redtext = quotationsModel.IsCancelled == true ? "rz-color-danger-darker" : "";
+        SetRedText();
+    }
+
+    protected void IsActiveChange(bool value)
+    {
+        securitySystemUser.IsActive = value;
+        SetRedText();
+    }
+    protected void SetRedText()
+    {
+        redtext = securitySystemUser.IsActive == false ? "rz-color-danger-darker" : "";
+        status = securitySystemUser.IsActive == false ? "Inactive" : "";
+    }
+
+
+    protected async Task GetSecuritySystemRoleById()
+    {
+        var data = await systemUserServices.GetSecuritySystemRoleById(Id.ToString());
+        securitySystemRoleList = data is not null ? new ObservableCollection<SecuritySystemRole>(data.ToList()) : new ObservableCollection<SecuritySystemRole>();
+    }
+
+
+    protected async Task OnSubmit()
+    {
+        busy = true;
+        // var data = await supplierServices.SaveCreditorCategory(creditorCategory);
+        // if (data is not null)
+        // {
+        //     if (data.Contains("Success"))
+        //     {
+        //         await DialogService.Alert(data);
+        //         btnDiseabled = true;
+        //         busy = false;
+        //     }
+        //     else
+        //     {
+        //         await DialogService.Alert(data);
+        //         busy = false;
+        //     }
+        // }
+    }
+
+
+    //insert after row
+    RadzenDataGrid<SecuritySystemRole> gridDialog;
+    protected IList<SecuritySystemRole> selectedSecuritySystemRoleDialog { get; set; }
+    IEnumerable<SecuritySystemRole> securitySystemRoleDialogList;
+    async Task OpenRoleDialog(SecuritySystemRole securitySystemRole)
+    {
+        // If there's an active edit, prevent adding another row until it's saved.
+
+        // if (securitySystemRoleToInsert.Any() || securitySystemRoleToUpdate.Any())
+        // {
+        //     NotificationHelper.ShowWarning(notificationService, "Unsaved Details", "Please click the 'Save' (checkmark) button for any active or newly added detail rows in the grid before saving.");
+        //     return;
+        // }
+
+        var data = await systemRoleServices.GetSecuritySystemRoleLists();
+        securitySystemRoleDialogList = data is not null ? data : new List<SecuritySystemRole>();
+
+        await DialogService.OpenAsync("Roles", ds =>
+       @<div>
+           <RadzenStack Gap="2rem">
+               <RadzenRow>
+                   <RadzenDataGrid @ref="gridDialog" @bind-Value=@selectedSecuritySystemRoleDialog
+                                   Data="@securitySystemRoleDialogList" AllowColumnResize=true
+                                   AllowAlternatingRows="false" AllowVirtualization="true" Style="height: 55vh"
+                                   TItem="SecuritySystemRole">
+
+                       <Columns>
+                           <RadzenDataGridColumn Width="3rem" TItem="SecuritySystemRole" />
+                           <RadzenDataGridColumn TItem="SecuritySystemRole" Property="@nameof(SecuritySystemRole.Name)" Title="Name" />
+
+              
+                       </Columns>
+                   </RadzenDataGrid>
+               </RadzenRow>
+               <RadzenRow>
+                <RadzenColumn Size="12" SizeSM="12">
+                       <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.Right" Gap="0.5rem" Style="height: 100%; padding-bottom: 0.5rem;">
+                           <RadzenButton Text="Ok"  />
+                           <RadzenButton Text="Cancel" />
+                       </RadzenStack>
+                </RadzenColumn>
+             
+               </RadzenRow>
+           </RadzenStack>
+
+     
+        
+       </div>
+
+, new DialogOptions()
+{
+    CssClass = "custom-dialog-class",
+    WrapperCssClass = "custom-dialog-wrapper-class",
+    Width = "1000px",
+    Height = "700px",
+    Resizable = true
+
+});
+
+    
+
+       
+
+        await grid.Reload();
+        StateHasChanged();
+    }
+
+
+
+    void OnCreateRow(SecuritySystemRole securitySystemRole)
+    {
+        securitySystemRoleToInsert.Remove(securitySystemRole);
+    }
+
+
+    void OnUpdateRow(SecuritySystemRole securitySystemRole)
+    {
+        Reset(securitySystemRole);
+    }
+
+    void Reset(SecuritySystemRole securitySystemRole)
+    {
+        securitySystemRoleToInsert.Remove(securitySystemRole);
+        securitySystemRoleToUpdate.Remove(securitySystemRole);
+    }
+
+    void Reset()
+    {
+        securitySystemRoleToInsert.Clear();
+        securitySystemRoleToUpdate.Clear();
+    }
+
+    @inject RowDragDropService<SecuritySystemRole> RowDragDropService
+    protected void RowRender(RowRenderEventArgs<SecuritySystemRole> args)
+    {
+
+        RowDragDropService.ConfigureRow(
+                        args,
+                        securitySystemRoleList,
+                        () => StateHasChanged()
+                    );
+
+    }
+
+
+
+    protected void Navigate()
+    {
+        navManager.NavigateTo("/SecurityUserList");
+    }
+
+    protected void Edit(Guid Id)
+    {
+
+        // navManager.NavigateTo($"/SecurityUser/Edit/{Id}");
+        navManager.NavigateTo($"/SecurityRole/Edit/{Id}");
+        // navManager.NavigateTo("/SecurityUser");
+    }
+}
+

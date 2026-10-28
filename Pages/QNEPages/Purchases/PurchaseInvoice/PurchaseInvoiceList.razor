@@ -1,0 +1,192 @@
+﻿@page "/PurchaseInvoiceList"
+@attribute [Authorize(Roles = "Admin,User")]
+
+
+<RadzenStack Gap="0.2rem">
+    <RadzenRow JustifyContent="JustifyContent.Start" AlignItems="AlignItems.Center" Gap="0.5rem">
+        <RadzenColumn Size="12" SizeSM="7">
+            <RadzenStack AlignItems="AlignItems.Center" Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.Normal">
+                <RadzenTextBox Disabled=@(filteredpurchaseInvoicesList == null) @bind-Value="@searchText"
+                               Placeholder="Search..."
+                               Style="font-size:smaller; width:30rem;"
+                               Change="@(args => ApplyFilter())" />
+                <RadzenButton Disabled=@(filteredpurchaseInvoicesList == null) Icon="search" Click="@ApplyFilter" Text="Find" />
+                <RadzenButton Disabled=@(filteredpurchaseInvoicesList == null) Icon="delete" Click="@ClearFilter" Text="Clear" />
+            </RadzenStack>
+        </RadzenColumn>
+        <RadzenColumn Size="12" SizeSM="5">
+            <RadzenStack AlignItems="AlignItems.Center" Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End">
+                <RadzenButton Text="New" Click="@Navigate" ButtonStyle="ButtonStyle.Primary" Icon="add"></RadzenButton>
+            </RadzenStack>
+        </RadzenColumn>
+    </RadzenRow>
+
+    <RadzenDataGrid @ref="grids" @bind-Value=@selectedPurchaseInvoices RowDoubleClick="() => Edit(selectedPurchaseInvoices.FirstOrDefault().Id)"
+                    TItem="PurchaseInvoicesModel"
+                    AllowColumnReorder="true" AllowAlternatingRows="false" ColumnWidth="200px"
+                    IsLoading=@isLoading Sort="@ShowLoading" Page="@ShowLoading" Group="@ShowLoading" Filter="@ShowLoading"
+                    Data="@filteredpurchaseInvoicesList" AllowColumnPicking="true" Style="height: 84vh"
+                    ShowMultiColumnSortingIndex="true"
+                    KeyProperty="Id" AllowColumnResize="true" Density="@density"
+                    AllowSorting="true" AllowVirtualization=true AllowFiltering="true"
+                    FilterMode="FilterMode.CheckBoxList" FilterCaseSensitivity="@filter" LogicalFilterOperator="LogicalFilterOperator.Or">
+
+        <HeaderTemplate>
+            <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="1rem" Wrap="FlexWrap.Wrap">
+                <span>
+                    Purchase Orders
+                </span>
+            </RadzenStack>
+
+        </HeaderTemplate>
+
+        <Columns>
+            
+            <RadzenDataGridColumn Visible=true TItem="PurchaseInvoicesModel" Property="@nameof(PurchaseInvoicesModel.PurchaseInvoiceDate)" FormatString="{0:d}" Title="Date"></RadzenDataGridColumn>
+            <RadzenDataGridColumn Visible=true TItem="PurchaseInvoicesModel" Property="@nameof(PurchaseInvoicesModel.PurchaseInvoiceCode)" Title="GRN #">
+                @*    <Template Context="data">
+                            <span class="@(data.IsCancelled ? "rz-color-danger-dark" : "")">@data.PurchaseRequisitionCode</span>
+                        </Template> *@
+            </RadzenDataGridColumn>
+
+            <RadzenDataGridColumn Visible=true TItem="PurchaseInvoicesModel" Property="@nameof(PurchaseInvoicesModel.CompanyCode)" Title="Supplier">
+                <FooterTemplate>
+                    Total: <b>@totalGoodsReceivedNotes</b>
+                </FooterTemplate>
+            </RadzenDataGridColumn>
+
+            <RadzenDataGridColumn Visible=true Width="315px" TItem="PurchaseInvoicesModel" Property="@nameof(PurchaseInvoicesModel.CreditorName)" Title="Name"></RadzenDataGridColumn>
+
+            <RadzenDataGridColumn Visible=true TItem="PurchaseInvoicesModel" Property="@nameof(PurchaseInvoicesModel.Name)" Title="Purchaser"></RadzenDataGridColumn>
+
+            <RadzenDataGridColumn Property="@nameof(PurchaseInvoicesModel.WTaxTotalAmountLocal)" Title="WTax Total Amount">
+                <Template Context="data">
+                    <span>@(data.WTaxTotalAmountLocal is null or 0 ? "" : data.WTaxTotalAmountLocal.Value.ToString("#,0.00"))</span>
+                </Template>
+            </RadzenDataGridColumn>
+
+            <RadzenDataGridColumn Visible=true TItem="PurchaseInvoicesModel" Property="@nameof(PurchaseInvoicesModel.CurrencyCode)" Title="Currency"></RadzenDataGridColumn>
+
+
+            <RadzenDataGridColumn Property="@nameof(PurchaseInvoicesModel.TaxTotalAmountLocal)" Title="Tax">
+                <Template Context="data">
+                    <span>@(data.TaxTotalAmountLocal is null or 0 ? "" : data.TaxTotalAmountLocal.Value.ToString("#,0.00"))</span>
+                </Template>
+            </RadzenDataGridColumn>
+
+            <RadzenDataGridColumn Visible=true TItem="PurchaseInvoicesModel" TextAlign="TextAlign.Right" Property="@nameof(PurchaseInvoicesModel.NetTotalAmountLocal)" Title="Net Amount">
+                <Template Context="data">
+                    <span>@(data.NetTotalAmountLocal is null or 0 ? "" : data.NetTotalAmountLocal.Value.ToString("#,0.00"))</span>
+                </Template>
+            </RadzenDataGridColumn>
+
+        </Columns>
+    </RadzenDataGrid>
+</RadzenStack>
+
+@code {
+
+    string status = string.Empty;
+    private RadzenDataGrid<PurchaseInvoicesModel> grids;
+    private IList<PurchaseInvoicesModel> selectedPurchaseInvoices { get; set; }
+    private IEnumerable<PurchaseInvoicesModel> purchaseInvoicesList { get; set; }
+
+    FilterCaseSensitivity filter = FilterCaseSensitivity.CaseInsensitive;
+    Density density = Density.Compact;
+    AlignItems alignItems = AlignItems.Center;
+    Variant variant = Variant.Flat;
+
+    bool isLoading = true;
+    int totalGoodsReceivedNotes = 0;
+
+    [CascadingParameter]
+    public Task<AuthenticationState> authenticationState { get; set; }
+    protected async override Task OnInitializedAsync()
+    {
+        var authState = (await authenticationState).User;
+        if (authState.Identity.IsAuthenticated)
+        {
+            var RoleId = authState.FindFirst("RoleId").Value;
+            GetLoadMenuPermission(RoleId);
+        }
+
+    }
+
+
+    private SystemMenuObjectPermission? permission;
+    protected async void GetLoadMenuPermission(string RoleId)
+    {
+        permission = await permissionService.GetPermissionAsync(
+            RoleId,
+            "Purchase Invoices");  // ✅ match whatever the DB actually has
+
+        if (permission is null)
+            return;
+        await ShowLoading();
+        await loadAllData();
+        filteredpurchaseInvoicesList = purchaseInvoicesList;
+        StateHasChanged();
+    }
+
+
+    private string searchText = string.Empty;
+    private IEnumerable<PurchaseInvoicesModel> filteredpurchaseInvoicesList;
+    private void ApplyFilter()
+    {
+        if (string.IsNullOrWhiteSpace(searchText))
+        {
+            filteredpurchaseInvoicesList = purchaseInvoicesList;
+        }
+        else
+        {
+            filteredpurchaseInvoicesList = purchaseInvoicesList.Where(x =>
+                (!string.IsNullOrEmpty(x.PurchaseInvoiceCode) && x.PurchaseInvoiceCode.Contains(searchText, StringComparison.OrdinalIgnoreCase)) ||
+                (!string.IsNullOrEmpty(x.CompanyCode) && x.CompanyCode.Contains(searchText, StringComparison.OrdinalIgnoreCase)) ||
+                (!string.IsNullOrEmpty(x.Name) && x.Name.Contains(searchText, StringComparison.OrdinalIgnoreCase)) ||
+                (!string.IsNullOrEmpty(x.CreditorName) && x.CreditorName.Contains(searchText, StringComparison.OrdinalIgnoreCase)) ||
+                (!string.IsNullOrEmpty(x.Ref1) && x.Ref1.Contains(searchText, StringComparison.OrdinalIgnoreCase)) ||
+                (!string.IsNullOrEmpty(x.ReferenceNo) && x.ReferenceNo.Contains(searchText, StringComparison.OrdinalIgnoreCase))
+            );
+        }
+        StateHasChanged();
+    }
+    private void ClearFilter()
+    {
+        searchText = string.Empty;
+        filteredpurchaseInvoicesList = purchaseInvoicesList;
+        StateHasChanged();
+    }
+
+    async Task ShowLoading()
+    {
+        await Task.Yield();
+
+        isLoading = false;
+    }
+
+    private async Task loadAllData()
+    {
+        await GetPurchaseInvoicesList();
+    }
+
+    private async Task GetPurchaseInvoicesList()
+    {
+        var data = await purchaseInvoicesService.GetPurchaseInvoicesList();
+        purchaseInvoicesList = data is not null ? data.ToList() : new List<PurchaseInvoicesModel>();
+        totalGoodsReceivedNotes = purchaseInvoicesList.Count();
+    }
+
+    protected void Edit(Guid Id)
+    {
+        navManager.NavigateTo($"/PurchaseInvoices/Edit/{Id}");
+    }
+
+
+    private void Navigate()
+    {
+        navManager.NavigateTo("/PurchaseInvoices");
+    }
+
+
+
+}

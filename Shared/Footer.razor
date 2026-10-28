@@ -1,0 +1,72 @@
+﻿@using Accounting_V4.ConnectionServices
+@inherits LayoutComponentBase
+@inject QneConnectionString QNESQLConnection
+
+<div class="footer">
+    <div class="left">
+        <span>[User: @FullName]</span>
+        <span>@* [@con]  *@© 2025 - AccuBook BETA | Build 1.0.0 | Developed by NT-IT DEPARTMENT</span>
+    </div>
+    <div class="right"><span></span>Time Zone: @timeService.CountryName | Current Working Date: @displayTime</div>
+</div>
+
+<style>
+    .footer {
+        position: fixed;
+        bottom: 0;
+        width: 100%;
+        font-size: 12px; /* maliit na font */
+        color: #555; /* grayish */
+        padding: 5px 2px;
+        display: flex;
+        justify-content: space-between; /* space sa left at right */
+        align-items: center; /* pantay vertical */
+        background: #fff; /* optional kung gusto mo may bg */
+    }
+
+        .footer .left {
+            text-align: left;
+        }
+
+        .footer .right {
+            text-align: right;
+            padding: 0px 30px;
+        }
+</style>
+
+@code {
+    string? con;
+    [CascadingParameter]
+    public Task<AuthenticationState> authenticationState { get; set; }
+    string? FullName = "Loading User...";
+
+
+    private string displayTime => timeService.ManilaNow.ToString();
+   // private string displayTimeZone => timeService.TimeZone.ToString();
+
+    protected override async Task OnInitializedAsync()
+    {
+        con = await QNESQLConnection.GetSanitizedConnectionStringAsync();
+        GetUserName();
+        while (true)
+        {
+            await Task.Delay(1000);
+            StateHasChanged(); // Pilitin ang Blazor na i-update ang screen
+        }
+      
+    }
+
+
+
+    protected async void GetUserName()
+    {
+        var authState = (await authenticationState).User;
+
+        if (authState.Identity.IsAuthenticated)
+        {
+            var claim = authState.FindFirst(x => x.Type == System.Security.Claims.ClaimTypes.GivenName);
+            FullName = claim.Value;
+        }
+
+    }
+}

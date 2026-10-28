@@ -1,0 +1,251 @@
+﻿@page "/Locations"
+@page "/LocationsList/Edit/{id:guid}"
+@attribute [Authorize(Roles = "Admin,User")]
+
+
+<RadzenTemplateForm TItem="StockLocationsModel" Data="@stocklocationsmodel" Submit="@OnSubmit" InvalidSubmit="@OnInvalidSubmit">
+    <RadzenStack Gap="0.5rem">
+        <RadzenCard Style="Padding: 0.5rem">
+            <RadzenRow JustifyContent="JustifyContent.Start" AlignItems="AlignItems.Center" Gap="0.5rem">
+
+                <RadzenColumn Size="12" SizeSM="5">
+                    <RadzenStack AlignItems="AlignItems.Center" Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.Normal">
+                        <RadzenButton Size="ButtonSize.Small" Disabled="@isDisable" IsBusy="@isBusy" ButtonType="ButtonType.Submit" Text="Save" Icon="save"></RadzenButton>
+                        @* <RadzenButton Size="ButtonSize.Small" Visible="@isVisible" ButtonStyle="ButtonStyle.Danger" Click="@navigate" Text="Cancel" Icon="cancel"></RadzenButton> *@
+                    </RadzenStack>
+                </RadzenColumn>
+
+                <RadzenColumn Size="12" SizeSM="7">
+                    <RadzenStack AlignItems="AlignItems.Center" Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End">
+                        <RadzenButton Size="@smallbtn" ButtonStyle="ButtonStyle.Light" Click="@Navigate" Text="Search" Icon="search"></RadzenButton>
+                    </RadzenStack>
+                </RadzenColumn>
+
+            </RadzenRow>
+        </RadzenCard>
+
+        <RadzenCard>
+
+            <RadzenCard Style="padding: 1rem; margin-bottom: 1rem; border-left: 6px solid #588157; border-radius: 10px;">
+                <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.75rem">
+                    <RadzenHeading Size="H4" Text="Stock Locations" Style="margin: 0; font-weight: 600; color: #3A5A40;" />
+                </RadzenStack>
+            </RadzenCard>
+
+            <RadzenStack Gap="0.5rem">
+                <RadzenRow AlignItems="AlignItems.Center">
+
+                    <RadzenColumn Size="12" SizeMD="6">
+                        <RadzenFormField Style="width:100%" Text="Location Code*" AllowFloatingLabel="false">
+                            <RadzenTextBox @bind-Value="stocklocationsmodel.LocationCode"
+                                           Name="LocationCode"
+                                           class="@GetLocationCodeClass()"
+                                           Style="width:100%;" />
+                        </RadzenFormField>
+                        <RadzenRequiredValidator Component="LocationCode" Text="Location Code is required" Popup="false" />
+                    </RadzenColumn>
+
+                    <RadzenColumn Size="12" SizeMD="6" Style="display:flex; align-items:center;">
+                        <RadzenCheckBox Style="margin-left:20px;" @bind-Value="stocklocationsmodel.IsActive" />
+                        <label style="margin-left:5px;">Active</label>
+                    </RadzenColumn>
+
+                </RadzenRow>
+
+                <RadzenRow>
+
+                    <RadzenColumn Size="12">
+                        <RadzenFormField Style="width:100%" Text="Description" AllowFloatingLabel="false">
+                            <RadzenTextBox @bind-Value="stocklocationsmodel.Description" Style="width:100%;" />
+                        </RadzenFormField>
+                    </RadzenColumn>
+
+                </RadzenRow>
+
+            </RadzenStack>
+
+            <RadzenRow>
+                <!-- Address Section -->
+                <RadzenColumn Size="12" SizeMD="6" Style="margin-top:0.75rem;">
+                    <RadzenCard Style="padding: 1rem; ">
+                        <RadzenHeading Size="H6" Text="Address" Style="margin-bottom: 0.5rem;" />
+
+                        <RadzenFormField Text="Address Line 1" AllowFloatingLabel="false" Style="width:100%">
+                            <RadzenTextBox @bind-Value="stocklocationsmodel.Address1" Style="width:100%;" />
+                        </RadzenFormField>
+
+                        <RadzenFormField Text="Address Line 2" AllowFloatingLabel="false" Style="width:100%">
+                            <RadzenTextBox @bind-Value="stocklocationsmodel.Address2" Style="width:100%;" />
+                        </RadzenFormField>
+
+                        <RadzenFormField Text="Address Line 3" AllowFloatingLabel="false" Style="width:100%">
+                            <RadzenTextBox @bind-Value="stocklocationsmodel.Address3" Style="width:100%;" />
+                        </RadzenFormField>
+
+                        <RadzenFormField Text="Address Line 4" AllowFloatingLabel="false" Style="width:100%">
+                            <RadzenTextBox @bind-Value="stocklocationsmodel.Address4" Style="width:100%;" />
+                        </RadzenFormField>
+                    </RadzenCard>
+                </RadzenColumn>
+
+                <!-- Contact Info Section -->
+                <RadzenColumn Size="12" SizeMD="6" Style="margin-top:0.75rem;">
+                    <RadzenCard Style="padding: 1rem;">
+                        <RadzenHeading Size="H6" Text="Contact Info." Style="margin-bottom: 0.5rem;" />
+
+                        <RadzenFormField Text="Contact" AllowFloatingLabel="false" Style="width:100%">
+                            <RadzenTextBox @bind-Value="stocklocationsmodel.Contact" Style="width:100%;" />
+                        </RadzenFormField>
+
+                        <RadzenFormField Text="Phone No" AllowFloatingLabel="false" Style="width:100%">
+                            <RadzenTextBox @bind-Value="stocklocationsmodel.PhoneNo" Style="width:100%;" />
+                        </RadzenFormField>
+
+                        <RadzenFormField Text="Fax" AllowFloatingLabel="false" Style="width:100%">
+                            <RadzenTextBox @bind-Value="stocklocationsmodel.FaxNo" Style="width:100%;" />
+                        </RadzenFormField>
+
+                    </RadzenCard>
+                </RadzenColumn>
+            </RadzenRow>
+
+
+        </RadzenCard>
+
+    </RadzenStack>
+</RadzenTemplateForm>
+
+@code {
+
+    [Parameter]
+    public Guid? Id { get; set; }
+
+    AlignItems alignItems = AlignItems.Center;
+    Density density = Density.Compact;
+    ButtonSize smallbtn = ButtonSize.Small;
+
+    bool isLoading = false;
+    bool isDisable = false;
+    bool isVisible = false;
+    bool isBusy;
+
+    async Task ShowLoading()
+    {
+        StateHasChanged();
+        isLoading = true;
+
+        await Task.Yield();
+        StateHasChanged();
+        isLoading = false;
+    }
+
+    //FOR PROPERTY SET VALUE OF OBJECT
+    string btnText = "Save";
+    string redtext;
+
+    // STOCK LOCATION MODEL
+    private StockLocationsModel stocklocationsmodel { get; set; } = new StockLocationsModel();
+
+    // Page Initialization
+    protected async override Task OnInitializedAsync()
+    {
+        await ShowLoading();
+        await loadAllData();
+        if (Id is not null)
+        {
+            await loadAllDataById();
+        }
+    }
+
+    private async Task loadAllDataById()
+    {
+        await GetStockLocationsById();
+
+    }
+
+    private async Task loadAllData()
+    {
+
+    }
+
+    protected async Task GetStockLocationsById()
+    {
+        var data = await stockItemsService.GetStockLocationsById(Id.ToString());
+        stocklocationsmodel = data is not null ? data : new StockLocationsModel();
+    }
+
+    private async Task OnSubmit()
+    {
+        try
+        {
+            isBusy = true;
+
+            var id = await stockItemsService.SaveStockLocation(stocklocationsmodel);
+
+            if (id != Guid.Empty)
+            {
+                notificationService.Notify(new NotificationMessage
+                {
+                    Severity = NotificationSeverity.Success,
+                    Summary = "Success",
+                    Detail = "Stock Locations saved successfully!"
+                });
+            }
+            else
+            {
+                notificationService.Notify(new NotificationMessage
+                {
+                    Severity = NotificationSeverity.Info,
+                    Summary = "Info",
+                    Detail = "Failed to save category"
+                });
+            }
+        }
+        catch (Exception ex)
+        {
+            notificationService.Notify(new NotificationMessage
+            {
+                Severity = NotificationSeverity.Error,
+                Summary = "Error",
+                Detail = $"An unexpected error occurred: {ex.Message}"
+            });
+        }
+        finally
+        {
+            isBusy = false;
+        }
+    }
+
+    private bool showValidationErrors = false;
+
+    private string GetLocationCodeClass()
+    {
+        if (showValidationErrors && string.IsNullOrWhiteSpace(stocklocationsmodel.LocationCode))
+            return "invalid-input"; // already defined for red background
+        return "";
+    }
+
+    private void OnInvalidSubmit(FormInvalidSubmitEventArgs args)
+    {
+        notificationService.Notify(new NotificationMessage
+        {
+            Severity = NotificationSeverity.Error,
+            Summary = "Validation",
+            Detail = "Location Code must not be empty.",
+            Duration = 4000
+        });
+    }
+
+
+    private void OnPrint()
+    {
+        CustomNotificationMessage.Message(notificationService, true);
+    }
+
+    private void Navigate()
+    {
+        navManager.NavigateTo("/LocationsList");
+    }
+
+
+}

@@ -1,0 +1,89 @@
+﻿@* @page "/outstandinginvoicelist"
+@inject QneServices _invoiceService
+
+<h3>OutStandingInvoiceList</h3>
+
+<div class="grid-container">
+    <RadzenDataGrid @ref="grid"
+                    IsLoading=@isLoading Sort="@ShowLoading" Page="@ShowLoading" Group="@ShowLoading" Filter="@ShowLoading"
+                    Data="@invoices" Density="Density.Compact"
+                    TItem="OutStandingInvoice"
+                    ColumnWidth="200px"
+                    AllowPaging="true"
+                    PageSize="30"
+                    AllowSorting="true"
+                    AllowFiltering="true"
+                    FilterMode="FilterMode.CheckBoxList"
+                    FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive">
+        <Columns>
+            <RadzenDataGridColumn TItem="OutStandingInvoice" Property="CompanyCode" Title="Company Code" />
+            <RadzenDataGridColumn TItem="OutStandingInvoice" Property="CompanyName" Title="Company Name" />
+            <RadzenDataGridColumn TItem="OutStandingInvoice" Property="DocSalesPersonCode" Title="DocSalesPersonCode" />
+            <RadzenDataGridColumn TItem="OutStandingInvoice" Property="Term" Title="Term" />
+            <RadzenDataGridColumn TItem="OutStandingInvoice" Property="StaffName" Title="Staff" />
+            <RadzenDataGridColumn TItem="OutStandingInvoice" Property="DueDate" Title="Due Date" FormatString="{0:MM/dd/yyyy}" />
+            <RadzenDataGridColumn TItem="OutStandingInvoice" Property="DetailNetAmt" Title="Net Amount" FormatString="{0:C}" />
+        </Columns>
+    </RadzenDataGrid>
+</div>
+
+<style>
+    html, body {
+        height: 100%;
+        margin: 0;
+        padding: 0;
+    }
+
+    .grid-container {
+        display: flex;
+        flex-direction: column;
+        height: calc(100vh - 5x); /* adjust for any headers/margins */
+    }
+
+        .grid-container .rz-data-grid {
+            flex: 1 1 auto;
+        }
+
+
+</style>
+
+@code {
+    RadzenDataGrid<OutStandingInvoice> grid;
+    IEnumerable<OutStandingInvoice> invoices;
+    int count;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await ShowLoading();
+        await LoadInvoices();
+    }
+
+
+    private async Task LoadInvoices()
+    {
+        var filter = new OutStandingInvoiceFilter
+            {
+                Date = DateTime.Today,
+                withPDCheques = true,
+                includeFutureKnockOff = false
+            };
+
+        // Load all (you can implement paging in SQL if needed)
+        var data = await _invoiceService.GetOutstandingInvoiceAsync(filter);
+        invoices = data;
+
+    }
+
+    bool isLoading = false;
+
+
+    async Task ShowLoading()
+    {
+        isLoading = true;
+
+        await Task.Yield();
+
+        isLoading = false;
+    }
+}
+ *@

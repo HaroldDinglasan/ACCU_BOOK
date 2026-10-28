@@ -1,0 +1,212 @@
+﻿/* ==========================================================================
+   AccuBook Login + Change Password (shared)   -> wwwroot/css/ab-login.css
+   I-link sa LoginLayout / App.razor:
+       <link href="css/ab-login.css" rel="stylesheet" />
+   Kung nakalagay na ang login CSS mo sa isang shared/global file, ang kailangan
+   mo lang idagdag ay ang bahaging "SUCCESS STATE" sa dulo.
+   Tandaan: sa .css file, @media (isa lang @), hindi "@@media".
+   ========================================================================== */
+
+.abl {
+    --ab-brand: var(--rz-primary);
+    --ab-brand-deep: var(--rz-primary-darker, var(--rz-primary));
+    --ab-on-brand: var(--rz-on-primary, #fff);
+    --ab-page: var(--rz-body-background-color);
+    --ab-surface: var(--rz-base-background-color, #fff);
+    --ab-line: var(--rz-base-300, rgba(128, 128, 128, 0.3));
+    --ab-muted: var(--rz-text-secondary-color);
+    --ab-ok: var(--rz-success);
+    color: var(--rz-text-color);
+    background: var(--ab-page);
+    min-height: 100vh;
+    display: grid;
+    place-items: center;
+    padding: 2rem 1rem;
+}
+
+    .abl .abl-shell {
+        width: 100%;
+        max-width: 880px;
+        border-radius: 14px;
+        overflow: hidden;
+        box-shadow: 0 18px 40px -18px color-mix(in srgb, var(--ab-brand-deep) 60%, transparent);
+        background: var(--ab-surface);
+    }
+
+    /* Left: brand panel with faint ledger ruling */
+    .abl .rz-card.abl-brand {
+        height: 100%;
+        min-height: 100%;
+        border-radius: 0;
+        box-shadow: none;
+        background-color: var(--ab-brand);
+        background-image: repeating-linear-gradient(to bottom, transparent 0, transparent 31px, color-mix(in srgb, var(--ab-on-brand) 8%, transparent) 31px, color-mix(in srgb, var(--ab-on-brand) 8%, transparent) 32px);
+        color: var(--ab-on-brand);
+        padding: 2.5rem 2rem;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+    }
+
+/* AB logo drawn as a book. Laki: palitan lang ang --s. Kulay: sumusunod sa Radzen theme. */
+.ab-book {
+    --s: 64px;
+    --book-cover: var(--ab-on-brand);
+    --book-spine: color-mix(in srgb, var(--ab-on-brand) 70%, var(--ab-brand));
+    --book-ink: var(--ab-brand-deep);
+    --book-pages: color-mix(in srgb, var(--ab-on-brand) 55%, var(--ab-brand));
+    --book-edge: color-mix(in srgb, var(--ab-on-brand) 30%, var(--ab-brand));
+    position: relative;
+    box-sizing: border-box;
+    width: var(--s);
+    height: calc(var(--s) * 1.25);
+    margin: 0 calc(var(--s) * 0.1) calc(var(--s) * 0.09) 0;
+    padding-left: calc(var(--s) * 0.2);
+    display: grid;
+    place-items: center;
+    background: var(--book-cover);
+    color: var(--book-ink);
+    border-radius: 3px 9px 9px 3px;
+    font-weight: 700;
+    font-size: calc(var(--s) * 0.4);
+    line-height: 1;
+    letter-spacing: -0.02em;
+    box-shadow: inset calc(var(--s) * 0.2) 0 0 var(--book-spine), calc(var(--s) * 0.04) calc(var(--s) * 0.035) 0 0 var(--book-pages), calc(var(--s) * 0.04) calc(var(--s) * 0.035) 0 1px var(--book-edge), calc(var(--s) * 0.08) calc(var(--s) * 0.07) 0 0 var(--book-pages), calc(var(--s) * 0.08) calc(var(--s) * 0.07) 0 1px var(--book-edge);
+}
+
+    .ab-book::before {
+        content: "";
+        position: absolute;
+        top: 0;
+        right: 16%;
+        width: 13%;
+        height: 30%;
+        background: var(--ab-ok, var(--rz-success));
+        clip-path: polygon(0 0, 100% 0, 100% 100%, 50% 80%, 0 100%);
+    }
+
+.abl-logo-wrap {
+    margin-bottom: 1.75rem;
+}
+
+.abl-brand h2 {
+    font-size: 2.2rem;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    margin: 0 0 0.35rem;
+    color: var(--ab-on-brand);
+}
+
+.abl-brand p {
+    margin: 0;
+    color: color-mix(in srgb, var(--ab-on-brand) 75%, transparent);
+    font-size: 1rem;
+    line-height: 1.5;
+}
+
+.abl-note {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: color-mix(in srgb, var(--ab-on-brand) 65%, transparent);
+    font-size: 0.88rem;
+    margin-top: 2rem;
+}
+
+/* Right: form */
+.abl .rz-card.abl-form {
+    border-radius: 0;
+    box-shadow: none;
+    background: var(--ab-surface);
+    padding: 2.5rem 2.25rem;
+}
+
+.abl-form h1 {
+    font-size: 1.7rem;
+    font-weight: 700;
+    margin: 0 0 0.25rem;
+}
+
+.abl-sub {
+    color: var(--ab-muted);
+    margin: 0 0 1.5rem;
+}
+
+.abl-label {
+    font-weight: 600;
+    font-size: 0.95rem;
+    margin: 0 0 0.5rem;
+}
+
+.abl-company {
+    border: 1px solid var(--ab-line);
+    border-radius: 8px;
+    background: var(--ab-page);
+    padding: 0.75rem;
+    display: flex;
+    justify-content: center;
+}
+
+.abl .rz-button.abl-submit {
+    font-weight: 600;
+    padding: 0.75rem 1rem;
+    width: 100%;
+}
+
+.abl-back {
+    display: inline-block;
+    margin-top: 1.25rem;
+    color: var(--ab-muted);
+    font-size: 0.92rem;
+    text-decoration: none;
+}
+
+    .abl-back:hover {
+        color: inherit;
+        text-decoration: underline;
+    }
+
+.abl a:focus-visible, .abl .rz-button:focus-visible {
+    outline: 3px solid var(--ab-brand);
+    outline-offset: 2px;
+}
+
+/* ---------- SUCCESS STATE (Change Password) ---------- */
+.abl-done {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+}
+
+.abl-done-icon {
+    width: 56px;
+    height: 56px;
+    display: grid;
+    place-items: center;
+    margin-bottom: 1rem;
+    border-radius: 50%;
+    color: var(--ab-ok);
+    background: color-mix(in srgb, var(--ab-ok) 14%, transparent);
+}
+
+    .abl-done-icon .rzi {
+        font-size: 2rem;
+    }
+
+.abl-done .rz-button.abl-submit {
+    margin-top: 0.5rem;
+}
+
+@media (max-width: 768px) {
+    .abl .rz-card.abl-brand {
+        padding: 1.75rem 1.5rem;
+    }
+
+    .abl .rz-card.abl-form {
+        padding: 1.75rem 1.5rem;
+    }
+
+    .abl-note {
+        display: none;
+    }
+}

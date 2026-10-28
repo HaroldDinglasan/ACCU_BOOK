@@ -1,0 +1,267 @@
+﻿@page "/StockBatchNumbers"
+@page "/StockBatchNumbersList/Edit/{id:guid}"
+@attribute [Authorize(Roles = "Admin,User")]
+
+<RadzenTemplateForm TItem="StockBatchNumbersModel" Data="@stockbatchnumbersmodel" Submit="@OnSubmit" InvalidSubmit="@OnInvalidSubmit">
+    <RadzenStack Gap="0.5rem">
+        <RadzenCard Style="Padding: 0.5rem">
+            <RadzenRow JustifyContent="JustifyContent.Start" AlignItems="AlignItems.Center" Gap="0.5rem">
+
+                <RadzenColumn Size="12" SizeSM="5">
+                    <RadzenStack AlignItems="AlignItems.Center" Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.Normal">
+                        <RadzenButton Size="ButtonSize.Small" Disabled="@isDisable" IsBusy="@isBusy" ButtonType="ButtonType.Submit" Text="Save" Icon="save"></RadzenButton>
+                        @* <RadzenButton Size="ButtonSize.Small" Visible="@isVisible" ButtonStyle="ButtonStyle.Danger" Click="@navigate" Text="Cancel" Icon="cancel"></RadzenButton> *@
+                    </RadzenStack>
+                </RadzenColumn>
+
+                <RadzenColumn Size="12" SizeSM="7">
+                    <RadzenStack AlignItems="AlignItems.Center" Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End">
+                        <RadzenButton Size="@smallbtn" ButtonStyle="ButtonStyle.Light" Click="@Navigate" Text="Search" Icon="search"></RadzenButton>
+                    </RadzenStack>
+                </RadzenColumn>
+
+            </RadzenRow>
+        </RadzenCard>
+
+        <RadzenCard>
+
+            <RadzenCard Style="padding: 1rem; margin-bottom: 1rem; border-left: 6px solid #588157; border-radius: 10px;">
+                <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.75rem">
+                    <RadzenHeading Size="H4" Text="Stock Batch Number" Style="margin: 0; font-weight: 600; color: #3A5A40;" />
+                </RadzenStack>
+            </RadzenCard>
+
+            <RadzenStack Gap="0.5rem">
+                <RadzenRow AlignItems="AlignItems.Center">
+
+                    <!-- Batch No -->
+                    <RadzenColumn Size="12" SizeMD="6">
+                        <RadzenFormField Style="width:100%" Text="Batch No*" AllowFloatingLabel="false">
+                            <RadzenTextBox @bind-Value="stockbatchnumbersmodel.BatchNo"
+                                           Name="BatchNo"
+                                           class="@GetBatchNoClass()"
+                                           Style="width:100%;" />
+                        </RadzenFormField>
+                        <RadzenRequiredValidator Component="BatchNo" Text="Batch No is required" Popup="false" />
+                    </RadzenColumn>
+
+                    <!-- Description -->
+                    <RadzenColumn Size="12">
+                        <RadzenFormField Style="width:100%" Text="Description" AllowFloatingLabel="false">
+                            <RadzenTextBox @bind-Value="stockbatchnumbersmodel.Description" Style="width:100%;" />
+                        </RadzenFormField>
+                    </RadzenColumn>
+
+                    <!-- Stock Code Dropdown -->
+                    <RadzenColumn Size="12">
+                        <RadzenFormField Style="width:100%" Text="Stock Code*" AllowFloatingLabel="false">
+                            <RadzenDropDownDataGrid @bind-Value="stockbatchnumbersmodel.StockId"
+                                                    Style="width: 100%; font-size:12px"
+                                                    Name="StockCode"
+                                                    class="@GetBatchNoClass()"
+                                                    PageSize="10" Data="@stockList"
+                                                    AllowVirtualization="true" AllowColumnResize="true"
+                                                    AllowClear="true" AllowSorting="false"
+                                                    FilterCaseSensitivity="@filter" AllowFilteringByAllStringColumns="true"
+                                                    TextProperty="StockCode" Density="@density" ValueProperty="Id">
+                                <Columns>
+                                    <RadzenDropDownDataGridColumn Width="6%" Property="StockCode" Title="Stock #" />
+                                    <RadzenDropDownDataGridColumn Width="10%" Property="StockName" Title="Stock Name" />
+                                </Columns>
+
+                            </RadzenDropDownDataGrid>
+                        </RadzenFormField>
+                        <RadzenRequiredValidator Component="StockCode" Text="Stock Code is required" Popup="false" />
+                    </RadzenColumn>
+
+                    <!-- Manufacturing Date + Reference 1 -->
+                    <RadzenColumn Size="12" SizeMD="6">
+                        <RadzenFormField Style="width:100%" Text="Manufacturing Date*" AllowFloatingLabel="false">
+                            <RadzenDatePicker @bind-Value="stockbatchnumbersmodel.BatchNoManufacturingDate"
+                                              Name="BatchNoManufacturingDate"
+                                              class="@GetBatchNoClass()"
+                                              Style="width:100%;"
+                                              DateFormat="yyyy-MM-dd"
+                                              ShowTime="false" />
+                        </RadzenFormField>
+                        <RadzenRequiredValidator Component="BatchNoManufacturingDate" Text="Manufacturing Date is required" Popup="false" />
+                    </RadzenColumn>
+
+                    <RadzenColumn Size="12" SizeMD="6">
+                        <RadzenFormField Style="width:100%" Text="Reference 1" AllowFloatingLabel="false">
+                            <RadzenTextBox @bind-Value="stockbatchnumbersmodel.BatchNoRef1" Style="width:100%;" />
+                        </RadzenFormField>
+                    </RadzenColumn>
+
+                    <!-- Expiry Date + Reference 2 -->
+                    <RadzenColumn Size="12" SizeMD="6">
+                        <RadzenFormField Style="width:100%" Text="Expiry Date*" AllowFloatingLabel="false">
+                            <RadzenDatePicker @bind-Value="stockbatchnumbersmodel.BatchNoExpiryDate"
+                                              Name="BatchNoExpiryDate"
+                                              class="@GetBatchNoClass()"
+                                              Style="width:100%;"
+                                              DateFormat="yyyy-MM-dd"
+                                              ShowTime="false" />
+                        </RadzenFormField>
+                        <RadzenRequiredValidator Component="BatchNoExpiryDate" Text="Expiry Date is required" Popup="false" />
+                    </RadzenColumn>
+
+                    <RadzenColumn Size="12" SizeMD="6">
+                        <RadzenFormField Style="width:100%" Text="Reference 2" AllowFloatingLabel="false">
+                            <RadzenTextBox @bind-Value="stockbatchnumbersmodel.BatchNoRef2" Style="width:100%;" />
+                        </RadzenFormField>
+                    </RadzenColumn>
+
+                </RadzenRow>
+
+            </RadzenStack>
+
+        </RadzenCard>
+
+    </RadzenStack>
+</RadzenTemplateForm>
+
+@code {
+
+    [Parameter]
+    public Guid? Id { get; set; }
+
+    AlignItems alignItems = AlignItems.Center;
+    Density density = Density.Compact;
+    ButtonSize smallbtn = ButtonSize.Small;
+    FilterCaseSensitivity filter = FilterCaseSensitivity.CaseInsensitive;
+
+    bool isLoading = false;
+    bool isDisable = false;
+    bool isVisible = false;
+    bool isBusy;
+
+    async Task ShowLoading()
+    {
+        StateHasChanged();
+        isLoading = true;
+
+        await Task.Yield();
+        StateHasChanged();
+        isLoading = false;
+    }
+
+    //FOR PROPERTY SET VALUE OF OBJECT
+    string btnText = "Save";
+    string redtext;
+
+    // STOCK LOCATION MODEL
+    private StockBatchNumbersModel stockbatchnumbersmodel { get; set; } = new StockBatchNumbersModel();
+
+    protected IEnumerable<Stocks> stockList { get; set; }
+
+
+    // Page Initialization
+    protected async override Task OnInitializedAsync()
+    {
+
+        await ShowLoading();
+        await loadAllData(); // loads all data
+        if (Id is not null)
+        {
+            await loadAllDataById();
+        }
+    }
+
+    private async Task loadAllDataById()
+    {
+        await GetStockBatchNumbersById();
+
+    }
+
+    private async Task loadAllData()
+    {
+        await GetStockList(); // This gets the stock list data from API
+    }
+
+    protected async Task GetStockList()
+    {
+        var data = await stockItemsService.GetStockList();
+        stockList = data is not null ? data : new List<Stocks>();
+    }
+    protected async Task GetStockBatchNumbersById()
+    {
+        var data = await stockItemsService.GetStockBatchNumbersById(Id.ToString());
+        stockbatchnumbersmodel = data is not null ? data : new StockBatchNumbersModel();
+    }
+
+    private async Task OnSubmit()
+    {
+        try
+        {
+            isBusy = true;
+
+            var id = await stockItemsService.SaveStockBatchNo(stockbatchnumbersmodel);
+
+            if (id != Guid.Empty)
+            {
+                notificationService.Notify(new NotificationMessage
+                {
+                    Severity = NotificationSeverity.Success,
+                    Summary = "Success",
+                    Detail = "Stock Batch Numbers saved successfully!"
+                });
+            }
+            else
+            {
+                notificationService.Notify(new NotificationMessage
+                {
+                    Severity = NotificationSeverity.Info,
+                    Summary = "Info",
+                    Detail = "Failed to save stock batch number"
+                });
+            }
+        }
+        catch (Exception ex)
+        {
+            notificationService.Notify(new NotificationMessage
+            {
+                Severity = NotificationSeverity.Error,
+                Summary = "Error",
+                Detail = $"An unexpected error occurred: {ex.Message}"
+            });
+        }
+        finally
+        {
+            isBusy = false;
+        }
+
+    }
+
+    private bool showValidationErrors = false;
+
+    private string GetBatchNoClass()
+    {
+        if (showValidationErrors && string.IsNullOrWhiteSpace(stockbatchnumbersmodel.BatchNo))
+            return "invalid-input";
+        return "";
+    }
+
+    private void OnInvalidSubmit(FormInvalidSubmitEventArgs args)
+    {
+        notificationService.Notify(new NotificationMessage
+        {
+            Severity = NotificationSeverity.Error,
+            Summary = "Validation",
+            Detail = "Batch No must not be empty.",
+            Duration = 4000
+        });
+    }
+
+
+    private void OnPrint()
+    {
+        CustomNotificationMessage.Message(notificationService, true);
+    }
+
+    private void Navigate()
+    {
+        navManager.NavigateTo("/StockBatchNumbersList");
+    }
+
+}

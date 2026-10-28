@@ -1,0 +1,1598 @@
+﻿@page "/StockItems"
+@page "/StockItemsList/Edit/{id:guid}"
+
+@attribute [Authorize(Roles = "Admin,User")]
+ 
+
+@if (isloading)
+{
+    <Spinner />
+}
+
+
+
+<RadzenTemplateForm TItem="Stocks" Data="@stockitemsmodel" Submit="@OnSubmit">
+    <RadzenStack Gap="0.5rem">
+        <RadzenCard Style="Padding: 0.5rem">
+            <RadzenRow JustifyContent="JustifyContent.Start" AlignItems="AlignItems.Center" Gap="0.5rem">
+
+                <RadzenColumn Size="12" SizeSM="5">
+                    <RadzenStack AlignItems="AlignItems.Center" Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.Normal">
+
+                        <RadzenButton Size="ButtonSize.Small" Disabled="@isDisable" IsBusy="@isBusy" ButtonType="ButtonType.Submit" BusyText="Saving..." Text="Save" Icon="save"></RadzenButton>
+
+                        <RadzenButton Visible="@btnDiseabled" Text="New" Icon="add" Size="@smallbtn"
+                                      ButtonStyle="ButtonStyle.Success"
+                                      ButtonType="@Radzen.ButtonType.Button"
+                                      Click="@OnNew" />
+
+                        <RadzenButton Size="ButtonSize.Small" Visible="@isVisible" ButtonStyle="ButtonStyle.Danger" Click="@navigate" Text="Cancel" Icon="cancel"></RadzenButton>
+                    </RadzenStack>
+                </RadzenColumn>
+
+                <RadzenColumn Size="12" SizeSM="7">
+                    <RadzenStack AlignItems="AlignItems.Center" Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End">
+                        <RadzenButton Size="@smallbtn" ButtonStyle="ButtonStyle.Light" Click="@navigate" Text="Search" Icon="search"></RadzenButton>
+                    </RadzenStack>
+                </RadzenColumn>
+
+            </RadzenRow>
+        </RadzenCard>
+
+        <RadzenCard>
+
+            <RadzenStack Gap="0.5rem">
+
+                <RadzenRow AlignItems="@alignItems">
+                    <RadzenColumn Size="12" SizeMD="4">
+                        <RadzenFormField Text="Stock #" Style="width: 100%;" AllowFloatingLabel="false">
+                            <RadzenTextBox Name="StockCode"
+                                           Change="@CheckCodeIsExist"
+                                           @bind-Value=@stockitemsmodel.StockCode
+                                           Disabled=@(Id is not null)
+                                           Style=" width: 100%;" />
+                        </RadzenFormField>
+                        <RadzenRequiredValidator Component="StockCode" Text="Stock # must be not empty" Popup="false" />
+                    </RadzenColumn>
+
+                    <RadzenColumn Size="12" SizeMD="2">
+                        <small>Stock Control</small>
+                        @* <RadzenCheckBox @bind-Value=@stockitemsmodel.StockControl Name="Stock Control"></RadzenCheckBox>  *@
+                        <RadzenSwitch Style="transform: scale(0.7);" @bind-Value=@stockitemsmodel.StockControl Name="Stock Control" />
+                    </RadzenColumn>
+
+                    <RadzenColumn Size="12" SizeMD="2">
+                        <small>Active</small>
+                        @*  <RadzenCheckBox @bind-Value=@stockitemsmodel.IsActive Name="Active"></RadzenCheckBox>  *@
+                        <RadzenSwitch Style="transform: scale(0.7);" @bind-Value=@stockitemsmodel.IsActive Name="Active" />
+                    </RadzenColumn>
+
+                    <RadzenColumn Size="12" SizeMD="4">
+                        <RadzenFormField Style="width:100%" Text="Location" AllowFloatingLabel="false">
+                            <RadzenDropDownDataGrid class="@redtext" @bind-Value=@stockitemsmodel.DefaultLocationId AllowSorting="false" Style="width: 120%;" PageSize=10 Data="@stocklocationList" AllowVirtualization="true" AllowColumnResize="true"
+                                                    AllowClear="true" FilterCaseSensitivity="@filter" AllowFilteringByAllStringColumns="true"
+                                                    TextProperty="LocationCode" Density="@density" ValueProperty="Id">
+                                <Columns>
+                                    <RadzenDropDownDataGridColumn Width="15%" Property="LocationCode" Title="Location #"></RadzenDropDownDataGridColumn>
+                                    <RadzenDropDownDataGridColumn Width="15%" Property="Description" Title="Description"></RadzenDropDownDataGridColumn>
+                                    <RadzenDropDownDataGridColumn Width="8%" Property="IsActive" Title="Active">
+                                        <Template Context="data"><RadzenCheckBox TValue="bool" Value="data.IsActive"></RadzenCheckBox></Template>
+                                    </RadzenDropDownDataGridColumn>
+                                </Columns>
+                            </RadzenDropDownDataGrid>
+                        </RadzenFormField>
+                    </RadzenColumn>
+
+
+                </RadzenRow>
+
+                <RadzenRow AlignItems="@alignItems">
+                    <RadzenColumn Size="12" SizeMD="8">
+                        <RadzenFormField Text="Stock Name" Style="width: 100%;" AllowFloatingLabel="false">
+                            <RadzenTextBox Name="StockName"
+                                           @bind-Value=@stockitemsmodel.StockName
+                                           Style=" width: 100%;" />
+                        </RadzenFormField>
+                        <RadzenRequiredValidator Component="StockName" Text="StockName must be not empty" Popup="false" />
+                    </RadzenColumn>
+
+                    <RadzenColumn Size="12" SizeMD="4">
+                        <RadzenFormField Text="Category" Style="width: 100%;" AllowFloatingLabel="false">
+                            <RadzenDropDownDataGrid @bind-Value=@stockitemsmodel.CategoryId AllowSorting="false" Style="width: 100%;" PageSize=10 Data="@stockCategoryList"
+                                                    AllowClear="true" FilterCaseSensitivity="@filter" AllowFilteringByAllStringColumns="true" AllowVirtualization="true"
+                                                    TextProperty="CategoryCode" Density="@density" ValueProperty="Id">
+                                <Columns>
+                                    <RadzenDropDownDataGridColumn Width="4%" Property="CategoryCode" Title="Category #"></RadzenDropDownDataGridColumn>
+                                    <RadzenDropDownDataGridColumn Width="15%" Property="Description" Title="Description"></RadzenDropDownDataGridColumn>
+                                </Columns>
+                            </RadzenDropDownDataGrid>
+
+                        </RadzenFormField>
+                    </RadzenColumn>
+                </RadzenRow>
+
+
+                <RadzenRow AlignItems="@alignItems">
+                    <RadzenColumn Size="12" SizeMD="8">
+                        <RadzenFormField Style="width: 100%;">
+                            <RadzenTextBox @bind-Value=@stockitemsmodel.StockName2 Style=" width: 100%;" />
+                        </RadzenFormField>
+                    </RadzenColumn>
+
+                    <RadzenColumn Size="12" SizeMD="4">
+                        <RadzenFormField Text="Group" Style="width: 100%;" AllowFloatingLabel="false">
+                            <RadzenDropDownDataGrid @bind-Value=@stockitemsmodel.GroupId AllowSorting="false" Style="width: 100%;" PageSize=10 Data="@stockGroupsList"
+                                                    AllowClear="true" FilterCaseSensitivity="@filter" AllowFilteringByAllStringColumns="true" AllowVirtualization="true"
+                                                    TextProperty="GroupCode" Density="@density" ValueProperty="Id">
+                                <Columns>
+                                    <RadzenDropDownDataGridColumn Width="4%" Property="GroupCode" Title="Group #"></RadzenDropDownDataGridColumn>
+                                    <RadzenDropDownDataGridColumn Width="15%" Property="Description" Title="Description"></RadzenDropDownDataGridColumn>
+                                </Columns>
+                            </RadzenDropDownDataGrid>
+                        </RadzenFormField>
+                    </RadzenColumn>
+                </RadzenRow>
+
+                <RadzenRow AlignItems="@alignItems">
+                    <RadzenColumn Size="12" SizeMD="8">
+                    </RadzenColumn>
+
+                    <RadzenColumn Size="12" SizeMD="4">
+                        <RadzenFormField Text="Class" Style="width: 100%;" AllowFloatingLabel="false">
+                            <RadzenDropDownDataGrid @bind-Value=@stockitemsmodel.ClassId AllowSorting="false" Style="width: 100%;" PageSize=10 Data="@stockClassesList"
+                                                    AllowClear="true" FilterCaseSensitivity="@filter" AllowFilteringByAllStringColumns="true" AllowVirtualization="true"
+                                                    TextProperty="ClassCode" Density="@density" ValueProperty="Id">
+                                <Columns>
+                                    <RadzenDropDownDataGridColumn Width="4%" Property="ClassCode" Title="Class #"></RadzenDropDownDataGridColumn>
+                                    <RadzenDropDownDataGridColumn Width="15%" Property="Description" Title="Description"></RadzenDropDownDataGridColumn>
+                                </Columns>
+                            </RadzenDropDownDataGrid>
+
+                        </RadzenFormField>
+                    </RadzenColumn>
+                </RadzenRow>
+
+                <RadzenRow AlignItems="@alignItems">
+                    <RadzenColumn Size="12" SizeMD="1">
+                        <RadzenText TextStyle="@textStyle" Text="Created Date" AllowFloatingLabel="false"></RadzenText>
+                    </RadzenColumn>
+                    <RadzenColumn Size="12" SizeMD="4">
+                        <RadzenDatePicker Style=" width: 100%;" DateFormat="MM/dd/yyyy" @bind-Value=@stockitemsmodel.CreateDate></RadzenDatePicker>
+                    </RadzenColumn>
+
+                    <RadzenColumn Size="12" SizeMD="3">
+                    </RadzenColumn>
+
+                    <RadzenColumn Size="12" SizeMD="4">
+                        <RadzenFormField Text="Preset Code" Style="width: 100%;" AllowFloatingLabel="false">
+                            <RadzenDropDownDataGrid Name="PresetCode"
+                                                    @bind-Value=@stockitemsmodel.StockAccountPresetId
+                                                    AllowSorting="false" Style="width: 100%;"
+                                                    PageSize=10 Data="@stockAccountPresetsList"
+                                                    AllowClear="true"
+                                                    FilterCaseSensitivity="@filter"
+                                                    AllowFilteringByAllStringColumns="true"
+                                                    AllowVirtualization="true"
+                                                    TextProperty="PresetCode"
+                                                    Density="@density"
+                                                    ValueProperty="Id">
+                                <Columns>
+                                    <RadzenDropDownDataGridColumn Width="4%" Property="PresetCode" Title="Preset #"></RadzenDropDownDataGridColumn>
+                                    <RadzenDropDownDataGridColumn Width="15%" Property="Description" Title="Description"></RadzenDropDownDataGridColumn>
+                                </Columns>
+                            </RadzenDropDownDataGrid>
+                        </RadzenFormField>
+                        <RadzenRequiredValidator Component="PresetCode" Text="PresetCode must be not empty" Popup="false" />
+                    </RadzenColumn>
+
+                </RadzenRow>
+
+                <RadzenTabs RenderMode="TabRenderMode.Client">
+                    <Tabs>
+                        <RadzenTabsItem Text="Details">
+                            <RadzenRow AlignItems="AlignItems.Normal">
+
+                                <RadzenColumn Size="12" SizeMD="6">
+
+
+                                    <RadzenStack Gap="0.1rem">
+                                        <RadzenFormField Text="UOM #" Style="width: 100%;">
+                                            <RadzenTextBox Change="@ChangeUOMCode" @bind-Value=@stockitemsmodel.BaseUOM Style=" width: 100%;"></RadzenTextBox>
+                                        </RadzenFormField>
+                                        <RadzenFormField Text="Sales Price" Style="width: 100%;">
+                                            <RadzenNumeric ShowUpDown="false" @bind-Value=@stockitemsmodel.ListPrice Format="@formatnumber" Style=" width: 100%;"></RadzenNumeric>
+
+                                        </RadzenFormField>
+                                        <RadzenFormField Text="Sales Discount" Style="width: 100%;">
+                                            <RadzenTextBox @bind-Value=@stockitemsmodel.SalesDiscount Style=" width: 100%;"></RadzenTextBox>
+                                        </RadzenFormField>
+                                        <RadzenFormField Text="Last Selling Price" Style="width: 100%;">
+                                            <RadzenNumeric Disabled=true ShowUpDown="false" @bind-Value=@stockPurchasePrice.Price Format="@formatnumber" Style=" width: 100%;"></RadzenNumeric>
+                                        </RadzenFormField>
+                                        <RadzenFormField Text="Volume" Style="width: 100%;">
+                                            <RadzenNumeric ShowUpDown="false" @bind-Value=@stockitemsmodel.Volumn Style=" width: 100%;"></RadzenNumeric>
+                                        </RadzenFormField>
+                                        <RadzenFormField Text="Floor Price" Style="width: 100%;">
+                                            <RadzenNumeric ShowUpDown="false" @bind-Value=@stockitemsmodel.FloorPrice Format="@formatnumber" Style=" width: 100%;"></RadzenNumeric>
+                                        </RadzenFormField>
+
+
+                                    </RadzenStack>
+
+                                </RadzenColumn>
+                                <RadzenColumn Size="12" SizeMD="6">
+                                    <RadzenStack Gap="0.1rem">
+                                        <RadzenFormField Text="Min Price" Style="width: 100%;">
+                                            <RadzenNumeric ShowUpDown="false" @bind-Value=@stockitemsmodel.MinPrice Format="@formatnumber" Style=" width: 100%;"></RadzenNumeric>
+                                        </RadzenFormField>
+                                        <RadzenFormField Text="Purchase Price" Style="width: 100%;">
+                                            <RadzenNumeric ShowUpDown="false" @bind-Value=@stockitemsmodel.PurchasePrice Format="@formatnumber" Style=" width: 100%;"></RadzenNumeric>
+                                        </RadzenFormField>
+                                        <RadzenFormField Text="Purchase Discount" Style="width: 100%;">
+                                            <RadzenTextBox @bind-Value=@stockitemsmodel.PurchaseDiscount Style=" width: 100%;"></RadzenTextBox>
+                                        </RadzenFormField>
+                                        <RadzenFormField Text="Last Purchase Price" Style="width: 100%;">
+                                            <RadzenNumeric Disabled=true ShowUpDown="false" @bind-Value=@stockSellingPrice.Price Format="@formatnumber" Style=" width: 100%;"></RadzenNumeric>
+                                        </RadzenFormField>
+                                        <RadzenFormField Text="Weight" Style="width: 100%;">
+                                            <RadzenNumeric ShowUpDown="false" @bind-Value=@stockitemsmodel.Weight Format="@formatnumber" Style=" width: 100%;"></RadzenNumeric>
+                                        </RadzenFormField>
+                                    </RadzenStack>
+                                </RadzenColumn>
+
+                                @*   Continuation--------- *@
+                            </RadzenRow>
+                        </RadzenTabsItem>
+
+                        <RadzenTabsItem Text="Multi-UOMs">
+
+                            <RadzenDataGrid EditMode="@editMode" @ref="uomsDetailsGrid" Style="width: 100%; font-size:12px"
+                                            Data="@multiuomsList" AllowColumnResize=true RowCreate="@OnCreateUOMRow"
+                                            TItem="UOMs" Density="@density" RowUpdate="@OnUpdateUOMRow"
+                                            CellDoubleClick="@(args => EditUOMRow(args.Data))">
+
+                                <HeaderTemplate>
+                                    <RadzenButton ButtonStyle="ButtonStyle.Success" Icon="add" Text="Add UOMs" Size="ButtonSize.ExtraSmall" Click="@(() => InsertUOMRow(multiuomsList.LastOrDefault()))" Disabled="@(uomsDetailsToUpdate.Any())" />
+                                    @* <RadzenButton Variant="Variant.Outlined" ButtonStyle="ButtonStyle.Base" Size="ButtonSize.ExtraSmall" Text="Search" Icon="search" />
+                                        <RadzenButton Variant="Variant.Outlined" ButtonStyle="ButtonStyle.Base" Size="ButtonSize.ExtraSmall" Text="Print" Icon="print" /> *@
+                                </HeaderTemplate>
+
+                                <Columns>
+
+                                    <RadzenDataGridColumn Width="45px" TextAlign="TextAlign.Center" Property="Action" Frozen="true" FrozenPosition="FrozenColumnPosition.Left">
+                                        <Template Context="uom">
+                                            <RadzenButton Icon="edit" ButtonStyle="ButtonStyle.Secondary" Variant="Variant.Text" Size="ButtonSize.ExtraSmall" Click="@(args => EditUOMRow(uom))" title="Edit this row" />
+                                           
+                                        </Template>
+                                        <EditTemplate Context="uom">
+                                            <RadzenButton Icon="check" ButtonStyle="ButtonStyle.Success" Variant="Variant.Text" Size="ButtonSize.ExtraSmall" class="rz-my-1 rz-ms-1" Click="@((args) => SaveUOMRow(uom))" title="Save" />
+                                        </EditTemplate>
+                                    </RadzenDataGridColumn>
+
+                                    <RadzenDataGridColumn Visible=false Width="9rem" TItem="UOMs" Property="@nameof(UOMs.Id)" Title="Id" TextAlign="TextAlign.Center" />
+                                    <RadzenDataGridColumn Visible=false Width="9rem" TItem="UOMs" Property="@nameof(UOMs.StockId)" Title="StockId" TextAlign="TextAlign.Center" />
+                                    <RadzenDataGridColumn Width="9rem" TItem="UOMs" Property="@nameof(UOMs.UOMCode)" Title="UOM Code" TextAlign="TextAlign.Center">
+                                        <EditTemplate Context="uom">
+                                            <RadzenTextBox Style="width: 100%; font-size:12px" Change=@ChangeUOMCode @bind-Value="uom.UOMCode"></RadzenTextBox>
+                                        </EditTemplate>
+                                    </RadzenDataGridColumn>
+
+                                    <RadzenDataGridColumn Visible=false Width="9rem" TItem="UOMs" Property="@nameof(UOMs.BarCode)" Title="Bar Code" TextAlign="TextAlign.Center">
+                                        <EditTemplate Context="uom">
+                                            <RadzenTextBox Style="width: 100%; font-size:12px" @bind-Value="uom.BarCode"></RadzenTextBox>
+                                        </EditTemplate>
+                                    </RadzenDataGridColumn>
+
+                                    <RadzenDataGridColumn Width="8rem" TItem="UOMs" Property="@nameof(UOMs.Rate)" TextAlign="TextAlign.Right" Title="Rate">
+                                        <Template Context="uom">
+                                            @(uom.Rate == 0 ? "" : uom.Rate.ToString("#,0.0000")) @stockitemsmodel.BaseUOM
+                                        </Template>
+                                        <EditTemplate Context="uom">
+                                            <RadzenNumeric Style="width: 100%; font-size:12px" TValue="decimal" @bind-Value="uom.Rate" Format="#0.0000" />
+                                        </EditTemplate>
+                                    </RadzenDataGridColumn>
+
+                                    <RadzenDataGridColumn Width="9rem" TItem="UOMs" Property="@nameof(UOMs.Description)" Title="Description" TextAlign="TextAlign.Center">
+                                        <EditTemplate Context="uom">
+                                            <RadzenTextBox Style="width: 100%; font-size:12px" @bind-Value="uom.Description"></RadzenTextBox>
+                                        </EditTemplate>
+                                    </RadzenDataGridColumn>
+
+                                    <RadzenDataGridColumn Width="9rem" TItem="UOMs" Property="@nameof(UOMs.SalesPrice)" Title="Sales Price" TextAlign="TextAlign.Center">
+                                        <Template Context="uom">
+                                            @(uom.SalesPrice == 0 ? "" : uom.SalesPrice.ToString(formatnumber))
+                                        </Template>
+                                        <EditTemplate Context="uom">
+                                            <RadzenNumeric Style="width: 100%; font-size:12px" TValue="decimal" @bind-Value="uom.SalesPrice" Format="#0.00000000" />
+                                        </EditTemplate>
+                                    </RadzenDataGridColumn>
+
+                                    <RadzenDataGridColumn Width="9rem" TItem="UOMs" Property="@nameof(UOMs.PurchasePrice)" Title="Purchase Price" TextAlign="TextAlign.Center">
+                                        <Template Context="uom">
+                                            @(uom.PurchasePrice == 0 ? "" : uom.PurchasePrice.ToString(formatnumber))
+                                        </Template>
+                                        <EditTemplate Context="uom">
+                                            <RadzenNumeric Style="width: 100%; font-size:12px" TValue="decimal" @bind-Value="uom.PurchasePrice" Format="#0.00000000" />
+                                        </EditTemplate>
+                                    </RadzenDataGridColumn>
+
+                                    <RadzenDataGridColumn Width="8rem" TItem="UOMs" Property="@nameof(UOMs.SalesDiscount)" Title="Sales Discount" TextAlign="TextAlign.Center">
+                                        <EditTemplate Context="uom">
+                                            <RadzenTextBox Style="width: 100%; font-size:12px" @bind-Value="uom.SalesDiscount"></RadzenTextBox>
+                                        </EditTemplate>
+                                    </RadzenDataGridColumn>
+
+                                    <RadzenDataGridColumn Width="8rem" TItem="UOMs" Property="@nameof(UOMs.PurchaseDiscount)" Title="Purchase Discount" TextAlign="TextAlign.Center">
+                                        <EditTemplate Context="uom">
+                                            <RadzenTextBox Style="width: 100%; font-size:12px" @bind-Value="uom.PurchaseDiscount"></RadzenTextBox>
+                                        </EditTemplate>
+                                    </RadzenDataGridColumn>
+
+                                    <RadzenDataGridColumn Width="9rem" TItem="UOMs" Property="@nameof(UOMs.MinSalesPrice)" Title="Min Sales Price" TextAlign="TextAlign.Center">
+                                        <Template Context="uom">
+                                            @(uom.MinSalesPrice == 0 ? "" : uom.MinSalesPrice.ToString(formatnumber))
+                                        </Template>
+                                        <EditTemplate Context="uom">
+                                            <RadzenNumeric Style="width: 100%; font-size:12px" TValue="decimal" @bind-Value="uom.MinSalesPrice" Format="#0.00000000" />
+                                        </EditTemplate>
+                                    </RadzenDataGridColumn>
+
+                                    <RadzenDataGridColumn Width="6rem" TItem="UOMs" Property="@nameof(UOMs.IsActive)" Title="Active" TextAlign="TextAlign.Center">
+                                        <Template Context="uom">
+                                            <RadzenCheckBox Disabled=true @bind-Value="uom.IsActive"></RadzenCheckBox>
+                                        </Template>
+                                        <EditTemplate Context="uom">
+                                            <RadzenCheckBox @bind-Value="uom.IsActive"></RadzenCheckBox>
+                                        </EditTemplate>
+                                    </RadzenDataGridColumn>
+
+                                    <RadzenDataGridColumn Width="45px" TextAlign="TextAlign.Center" Property="Action" Title="Actions" FrozenPosition="FrozenColumnPosition.Right">
+                                        <Template Context="uom">
+                                            <RadzenButton Icon="delete" title="Delete" ButtonStyle="ButtonStyle.Danger" Variant="Variant.Text" Size="ButtonSize.ExtraSmall" Click="@(args => DeleteUOMRow(uom))" Disabled="@(multiuomsList.Count == 1 || stockitemsmodel.IsActive is false)" />
+                                        </Template>
+                                     
+                                    </RadzenDataGridColumn>
+
+                                </Columns>
+                            </RadzenDataGrid>
+
+                        </RadzenTabsItem>
+
+                        <RadzenTabsItem Text="Stock Control">
+                            <div class="p-3" style="display: grid; grid-template-columns: 150px 1fr 150px 1fr; gap: 10px; align-items: center;">
+
+                                <RadzenLabel Text="Min Qty" />
+                                <RadzenNumeric Disabled=@(!stockitemsmodel.StockControl) @bind-Value="stockitemsmodel.MinQty" TValue="decimal" Style="width: 100%;" Format="#0.0000" />
+
+
+                                <RadzenLabel Text="Max Qty" />
+                                <RadzenNumeric Disabled=@(!stockitemsmodel.StockControl) @bind-Value="stockitemsmodel.MaxQty" TValue="decimal" Style="width: 100%;" Format="#0.0000" />
+
+
+                                <RadzenLabel Text="Reorder Level" />
+                                <RadzenNumeric Disabled=@(!stockitemsmodel.StockControl) @bind-Value="stockitemsmodel.ReorderLevel" TValue="decimal" Style="width: 100%;" Format="#0.0000" />
+
+
+                                <RadzenLabel Text="Reorder Qty" />
+                                <RadzenNumeric Disabled=@(!stockitemsmodel.StockControl) @bind-Value="stockitemsmodel.ReorderQty" TValue="decimal" Style="width: 100%;" Format="#0.0000" />
+
+
+                                <RadzenLabel Text="Stock Control by Location" />
+                                <div style="display:flex; align-items:center; gap:8px;">
+                                    <RadzenButton Text="Setting" ButtonStyle="ButtonStyle.Secondary" Disabled="true" />
+                                    <RadzenCheckBox @bind-Value="stockitemsmodel.AllowNegativeStock" TValue="bool" />
+                                    <RadzenLabel Text="Allow Negative Stock" />
+                                </div>
+
+
+                                <RadzenLabel Text="Balance" />
+                                <RadzenNumeric @bind-Value="stockitemsmodel.CurrentBalance" TValue="decimal" Style="width: 100%;" Format="#0.0000" Disabled="false" />
+
+                            </div>
+                        </RadzenTabsItem>
+
+                        @* <RadzenTabsItem Text="Serial No">
+                            <div class="p-3" style="display: grid; grid-template-columns: 150px 1fr; gap: 10px; align-items: center;">
+
+
+                                <RadzenLabel Text="Use Serial No" />
+                                <RadzenCheckBox @bind-Value="stockItems.UseSerialNo" TValue="bool" />
+
+
+                                <RadzenLabel Text="Serial No Prefix" />
+                                <RadzenTextBox @bind-Value="stockItems.SerialNoPrefix"
+                                               Style="width: 100%;"
+                                               Disabled="@(stockItems.UseSerialNo == false)" />
+
+                                <RadzenLabel Text="Serial No Suffix" />
+                                <RadzenTextBox @bind-Value="stockItems.SerialNoSuffix"
+                                               Style="width: 100%;"
+                                               Disabled="@(stockItems.UseSerialNo == false)" />
+
+                            </div>
+                        </RadzenTabsItem> *@
+
+                        <RadzenTabsItem Text="Batch No">
+                            <div class="p-3" style="display: grid; grid-template-columns: 150px 1fr; gap: 10px; align-items: center;">
+
+                                <RadzenLabel Text="Use Batch No" />
+                                <RadzenCheckBox @bind-Value="stockitemsmodel.UseBatchNo" TValue="bool"
+                                                Change="@(args => OnUseBatchNoChanged(args))" />
+
+                                <RadzenLabel Text="Use Default Unsalable Period" />
+                                <RadzenCheckBox @bind-Value="stockitemsmodel.UseDefaultUnsalablePeriod" TValue="bool"
+                                                Disabled="!stockitemsmodel.UseBatchNo"
+                                                Change="@(args => OnUseDefaultUnsalablePeriodChanged(args))" />
+
+                                <RadzenLabel Text="Unsalable Period (days)" />
+                                <RadzenNumeric @bind-Value="stockitemsmodel.UnsalablePeriod"
+                                               TValue="int"
+                                               Disabled="!stockitemsmodel.UseBatchNo || stockitemsmodel.UseDefaultUnsalablePeriod"
+                                               Style="width:100%;"
+                                               ShowUpDown="false" />
+                            </div>
+                        </RadzenTabsItem>
+
+
+                        <RadzenTabsItem Text="Default VAT">
+
+                            <!-- Input Tax Dropdown -->
+                            <RadzenRow AlignItems="@alignItems">
+                                <RadzenColumn Size="12" SizeMD="6" Style="margin-bottom:20px;">
+                                    <RadzenFormField Style="width:100%" Text="Input Tax" AllowFloatingLabel="false">
+                                        <RadzenDropDownDataGrid class="@redtext"
+                                                                @bind-Value="@taxCodesModel.InputTaxCodeId"
+                                                                Data="@inputTaxCodesList"
+                                                                TextProperty="TaxCode"
+                                                                ValueProperty="Id"
+                                                                AllowSorting="false"
+                                                                Style="width: 100%;"
+                                                                PageSize="10"
+                                                                AllowVirtualization="true"
+                                                                AllowColumnResize="true"
+                                                                AllowClear="true"
+                                                                FilterCaseSensitivity="@filter"
+                                                                AllowFilteringByAllStringColumns="true"
+                                                                Density="@density"
+                                                                Placeholder="Select Input Tax Code">
+
+                                            <Columns>
+                                                <RadzenDropDownDataGridColumn Width="15%" Property="TaxCode" Title="VAT #"></RadzenDropDownDataGridColumn>
+                                                <RadzenDropDownDataGridColumn Width="15%" Property="Rate" Title="Rate"></RadzenDropDownDataGridColumn>
+                                                <RadzenDropDownDataGridColumn Width="15%" Property="VatType" Title="VAT Type"></RadzenDropDownDataGridColumn>
+                                                <RadzenDropDownDataGridColumn Width="30%" Property="Description" Title="Description"></RadzenDropDownDataGridColumn>
+                                            </Columns>
+                                        </RadzenDropDownDataGrid>
+                                    </RadzenFormField>
+                                </RadzenColumn>
+
+
+                                <!-- Output Tax Dropdown -->
+                                <RadzenColumn Size="12" SizeMD="6" Style="margin-bottom:20px;">
+                                    <RadzenFormField Style="width:100%" Text="Output Tax" AllowFloatingLabel="false">
+                                        <RadzenDropDownDataGrid class="@redtext"
+                                                                @bind-Value="@taxCodesModel.OutputTaxCodeId"
+                                                                Data="@outputTaxCodesList"
+                                                                TextProperty="TaxCode"
+                                                                ValueProperty="Id"
+                                                                AllowSorting="false"
+                                                                Style="width: 100%;"
+                                                                PageSize="10"
+                                                                AllowVirtualization="true"
+                                                                AllowColumnResize="true"
+                                                                AllowClear="true"
+                                                                FilterCaseSensitivity="@filter"
+                                                                AllowFilteringByAllStringColumns="true"
+                                                                Density="@density"
+                                                                Placeholder="Select Output Tax Code">
+
+                                            <Columns>
+                                                <RadzenDropDownDataGridColumn Width="15%" Property="TaxCode" Title="VAT #"></RadzenDropDownDataGridColumn>
+                                                <RadzenDropDownDataGridColumn Width="15%" Property="Rate" Title="Rate"></RadzenDropDownDataGridColumn>
+                                                <RadzenDropDownDataGridColumn Width="15%" Property="VatType" Title="VAT Type"></RadzenDropDownDataGridColumn>
+                                                <RadzenDropDownDataGridColumn Width="30%" Property="Description" Title="Description"></RadzenDropDownDataGridColumn>
+                                            </Columns>
+                                        </RadzenDropDownDataGrid>
+                                    </RadzenFormField>
+
+                                </RadzenColumn>
+                            </RadzenRow>
+                        </RadzenTabsItem>
+
+
+                        <RadzenTabsItem Text="Stock Bundle">
+
+
+                            <div style="margin-bottom: 10px;">
+                                <RadzenLabel Text="Bundled" style="margin-right: 10px;" />
+                                <RadzenSwitch Disabled="@(Id is not null)" Style="transform: scale(0.7);" @bind-Value="stockitemsmodel.IsBundled" Name="Bundled" />
+                                @*   <RadzenCheckBox @bind-Value="stockitemsmodel.IsBundled" TValue="bool" /> *@
+                            </div>
+
+
+                            <RadzenDataGrid EditMode="@editMode" @ref="stockbundleDetailsGrid" Style="width: 100%; font-size:12px"
+                                            Data="@stockbundleDetailList" AllowColumnResize=true RowCreate="@OnCreateStockBundleRow"
+                                            TItem="StockBundlesModel" Density="@density" RowUpdate="@OnUpdateStockBundleRow">
+
+                                <HeaderTemplate>
+
+                                    <RadzenButton ButtonStyle="ButtonStyle.Success" Icon="add" Text="Add New Stock Bundle"
+                                                  Size="ButtonSize.ExtraSmall" Click="@(() => InsertStockBundleRow(stockbundleDetailList.LastOrDefault()))"
+                                                  Disabled="@(!stockitemsmodel.IsBundled || uomsDetailsToUpdate.Any())" />
+                                </HeaderTemplate>
+
+                                <Columns>
+                                    <RadzenDataGridColumn Width="45px" TextAlign="TextAlign.Center" Frozen=true FrozenPosition="FrozenColumnPosition.Left">
+                                        <Template Context="stockbundlesModel">
+                                            <RadzenButton Icon="edit" ButtonStyle="ButtonStyle.Secondary" Variant="Variant.Text" Size="ButtonSize.ExtraSmall" Click="@(args => EditStockBundleRow(stockbundlesModel))" title="Edit this row" />
+                                        </Template>
+                                        <EditTemplate Context="stockbundlesModel">
+                                            <RadzenButton Icon="check" ButtonStyle="ButtonStyle.Success" Variant="Variant.Text" Size="ButtonSize.ExtraSmall" class="rz-my-1 rz-ms-1" Click="@((args) => SaveStockBundleRow(stockbundlesModel))" title="Save" />
+                                        </EditTemplate>
+                                    </RadzenDataGridColumn>
+
+                                    <RadzenDataGridColumn Visible="false" Width="11rem" TItem="StockBundlesModel" Property="@nameof(StockBundlesModel.Pos)" Title="Pos" TextAlign="TextAlign.Center" />
+                                    <RadzenDataGridColumn Width="11rem" TItem="StockBundlesModel" Property="@nameof(StockBundlesModel.SubItemId)" Title="Sub Item" TextAlign="TextAlign.Center">
+                                        <Template Context="stockbundlesModel">
+                                            @{
+                                                var Stock = stockList?.FirstOrDefault(s => s.Id == stockbundlesModel.SubItemId);
+                                            }
+                                            @Stock?.StockCode
+                                        </Template>
+                                        <EditTemplate Context="stockbundlesModel">
+                                            <RadzenDropDownDataGrid @bind-Value="stockbundlesModel.SubItemId"
+                                                                    Change="@(args => OnStockBundleChanged(args, stockbundlesModel))"
+                                                                    Style="width: 100%; font-size:12px" PageSize="10" Data="@stockList"
+                                                                    AllowVirtualization="true" AllowColumnResize="true"
+                                                                    AllowClear="true" AllowSorting="false"
+                                                                    FilterCaseSensitivity="@filter" AllowFilteringByAllStringColumns="true"
+                                                                    TextProperty="StockCode" Density="@density" ValueProperty="Id">
+                                                <Columns>
+                                                    <RadzenDropDownDataGridColumn Width="6%" Property="StockCode" Title="Stock #" />
+                                                    <RadzenDropDownDataGridColumn Width="10%" Property="StockName" Title="StockName" />
+                                                </Columns>
+                                            </RadzenDropDownDataGrid>
+                                        </EditTemplate>
+                                    </RadzenDataGridColumn>
+
+                                    <RadzenDataGridColumn Width="12rem" TItem="StockBundlesModel" Property="@nameof(StockBundlesModel.Description)" Title="Description" TextAlign="TextAlign.Center">
+                                        <EditTemplate Context="stockbundlesModel">
+                                            <RadzenTextBox Style="width: 100%; font-size:12px" @bind-Value="stockbundlesModel.Description"></RadzenTextBox>
+                                        </EditTemplate>
+                                    </RadzenDataGridColumn>
+
+                                    <RadzenDataGridColumn Width="6rem" TItem="StockBundlesModel" Property="@nameof(StockBundlesModel.Qty)" Title="Qty" TextAlign="TextAlign.Center">
+                                        <Template Context="stockbundlesModel">
+                                            @(stockbundlesModel.Qty == 0 ? "" : stockbundlesModel.Qty.ToString("N4"))
+                                        </Template>
+                                        <EditTemplate Context="stockbundlesModel">
+                                            <RadzenNumeric Style="width: 100%; font-size:12px" TValue="decimal" @bind-Value="stockbundlesModel.Qty" Format="#.0000" />
+                                        </EditTemplate>
+                                    </RadzenDataGridColumn>
+
+                                    <RadzenDataGridColumn Width="6rem" TItem="StockBundlesModel" Property="@nameof(StockBundlesModel.UOMId)" Title="UOM" TextAlign="TextAlign.Center">
+                                        <Template Context="stockbundlesModel">
+                                            @{
+                                                var uoms = uomsList?.FirstOrDefault(u => u.Id == stockbundlesModel.UOMId);
+                                            }
+                                            @uoms?.UOMCode
+                                        </Template>
+
+                                        <EditTemplate Context="stockbundlesModel">
+
+                                            <RadzenDropDownDataGrid @bind-Value="stockbundlesModel.UOMId" Style="width: 100%; font-size:12px" PageSize="10" Data="@GetUOMsForStock(stockbundlesModel.SubItemId)" AllowVirtualization="true" AllowColumnResize="true"
+                                                                    AllowClear="true" AllowSorting="false" FilterCaseSensitivity="@filter" AllowFilteringByAllStringColumns="true"
+                                                                    TextProperty="UOMCode" Density="@density" ValueProperty="Id">
+                                                <Columns>
+                                                    <RadzenDropDownDataGridColumn Width="6%" Property="UOMCode" Title="UOM #" />
+                                                    <RadzenDropDownDataGridColumn Width="10%" Property="Description" Title="Description" />
+                                                </Columns>
+                                            </RadzenDropDownDataGrid>
+                                        </EditTemplate>
+                                    </RadzenDataGridColumn>
+
+                                    <RadzenDataGridColumn Width="6rem" TItem="StockBundlesModel" Property="@nameof(StockBundlesModel.UnitPrice)" Title="Unit Price" TextAlign="TextAlign.Center">
+                                        <Template Context="stockbundlesModel">
+                                            @(stockbundlesModel.UnitPrice == 0 ? "" : stockbundlesModel.UnitPrice.ToString("N4"))
+                                        </Template>
+                                        <EditTemplate Context="stockbundlesModel">
+                                            <RadzenNumeric Style="width: 100%; font-size:12px" TValue="decimal" @bind-Value="stockbundlesModel.UnitPrice" Format="#.0000" />
+                                        </EditTemplate>
+                                    </RadzenDataGridColumn>
+
+                                    <RadzenDataGridColumn Width="6rem" TItem="StockBundlesModel" Property="@nameof(StockBundlesModel.UnitCost)" Title="Unit Cost" TextAlign="TextAlign.Center">
+                                        <Template Context="stockbundlesModel">
+                                            @(stockbundlesModel.UnitCost == 0 ? "" : stockbundlesModel.UnitCost.ToString("N4"))
+                                        </Template>
+                                        <EditTemplate Context="stockbundlesModel">
+                                            <RadzenNumeric Style="width: 100%; font-size:12px" TValue="decimal" @bind-Value="stockbundlesModel.UnitCost" Format="#.0000" />
+                                        </EditTemplate>
+                                    </RadzenDataGridColumn>
+
+                                    <RadzenDataGridColumn Width="8rem" TItem="StockBundlesModel" Property="@nameof(StockBundlesModel.SalesPrice)" Title="Sales Price" TextAlign="TextAlign.Center">
+                                        <Template Context="stockbundlesModel">
+                                            @(stockbundlesModel.SalesPrice == 0 ? "" : stockbundlesModel.SalesPrice.ToString(formatnumber))
+                                        </Template>
+                                        <EditTemplate Context="stockbundlesModel">
+                                            <RadzenNumeric Style="width: 100%; font-size:12px" TValue="decimal" @bind-Value="stockbundlesModel.SalesPrice" Format="#.0000" />
+                                        </EditTemplate>
+                                    </RadzenDataGridColumn>
+
+                                    <RadzenDataGridColumn Width="8rem" TItem="StockBundlesModel" Property="@nameof(StockBundlesModel.PurchasesCost)" Title="Purchases Cost" TextAlign="TextAlign.Center">
+                                        <Template Context="stockbundlesModel">
+                                            @(stockbundlesModel.PurchasesCost == 0 ? "" : stockbundlesModel.PurchasesCost.ToString(formatnumber))
+                                        </Template>
+                                        <EditTemplate Context="stockbundlesModel">
+                                            <RadzenNumeric Style="width: 100%; font-size:12px" TValue="decimal" @bind-Value="stockbundlesModel.PurchasesCost" Format="#.0000" />
+                                        </EditTemplate>
+                                    </RadzenDataGridColumn>
+
+                                    <RadzenDataGridColumn Width="9rem" TItem="StockBundlesModel" Property="@nameof(StockBundlesModel.ProjectId)" Title="Project" TextAlign="TextAlign.Center">
+                                        <Template Context="stockbundlesModel">
+                                            @projectList?.FirstOrDefault(p => p.Id == stockbundlesModel.ProjectId)?.ProjectCode
+                                        </Template>
+                                        <EditTemplate Context="stockbundlesModel">
+                                            <RadzenDropDownDataGrid @bind-Value="stockbundlesModel.ProjectId"
+                                                                    Data="@projectList"
+                                                                    PageSize="10"
+                                                                    Style="width:100%; font-size:12px"
+                                                                    AllowVirtualization="true"
+                                                                    AllowClear="true"
+                                                                    TextProperty="ProjectCode"
+                                                                    ValueProperty="Id">
+                                                <Columns>
+                                                    <RadzenDropDownDataGridColumn Width="15%" Property="ProjectCode" Title="Project Code" />
+                                                    <RadzenDropDownDataGridColumn Width="15%" Property="Description" Title="Description" />
+                                                    <RadzenDropDownDataGridColumn Width="8%" Property="IsActive" Title="Active">
+                                                        <Template Context="data2">
+                                                            <RadzenCheckBox TValue="bool" Value="data2.IsActive"></RadzenCheckBox>
+                                                        </Template>
+                                                    </RadzenDropDownDataGridColumn>
+                                                </Columns>
+                                            </RadzenDropDownDataGrid>
+                                        </EditTemplate>
+                                    </RadzenDataGridColumn>
+
+
+                                    <RadzenDataGridColumn Width="9rem" TItem="StockBundlesModel" Property="@nameof(StockBundlesModel.StockLocationId)" Title="Location" TextAlign="TextAlign.Center">
+
+                                        <Template Context="stockbundlesModel">
+                                            @stocklocationList?.FirstOrDefault(l => l.Id == stockbundlesModel.StockLocationId)?.LocationCode
+                                        </Template>
+
+                                        <EditTemplate Context="stockbundlesModel">
+                                            <RadzenDropDownDataGrid @bind-Value="stockbundlesModel.StockLocationId"
+                                                                    Data="@stocklocationList"
+                                                                    PageSize="10"
+                                                                    Style="width:100%; font-size:12px"
+                                                                    AllowVirtualization="true"
+                                                                    AllowClear="true"
+                                                                    TextProperty="LocationCode"
+                                                                    ValueProperty="Id">
+                                                <Columns>
+                                                    <RadzenDropDownDataGridColumn Width="15%" Property="LocationCode" Title="Location #" />
+                                                    <RadzenDropDownDataGridColumn Width="15%" Property="Description" Title="Description" />
+                                                    <RadzenDropDownDataGridColumn Width="8%" Property="IsActive" Title="Active">
+                                                        <Template Context="data">
+                                                            <RadzenCheckBox TValue="bool" Value="data.IsActive"></RadzenCheckBox>
+                                                        </Template>
+                                                    </RadzenDropDownDataGridColumn>
+                                                </Columns>
+                                            </RadzenDropDownDataGrid>
+                                        </EditTemplate>
+
+                                    </RadzenDataGridColumn>
+
+                                    <RadzenDataGridColumn Width="45px" TextAlign="TextAlign.Center" Frozen=true FrozenPosition="FrozenColumnPosition.Right">
+                                        <Template Context="stockbundlesModel">
+                                            <RadzenButton Icon="delete" ButtonStyle="ButtonStyle.Danger" Variant="Variant.Text" Size="ButtonSize.ExtraSmall" class="rz-my-1 rz-ms-1" Click="@(args => DeleteStockBundleRow(stockbundlesModel))" />
+                                        </Template>
+                                      
+                                    </RadzenDataGridColumn>
+
+                                </Columns>
+                            </RadzenDataGrid>
+
+                        </RadzenTabsItem>
+
+                        <RadzenTabsItem Text="Notes">
+                            <RadzenRow>
+                                <RadzenColumn Size="12" SizeMD="12">
+                                    <RadzenStack Gap="0.2rem">
+                                        <RadzenRow AlignItems="@alignItems">
+                                            <RadzenColumn Size="12" SizeMD="12">
+                                                <RadzenTextArea @bind-Value=@stockitemsmodel.Notes Rows="10" Style="width:100%" aria-label="TextArea" />
+                                            </RadzenColumn>
+                                        </RadzenRow>
+                                    </RadzenStack>
+                                </RadzenColumn>
+                            </RadzenRow>
+                        </RadzenTabsItem>
+
+                        <RadzenTabsItem Text="Others">
+                            <RadzenRow>
+
+                                <RadzenColumn Size="12" SizeMD="6">
+                                    <RadzenStack Gap="0.2rem">
+
+                                        <RadzenRow>
+                                            <RadzenColumn Size="12">
+                                                <RadzenFormField Style="width:100%" Text="Remark 1" AllowFloatingLabel="false">
+                                                    <RadzenTextBox class="@redtext" @bind-Value="@stockitemsmodel.Remark1" Style="width: 100%;" />
+                                                </RadzenFormField>
+                                            </RadzenColumn>
+                                        </RadzenRow>
+
+                                        <RadzenRow>
+                                            <RadzenColumn Size="12">
+                                                <RadzenFormField Style="width:100%" Text="Remark 2" AllowFloatingLabel="false">
+                                                    <RadzenTextBox class="@redtext" @bind-Value="@stockitemsmodel.Remark2" Style="width: 100%;" />
+                                                </RadzenFormField>
+                                            </RadzenColumn>
+                                        </RadzenRow>
+
+                                        <RadzenRow>
+                                            <RadzenColumn Size="12">
+                                                <RadzenFormField Style="width:100%" Text="Remark 3" AllowFloatingLabel="false">
+                                                    <RadzenTextBox class="@redtext" @bind-Value="@stockitemsmodel.Remark3" Style="width: 100%;" />
+                                                </RadzenFormField>
+                                            </RadzenColumn>
+                                        </RadzenRow>
+
+                                        <RadzenRow>
+                                            <RadzenColumn Size="12">
+                                                <RadzenFormField Style="width:100%" Text="Remark 4" AllowFloatingLabel="false">
+                                                    <RadzenTextBox class="@redtext" @bind-Value="@stockitemsmodel.Remark4" Style="width: 100%;" />
+                                                </RadzenFormField>
+                                            </RadzenColumn>
+                                        </RadzenRow>
+
+                                        <RadzenRow>
+                                            <RadzenColumn Size="12">
+                                                <RadzenFormField Style="width:100%" Text="Remark 5" AllowFloatingLabel="false">
+                                                    <RadzenTextBox class="@redtext" @bind-Value="@stockitemsmodel.Remark5" Style="width: 100%;" />
+                                                </RadzenFormField>
+                                            </RadzenColumn>
+                                        </RadzenRow>
+
+                                    </RadzenStack>
+                                </RadzenColumn>
+
+                                <RadzenColumn Size="12" SizeMD="6">
+                                    <RadzenRow AlignItems="AlignItems.Center">
+                                        <RadzenLabel Text="Display In Modules" />
+                                        <RadzenDropDown @bind-Value="@selectedModules" Data="@moduleOptions"
+                                                        TextProperty="Text" ValueProperty="Value"
+                                                        Multiple="true" AllowClear="true"
+                                                        Placeholder="Select"
+                                                        Style="width:100%; max-width:400px; margin-left:8px;"
+                                                        Change="@OnModulesChanged" />
+                                    </RadzenRow>
+                                </RadzenColumn>
+
+                            </RadzenRow>
+                        </RadzenTabsItem>
+
+                    </Tabs>
+                </RadzenTabs>
+
+            </RadzenStack>
+
+        </RadzenCard>
+    </RadzenStack>
+</RadzenTemplateForm>
+
+@code {
+
+    [Parameter]
+    public Guid? Id { get; set; }
+
+    AlignItems alignItems = AlignItems.Center;
+    TextStyle textStyle = TextStyle.Body2;
+    ButtonSize smallbtn = ButtonSize.Small;
+    Density density = Density.Compact;
+    FilterCaseSensitivity filter = FilterCaseSensitivity.CaseInsensitive;
+    DataGridEditMode editMode = DataGridEditMode.Multiple;
+
+    string formatnumber = "#,0.00000000";
+    string intvalue;
+    int currentBalance;
+    string redtext;
+    bool isloading;
+    bool isBusy;
+    bool isVisible = false;
+    bool isDisable = false;
+    private bool isAddingNewProduct = false;
+
+    bool btnDiseabled = false;
+
+    // FOR BACTH NO TAB
+    bool useBatchNo = false; // Default: unchecked
+    bool UseDefaultUnsalablePeriod = false; // Default: checked
+    int UnsalablePeriod = 0; // Default: 0
+
+    // MULTI UOMs TAB
+    List<UOMs> uomsDetailsToUpdate = new List<UOMs>();
+    List<UOMs> uomsDetailsToInsert = new List<UOMs>();
+    RadzenDataGrid<UOMs> uomsDetailsGrid;
+    protected List<UOMs> multiuomsList { get; set; }
+    //protected List<StockBundlesModel> stockBundlesModels { get; set; }
+
+
+    // STOCK CONTROL TAB
+    List<Stocks> stockControlList = new List<Stocks>();
+
+    // STOCK BUNDLE TAB
+    RadzenDataGrid<StockBundlesModel> stockbundleDetailsGrid;
+    List<StockBundlesModel> stockbundleDetailsToInsert = new List<StockBundlesModel>();
+    List<StockBundlesModel> stockbundleDetailsToUpdate = new List<StockBundlesModel>();
+    //protected List<StockBundlesModel> stockbundleList { get; set; }
+    protected List<StockBundlesModel> stockbundleDetailList { get; set; } = new();
+    // private StockBundlesModel stockbundlesModel { get; set; } = new StockBundlesModel();
+
+    // TAX CODE
+    List<TaxCodes> taxCodesList = new List<TaxCodes>();
+    RadzenDataGrid<TaxCodes> taxCodeDetailsGrid;
+
+    private FilterTaxCodeResult filterTaxCodeResult { get; set; } = new();
+    private List<TaxCodes> inputTaxCodesList { get; set; } = new();
+    private List<TaxCodes> outputTaxCodesList { get; set; } = new();
+    private bool isDataLoaded = false;
+
+    // MODEL
+    private Stocks stockitemsmodel { get; set; } = new Stocks();
+    // List<Stocks> stocksDetailsToInsert = new List<Stocks>();
+
+
+    private StockSalesPriceHistoryModel stockSellingPrice { get; set; } = new StockSalesPriceHistoryModel();
+    private StockPurchasePriceHistoryModel stockPurchasePrice { get; set; } = new StockPurchasePriceHistoryModel();
+
+
+    private TaxCodes taxCodesModel { get; set; } = new TaxCodes();
+
+    private UOMs multiUOMs { get; set; } = new UOMs();
+
+    private IEnumerable<VW_StockCategoriesListing> stockCategoryList { get; set; }
+    private IEnumerable<VW_StockGroupsListing> stockGroupsList { get; set; }
+    private IEnumerable<VW_StockClassesListing> stockClassesList { get; set; }
+    private IEnumerable<VW_StockAccountPresetListing> stockAccountPresetsList { get; set; }
+
+
+    // ALL LIST FOR DROPDOWN
+    protected IEnumerable<UOMs> uomsList { get; set; }
+    private IEnumerable<Projects> projectList { get; set; }
+    private IEnumerable<StockLocations> stocklocationList { get; set; }
+    protected IEnumerable<Stocks> stockList { get; set; }
+
+    // NEW DTOs for separate header and details requests
+    public class SaveStocksHeaderRequest
+    {
+        public Stocks Header { get; set; }
+        public string CompanyCode { get; set; }
+    }
+    // DTO for response from the API
+    public class SaveStocksResponse
+    {
+        public Guid Id { get; set; }
+    }
+
+    private List<ModuleOption> moduleOptions = new List<ModuleOption>
+    {
+        new ModuleOption { Text = "Select All", Value = "SelectAll" },
+        new ModuleOption { Text = "Sales", Value = "Sales" },
+        new ModuleOption { Text = "Purchase", Value = "Purchase" },
+        new ModuleOption { Text = "Stock", Value = "Stock" },
+        new ModuleOption { Text = "POS", Value = "POS" }
+    };
+
+
+    [CascadingParameter]
+    public Task<AuthenticationState> authenticationState { get; set; }
+    protected override async Task OnInitializedAsync()
+    {
+
+        var authState = (await authenticationState).User;
+        if (authState.Identity.IsAuthenticated)
+        {
+            //For update
+
+            var RoleId = authState.FindFirst("RoleId").Value;
+            GetLoadMenuPermission(RoleId);
+        }
+
+
+    }
+
+
+
+    private SystemMenuObjectPermission? permission;
+    protected async void GetLoadMenuPermission(string RoleId)
+    {
+        isloading = true;
+        permission = await permissionService.GetPermissionAsync(
+         RoleId,
+         "Stock Items");
+
+        if (permission is null)
+            return;
+
+
+
+
+        InitializeUOMsRows();
+        await loadAllData();
+        if (Id is not null)
+        {
+            await loadAllDataById();
+        }
+        else
+        {
+            selectedModules = new List<string>();
+        }
+
+
+        StateHasChanged();
+    }
+
+
+
+    private IEnumerable<string> selectedModules = new List<string>();
+
+    public class ModuleOption
+    {
+        public string Text { get; set; }
+        public string Value { get; set; }
+    }
+
+    // Multiple Selection Dropdown for Display In Modules (Others Tab))
+    private void OnModulesChanged(object value)
+    {
+        if (value is IEnumerable<string> modules)
+        {
+            var modulesList = modules.ToList();
+
+            if (modulesList.Contains("SelectAll"))
+            {
+                // If "Select All" is selected, select all other modules
+                selectedModules = moduleOptions.Where(m => m.Value != "SelectAll").Select(m => m.Value).ToList();
+            }
+            else
+            {
+                // If "Select All" is not selected, use the selected modules
+                selectedModules = modulesList;
+            }
+
+            // comma for slected modules
+            stockitemsmodel.DisplayInModules = string.Join(",", selectedModules);
+        }
+    }
+
+    // Batch No Check Box
+    private void OnUseBatchNoChanged(bool value)
+    {
+        stockitemsmodel.UseBatchNo = value;
+
+        if (value)
+        {
+            // When Use Batch No is checked, automatically check Use Default Unsalable Period
+            stockitemsmodel.UseDefaultUnsalablePeriod = true;
+            stockitemsmodel.UnsalablePeriod = 0;
+        }
+        else
+        {
+            // When Use Batch No is unchecked, uncheck Use Default Unsalable Period
+            stockitemsmodel.UseDefaultUnsalablePeriod = false;
+            stockitemsmodel.UnsalablePeriod = 0;
+        }
+    }
+
+    // Batch No (Use Default Unsalable Period Check Box)
+    private void OnUseDefaultUnsalablePeriodChanged(bool value)
+    {
+        stockitemsmodel.UseDefaultUnsalablePeriod = value;
+
+        if (value)
+        {
+            // Reset UnsalablePeriod if user chooses default
+            stockitemsmodel.UnsalablePeriod = 0;
+        }
+        else
+        {
+            stockitemsmodel.UnsalablePeriod = 0;
+        }
+    }
+
+    private async Task OnStockBundleChanged(object stockId, StockBundlesModel stockBundlesModel)
+    {
+        if (stockId != null && stockId is Guid selectedStockId)
+        {
+            var selectedStock = stockList?.FirstOrDefault(s => s.Id == selectedStockId);
+            if (selectedStock is not null)
+            {
+                // // Set Description to StockName
+                // stockBundlesModel.Description = selectedStock.StockName;
+                // stockBundlesModel.StockId = selectedStockId;
+                // // Set Qty to default 1.0000
+                // stockBundlesModel.Qty = 1.0000m;
+
+                // // Set the base UOM for the selected stock
+                // var baseUOM = uomsList?.FirstOrDefault(u => u.StockId == selectedStockId && u.UOMCode == selectedStock?.BaseUOM);
+                // if (baseUOM != null)
+                // {
+                //     stockBundlesModel.UOMId = baseUOM.Id;
+                // }
+
+
+                stockBundlesModel.Description = selectedStock.StockName;
+                stockBundlesModel.StockId = stockitemsmodel.Id;
+                stockBundlesModel.SubItemId = selectedStock.Id;
+                // Set Qty to default 1.0000
+                stockBundlesModel.Qty = 1.0000m;
+
+                // Set the base UOM for the selected stock
+                var baseUOM = uomsList?.FirstOrDefault(u => u.StockId == selectedStock.Id && u.UOMCode == selectedStock.BaseUOM);
+                if (baseUOM != null)
+                {
+                    stockBundlesModel.UOMId = baseUOM.Id;
+                }
+
+
+            }
+        }
+        else
+        {
+            stockBundlesModel.Description = string.Empty;
+            stockBundlesModel.SubItemId = Guid.Empty;
+            stockBundlesModel.UOMId = null;
+            stockBundlesModel.Qty = 0.0000M;
+            stockBundlesModel.UnitPrice = 0.0000M;
+            stockBundlesModel.UnitCost = 0.0000M;
+            stockBundlesModel.SalesPrice = 0.0000M;
+            stockBundlesModel.PurchasesCost = 0.0000M;
+            stockBundlesModel.ProjectId = null;
+            stockBundlesModel.StockLocationId = null;
+
+        }
+
+        StateHasChanged();
+    }
+
+
+
+    // private async Task OnStockChanged(object stockId, StockBundlesModel stockBundlesModel)
+    // {
+    //     await OnStockBundleChanged(stockId, stockBundlesModel);
+    // }
+
+    protected async Task loadAllDataById()
+    {
+        await GetStockItemsById();
+        await GetLastSellingPriceById();
+        await GetLastPurchasePriceById();
+        await GetMultiUOMsById();
+        await GetStockBundleById();
+
+        if (!string.IsNullOrEmpty(stockitemsmodel.DisplayInModules))
+        {
+            selectedModules = stockitemsmodel.DisplayInModules.Split(',').Where(s => !string.IsNullOrWhiteSpace(s)).ToList();
+        }
+        else
+        {
+            selectedModules = new List<string>();
+        }
+
+        isloading = false;
+    }
+
+    protected async Task loadAllData()
+    {
+        await GetStockList(); // This gets the stock list data from API
+        await GetUOMSList();
+        await GetStockCategory();
+        await GetStockGroups();
+        await GetStockClass();
+        await GetLocationList();
+        await GetProjectList();
+        await GetStockAccountPresets();
+        InitializeStockModel();
+        await LoadTaxCodes();
+
+        isloading = false;
+    }
+
+
+
+    protected void InitializeStockModel()
+    {
+
+        stockitemsmodel.UseBatchNo = false;
+        stockitemsmodel.UseDefaultUnsalablePeriod = false;
+        stockitemsmodel.UnsalablePeriod = 0;
+        stockitemsmodel.ObjectType = 1058;
+        stockitemsmodel.StockControl = true;
+    }
+
+    // API Endpoints
+    protected async Task GetStockList()
+    {
+        var data = await stockItemsService.GetStockList();
+        stockList = data is not null ? data : new List<Stocks>();
+    }
+
+    private async Task GetLocationList()
+    {
+        var data = await stockItemsService.GetStockLocationList();
+        stocklocationList = data is not null ? data : new List<StockLocations>();
+    }
+
+    private async Task GetProjectList()
+    {
+        var data = await projectService.GetProjectsLists();
+        projectList = data is not null ? data : new List<Projects>();
+    }
+
+
+    protected async Task GetStockCategory()
+    {
+        var data = await stockItemsService.GetStockCategories();
+        stockCategoryList = data is not null ? data : new List<VW_StockCategoriesListing>();
+    }
+
+    //Get StockLocation
+    protected async Task GetStockGroups()
+    {
+        // stockGroupsList = await http.GetFromJsonAsync<List<StockGroupsModel>>("api/Stocks/GetStockGroups?companyCode=" + CompCode);
+        var data = await stockItemsService.GetStockGroups();
+        stockGroupsList = data is not null ? data : new List<VW_StockGroupsListing>();
+    }
+
+    protected async Task GetStockClass()
+    {
+        var data = await stockItemsService.GetStockClasses();
+        stockClassesList = data is not null ? data : new List<VW_StockClassesListing>();
+    }
+
+    protected async Task GetStockAccountPresets()
+    {
+        var data = await stockItemsService.GetStockAccountPresets();
+        stockAccountPresetsList = data is not null ? data : new List<VW_StockAccountPresetListing>();
+    }
+
+    protected async Task GetStockItemsById()
+    {
+        var data = await stockItemsService.GetStockItemsById(Id.ToString());
+        stockitemsmodel = data is not null ? data : new Stocks();
+    }
+
+    protected async Task GetLastSellingPriceById()
+    {
+        var data = await stockItemsService.GetLastSellingPriceById(Id.ToString());
+        stockSellingPrice = data is not null ? data : new StockSalesPriceHistoryModel();
+    }
+
+    protected async Task GetLastPurchasePriceById()
+    {
+        var data = await stockItemsService.GetLastPurchasePriceById(Id.ToString());
+        stockPurchasePrice = data is not null ? data : new StockPurchasePriceHistoryModel();
+    }
+
+    private async Task GetMultiUOMsById()
+    {
+        var data = await stockItemsService.GetMultiUOMsById(Id.ToString());
+        multiuomsList = data is not null ? data.ToList() : new List<UOMs>();
+    }
+    private async Task GetStockBundleById()
+    {
+        var data = await stockItemsService.GetStockBundlesById(Id.ToString());
+        stockbundleDetailList = data is not null ? data.ToList() : new List<StockBundlesModel>();
+    }
+
+    //GET ALL UOMLIST PER STOCK
+    protected async Task GetUOMSList()
+    {
+        var data = await stockItemsService.GetUOMsList();
+        uomsList = data is not null ? data : new List<UOMs>();
+    }
+
+    //LOAD DIFFERENT UOMS PER STOCK ON QUOTATION DETAILS
+    private IEnumerable<UOMs> GetUOMsForStock(Guid? stockId)
+    {
+        if (stockId == null || uomsList == null)
+            return Enumerable.Empty<UOMs>();
+        return uomsList
+            .Where(u => u.StockId == stockId)
+            .OrderByDescending(u => u.IsBaseUOM);
+    }
+    private async Task OnSubmit()
+    {
+        if (isBusy) return;
+
+        try
+        {
+            isBusy = true;
+
+            var data = await stockItemsService.SaveStockHeader(stockitemsmodel);
+
+            // Validate result agad
+            if (string.IsNullOrEmpty(data) || !int.TryParse(data, out int result) || result <= 0)
+            {
+                await DialogService.Alert($"Error: {data}");
+                return;
+            }
+
+            // Run dependent saves
+            var uomTask = SaveUOMsList();
+            var uomLinksTask = SaveStockUOMsLink();
+            Task<string>? bundleTask = null;
+
+            if (stockitemsmodel.IsBundled)
+            {
+                bundleTask = SaveStockBundleList();
+            }
+
+            // Await all tasks
+            var uom = await uomTask;
+            var uomlinks = await uomLinksTask;
+            var stockbundle = bundleTask != null ? await bundleTask : "N/A";
+
+            NotificationHelper.ShowInfo(notificationService, "Success", "Data Save!");
+            // await DialogService.Alert($"{data}, {uom}, {uomlinks}, {stockbundle} and stock added!");
+
+            isDisable = true;
+        }
+        catch (Exception ex)
+        {
+            await DialogService.Alert($"Unexpected error: {ex.Message}");
+        }
+        finally
+        {
+            isBusy = false;
+        }
+    
+    }
+
+
+    protected void ChangeUOMCode()
+    {
+        var row = multiuomsList.FirstOrDefault();
+        if (row is not null)
+            row.UOMCode = stockitemsmodel.BaseUOM;
+    }
+
+
+    protected void InitializeUOMsRows()
+    {// Initialize with 5 rows and set default Pos index
+        multiuomsList = Enumerable.Range(1, 1)
+        .Select(i => new UOMs
+        {
+            Pos = i,
+            StockId = stockitemsmodel.Id,
+            UOMCode = stockitemsmodel.BaseUOM,
+            Description = i == 1 ? "--BASE UOM--" : null,
+            IsBaseUOM = i == 1
+            // Pos = i,
+            // StockId = stockitemsmodel.Id,
+            // UOMCode = stockitemsmodel.BaseUOM,
+            // Description = "--BASE UOM--",
+            // IsBaseUOM = true,
+        })
+        .ToList();
+    }
+
+    protected CheckExistModel checkExistModel = new CheckExistModel();
+    protected async Task CheckCodeIsExist()
+    {
+        // await DialogService.Alert("SAMPLE MESSGE");
+        checkExistModel.TableName = "Stocks";
+        checkExistModel.ColumnName = "StockCode";
+        checkExistModel.DocCode = stockitemsmodel.StockCode;
+        var result = await checkExistServices.GetExistDocCode(checkExistModel);
+        if (result)
+            NotificationHelper.ShowInfo(notificationService, "Caution", $"{stockitemsmodel.StockCode} already exists.");
+    }
+
+    private async Task<string> SaveUOMsList()
+    {
+        var result = await stockItemsService.SaveMultiUOMs(multiuomsList);
+        return result;//  await DialogService.Alert(result);
+    }
+
+    protected StockUOMLinks stockUOMLinks { get; set; } = new StockUOMLinks();
+    private async Task<string> SaveStockUOMsLink()
+    {
+        stockUOMLinks.StockId = stockitemsmodel.Id;
+        var result = await stockItemsService.SaveStockUOMLinks(stockUOMLinks);
+        return result;
+    }
+
+    private async Task<string> SaveStockBundleList()
+    {
+        //stockUOMLinks.StockId = stockitemsmodel.Id;
+        var result = await stockItemsService.SaveStockBundleList(stockbundleDetailList);
+        return result;
+    }
+
+  
+
+    private bool showValidationErrors = false;
+
+
+    //table staging
+    private void AddProductToStaging()
+    {
+        isAddingNewProduct = true;
+        multiUOMs = new UOMs();
+    }
+
+
+    private void DeleteUOMs(UOMs product)
+    {
+        multiuomsList.Remove(product);
+    }
+
+    protected void navigate()
+    {
+        navManager.NavigateTo("/StockItemsList");
+    }
+
+    // CREATE ROW
+    void OnCreateUOMRow(UOMs uomDetails)
+    {
+        uomsDetailsToInsert.Remove(uomDetails);
+    }
+
+    // INSERT ROW
+    async Task InsertUOMRow(UOMs uoms)
+    {
+        if (uomsDetailsToInsert.Any() || uomsDetailsToUpdate.Any())
+        {
+            NotificationHelper.ShowWarning(notificationService, "Unsaved Details", "Please click the 'Save' (checkmark) button for any active or newly added detail rows in the grid before saving.");
+            return;
+        }
+        if (!uomsDetailsGrid.IsValid) return;
+        if (editMode == DataGridEditMode.Single)
+        {
+            Reset();
+        }
+        var uomsnew = new UOMs();
+        uomsnew.StockId = Id ?? stockitemsmodel.Id;
+        uomsDetailsToInsert.Add(uomsnew);
+
+        var index = multiuomsList.IndexOf(uoms);
+        if (index >= 0)
+        {
+
+            multiuomsList.Insert(index + 1, uomsnew); // Insert after selected row
+        }
+        else
+        {
+            uomsnew.UOMCode = stockitemsmodel.BaseUOM;
+            // uomsnew.IsBaseUOM = true;
+            // uomsnew.Description = "--BASE UOM--";
+            multiuomsList.Add(uomsnew);
+        }
+        ResetPosIndexes();
+        await uomsDetailsGrid.InsertAfterRow(uomsnew, uoms);
+        await uomsDetailsGrid.Reload();
+        StateHasChanged();
+
+
+    }
+
+
+    // Helper to reset Pos index after any add/delete
+    private void ResetPosIndexes()
+    {
+        for (int i = 0; i < multiuomsList.Count; i++)
+        {
+            multiuomsList[i].Pos = i + 1;
+        }
+    }
+
+    //UPDATE ROW
+    void OnUpdateUOMRow(UOMs uomDetails)
+    {
+        Reset(uomDetails);
+    }
+
+    async Task EditUOMRow(UOMs uomDetails)
+    {
+        // If there's another row already in edit/insert mode, prevent editing this one.
+        if (uomsDetailsToInsert.Any() || uomsDetailsToUpdate.Any())
+        {
+            NotificationHelper.ShowWarning(notificationService, "Unsaved Details", "Please click the 'Save' (checkmark) button for any active or newly added detail rows in the grid before saving.");
+            return;
+        }
+
+        if (!uomsDetailsGrid.IsValid) return;
+        if (editMode == DataGridEditMode.Single)
+        {
+            Reset();
+        }
+        uomsDetailsToUpdate.Add(uomDetails); // Track it as an item being updated
+        await uomsDetailsGrid.EditRow(uomDetails);
+        StateHasChanged(); // Ensure UI updates and list is reflected
+    }
+
+    void Reset(UOMs uomDetails)
+    {
+        uomsDetailsToInsert.Remove(uomDetails);
+        uomsDetailsToUpdate.Remove(uomDetails);
+    }
+
+    void Reset()
+    {
+        uomsDetailsToInsert.Clear();
+        uomsDetailsToUpdate.Clear();
+    }
+
+    async Task SaveUOMRow(UOMs uomDetails)
+    {
+        await uomsDetailsGrid.UpdateRow(uomDetails);
+        await uomsDetailsGrid.Reload();
+        StateHasChanged();
+    }
+
+    async Task DeleteUOMRow(UOMs uomDetails)
+    {
+        Reset(uomDetails);
+        multiuomsList.Remove(uomDetails);
+
+        await uomsDetailsGrid.Reload();
+        StateHasChanged();
+    }
+
+    // CREATE ROW
+    void OnCreateStockBundleRow(StockBundlesModel stockbundleDetails)
+    {
+        stockbundleDetailsToInsert.Remove(stockbundleDetails);
+    }
+
+    // INSERT ROW
+    async Task InsertStockBundleRow(StockBundlesModel stockbundleDetails)
+    {
+
+        if (stockbundleDetailsToInsert.Any() || stockbundleDetailsToUpdate.Any())
+        {
+            NotificationHelper.ShowWarning(notificationService, "Unsaved Details", "Please click the 'Save' (checkmark) button for any active or newly added detail rows in the grid before saving.");
+            return;
+        }
+
+        if (!stockbundleDetailsGrid.IsValid) return;
+        if (editMode == DataGridEditMode.Single)
+        {
+            Reset();
+        }
+
+        var stockbundlenew = new StockBundlesModel();
+
+        stockbundlenew.StockId = Id ?? stockitemsmodel.Id;
+        stockbundleDetailsToInsert.Add(stockbundlenew);
+
+        var index = stockbundleDetailList.IndexOf(stockbundleDetails);
+        if (index >= 0)
+        {
+            stockbundleDetailList.Insert(index + 1, stockbundlenew); // Insert after selected row
+        }
+        else
+        {
+            stockbundleDetailList.Add(stockbundlenew);
+        }
+
+        // stockbundleList.Add(stockbundlenew);
+      
+
+        ResetPosIndexesOfStockBundleList();
+
+        if (stockbundleDetails is not null)
+        {
+            await stockbundleDetailsGrid.InsertAfterRow(stockbundlenew, stockbundleDetails);
+        }
+        else
+        {
+            await stockbundleDetailsGrid.InsertRow(stockbundlenew);
+        }
+        await stockbundleDetailsGrid.Reload();
+        StateHasChanged();
+    }
+
+    private void ResetPosIndexesOfStockBundleList()
+    {
+        for (int i = 0; i < stockbundleDetailList.Count; i++)
+        {
+            stockbundleDetailList[i].Pos = i + 1;
+        }
+    }
+
+
+    async Task EditStockBundleRow(StockBundlesModel stockbundleDetails)
+    {
+        if (!stockbundleDetailsGrid.IsValid) return;
+        // If there's another row already in edit/insert mode, prevent editing this one.
+        if (stockbundleDetailsToInsert.Any() || stockbundleDetailsToUpdate.Any())
+        {
+            notificationService.Notify(new NotificationMessage
+            {
+                Severity = NotificationSeverity.Warning,
+                Summary = "Unsaved Row",
+                Detail = "Please save or cancel the current active row before editing another."
+            });
+            return;
+        }
+
+        stockbundleDetailsToUpdate.Add(stockbundleDetails); // Track it as an item being updated
+        await stockbundleDetailsGrid.EditRow(stockbundleDetails);
+        StateHasChanged(); // Ensure UI updates and list is reflected
+    }
+
+    async Task SaveStockBundleRow(StockBundlesModel stockbundleDetails)
+    {
+        await stockbundleDetailsGrid.UpdateRow(stockbundleDetails);
+        await stockbundleDetailsGrid.Reload();
+        StateHasChanged();
+    }
+
+    async Task DeleteStockBundleRow(StockBundlesModel stockbundleDetails)
+    {
+        Reset(stockbundleDetails);
+        stockbundleDetailList.Remove(stockbundleDetails);
+
+        await stockbundleDetailsGrid.Reload();
+        StateHasChanged();
+    }
+
+    //UPDATE ROW
+    void OnUpdateStockBundleRow(StockBundlesModel stockbundleDetails)
+    {
+        // This method is called *after* the row has been updated in purchase requisition DetailsList
+        Reset(stockbundleDetails);
+        // Console.WriteLine($"OnUpdateRow fired. stockbundleList count: {stockbundleList.Count}");
+    }
+
+    void Reset(StockBundlesModel stockbundleDetails)
+    {
+        stockbundleDetailsToInsert.Remove(stockbundleDetails);
+        stockbundleDetailsToUpdate.Remove(stockbundleDetails);
+    }
+
+    private async Task LoadTaxCodes()
+    {
+        try
+        {
+            var taxResult = await taxCodeService.GetFilteredTaxCodes();
+
+            if (taxResult != null)
+            {
+                filterTaxCodeResult = taxResult;
+                inputTaxCodesList = taxResult.InputTaxCodes ?? new List<TaxCodes>();
+                outputTaxCodesList = taxResult.OutputTaxCodes ?? new List<TaxCodes>();
+
+                isDataLoaded = true;
+                await InvokeAsync(StateHasChanged);
+
+                Console.WriteLine($"✅ Input Tax Codes loaded: {inputTaxCodesList.Count}");
+                Console.WriteLine($"✅ Output Tax Codes loaded: {outputTaxCodesList.Count}");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"❌ Error loading tax codes: {ex.Message}");
+            inputTaxCodesList = new List<TaxCodes>
+            ();
+            outputTaxCodesList = new List<TaxCodes>
+            ();
+        }
+    }
+
+    private void OnPrint()
+    {
+        CustomNotificationMessage.Message(notificationService, true);
+    }
+
+    private void OnNew()
+    {
+        // forceLoad = true so the page re-initializes even though we're already on Stock Adjustment
+        navManager.NavigateTo("/StockItems", forceLoad: true);
+    }
+
+}

@@ -1,0 +1,236 @@
+﻿.welcome {
+    --welcome-brand: var(--rz-primary);
+    --welcome-brand-deep: var(--rz-primary-darker, var(--rz-primary));
+    --welcome-on-brand: var(--rz-on-primary, #fff);
+    --welcome-page: var(--rz-body-background-color);
+    --welcome-surface: var(--rz-base-background-color, #fff);
+    --welcome-line: var(--rz-base-300, rgba(128, 128, 128, 0.3));
+    --welcome-muted: var(--rz-text-secondary-color);
+    --welcome-ok: var(--rz-success);
+    background: var(--welcome-page);
+    color: var(--rz-text-color);
+    min-height: 100vh;
+}
+
+.welcome-top {
+    background: var(--welcome-surface);
+    border-bottom: 1px solid var(--welcome-line);
+    padding: 0.6rem 2rem;
+}
+
+.welcome-wrap {
+    max-width: 1180px;
+    margin: 0 auto;
+    padding: 0 2rem;
+}
+
+.welcome-hero {
+    padding: 4.5rem 0 4rem;
+}
+
+.welcome-h1 {
+    font-size: clamp(2.2rem, 4.2vw, 3.4rem);
+    font-weight: 700;
+    line-height: 1.1;
+    letter-spacing: -0.02em;
+    margin: 0 0 1.1rem;
+}
+
+.welcome-lead {
+    font-size: 1.15rem;
+    line-height: 1.6;
+    color: var(--welcome-muted);
+    max-width: 30rem;
+    margin: 0 0 2rem;
+}
+
+.welcome .rz-button.welcome-primary {
+    font-weight: 600;
+    padding: 0.7rem 1.6rem;
+}
+
+.welcome-ghost {
+    color: inherit;
+    font-weight: 600;
+    text-decoration: none;
+    padding: 0.7rem 1.2rem;
+    border: 1px solid var(--welcome-line);
+    border-radius: 6px;
+    background: var(--welcome-surface);
+}
+
+.welcome a:focus-visible, .welcome .rz-button:focus-visible {
+    outline: 3px solid var(--welcome-brand);
+    outline-offset: 2px;
+}
+
+/* The memorwelcomele element: a journal entry that balances */
+.welcome .rz-card.welcome-ledger {
+    background: var(--welcome-brand);
+    color: var(--welcome-on-brand);
+    border-radius: 14px;
+    padding: 1.5rem 1.6rem;
+    box-shadow: 0 18px 40px -18px color-mix(in srgb, var(--welcome-brand-deep) 70%, transparent);
+}
+
+.welcome-ledger-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-bottom: 1rem;
+    margin-bottom: 0.5rem;
+    border-bottom: 1px solid color-mix(in srgb, var(--welcome-on-brand) 20%, transparent);
+}
+
+.welcome-row {
+    display: grid;
+    grid-template-columns: 1fr 7rem 7rem;
+    gap: 0.75rem;
+    padding: 0.65rem 0;
+    font-variant-numeric: twelcomeular-nums;
+    border-bottom: 1px dashed color-mix(in srgb, var(--welcome-on-brand) 18%, transparent);
+}
+
+    .welcome-row span:nth-child(n+2) {
+        text-align: right;
+    }
+
+    .welcome-row.welcome-cols {
+        color: color-mix(in srgb, var(--welcome-on-brand) 65%, transparent);
+        font-size: 0.85rem;
+    }
+
+    .welcome-row.welcome-total {
+        border-bottom: 0;
+        border-top: 2px solid var(--welcome-on-brand);
+        font-weight: 700;
+        margin-top: 0.4rem;
+    }
+
+    .welcome-row .dash {
+        opacity: 0.4;
+    }
+
+.welcome-balanced {
+    font-weight: 600;
+    font-size: 0.9rem;
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+}
+
+    .welcome-balanced .rzi {
+        color: var(--rz-success-light, var(--rz-success));
+    }
+
+.welcome-section-title {
+    font-size: 1.5rem;
+    font-weight: 700;
+    margin: 0 0 0.35rem;
+}
+
+.welcome-section-sub {
+    color: var(--welcome-muted);
+    margin: 0 0 1.75rem;
+}
+
+.welcome-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+    gap: 1rem;
+}
+
+.welcome .rz-card.welcome-tile {
+    background: var(--welcome-surface);
+    border: 1px solid var(--welcome-line);
+    border-radius: 8px;
+    padding: 1.1rem 1.2rem;
+    box-shadow: none;
+}
+
+.welcome-tile-icon {
+    width: 38px;
+    height: 38px;
+    border-radius: 8px;
+    background: var(--welcome-brand);
+    color: var(--welcome-on-brand);
+    display: grid;
+    place-items: center;
+    margin-bottom: 0.8rem;
+}
+
+.welcome-tile h3 {
+    font-size: 1.05rem;
+    font-weight: 700;
+    margin: 0 0 0.25rem;
+}
+
+.welcome-tile p {
+    color: var(--welcome-muted);
+    font-size: 0.92rem;
+    line-height: 1.45;
+    margin: 0;
+}
+
+.welcome-foot {
+    border-top: 1px solid var(--welcome-line);
+    margin-top: 4rem;
+    padding: 1.25rem 0;
+    color: var(--welcome-muted);
+    font-size: 0.9rem;
+}
+
+/* Welcome logo drawn as a book. Laki: palitan lang ang --s. Kulay: sumusunod sa Radzen theme. */
+.welcome-book {
+    --s: 30px;
+    --book-cover: var(--welcome-brand);
+    --book-spine: var(--welcome-brand-deep);
+    --book-ink: var(--welcome-on-brand);
+    --book-pages: var(--welcome-surface);
+    --book-edge: var(--rz-base-400, var(--welcome-line));
+    position: relative;
+    box-sizing: border-box;
+    width: var(--s);
+    height: calc(var(--s) * 1.25);
+    margin: 0 calc(var(--s) * 0.1) calc(var(--s) * 0.09) 0;
+    padding-left: calc(var(--s) * 0.2);
+    display: grid;
+    place-items: center;
+    background: var(--book-cover);
+    color: var(--book-ink);
+    border-radius: 2px 6px 6px 2px;
+    font-weight: 700;
+    font-size: calc(var(--s) * 0.4);
+    line-height: 1;
+    letter-spacing: -0.02em;
+    box-shadow: inset calc(var(--s) * 0.2) 0 0 var(--book-spine), calc(var(--s) * 0.04) calc(var(--s) * 0.035) 0 0 var(--book-pages), calc(var(--s) * 0.04) calc(var(--s) * 0.035) 0 1px var(--book-edge), calc(var(--s) * 0.08) calc(var(--s) * 0.07) 0 0 var(--book-pages), calc(var(--s) * 0.08) calc(var(--s) * 0.07) 0 1px var(--book-edge);
+}
+
+    .welcome-book::before {
+        content: "";
+        position: absolute;
+        top: 0;
+        right: 16%;
+        width: 13%;
+        height: 30%;
+        background: var(--welcome-ok, var(--rz-success));
+        clip-path: polygon(0 0, 100% 0, 100% 100%, 50% 80%, 0 100%);
+    }
+
+@media (max-width: 900px) {
+    .welcome-top {
+        padding: 0.6rem 1rem;
+    }
+
+    .welcome-wrap {
+        padding: 0 1.25rem;
+    }
+
+    .welcome-hero {
+        padding: 2.5rem 0;
+    }
+
+    .welcome-row {
+        grid-template-columns: 1fr 5.5rem 5.5rem;
+    }
+}

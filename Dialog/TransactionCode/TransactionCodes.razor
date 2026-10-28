@@ -1,0 +1,123 @@
+﻿@* @page "/TransactionCodes"
+@attribute [Authorize(Roles = "Admin,User")]
+@inject HttpClient http
+
+@if (transactionCodesList is not null)
+{
+    <div class="rz-stack rz-display-flex rz-flex-column rz-align-items-normal rz-justify-content-normal" style="flex-wrap:nowrap;">
+        <div style="height:50vh; overflow: hidden;" class="rz-data-grid rz-has-pager rz-datatable  rz-datatable-scrollable rz-has-height rz-selectable rz-density-compact">
+            <div class="rz-data-grid-data">
+                <table class="rz-grid-table rz-grid-table-fixed rz-grid-table-striped" style="overflow: hidden; font-size:12px">
+                    <colgroup>
+                        <col style="width:100px" />
+                        <col style="width:100px" />
+                        <col style="width:100px" />
+                        <col style="width:100px" />
+                        <col style="width:100px" />
+                    </colgroup>
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                            <th>Format</th>
+                            <th>Sample</th>
+                            <th>Reset Monthly</th>
+                            <th>Default</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var item in transactionCodesList)
+                        {
+                            <tr>
+                                <td>@item.Name</td>
+                                <td>@item.Format</td>
+                                <td>@CodeGenerator.GenerateCode(item, lastEntryCode)</td>
+                                <td>@item.ResetMonthly</td>
+                                <td><RadzenCheckBox Disabled="true" TValue="bool" @bind-Value=@item.IsDefault></RadzenCheckBox></td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+
+            </div>
+
+        </div>
+    </div>
+}
+else
+{
+    <SpinnerUI />
+}
+
+
+@code {
+
+    Variant btnVariantText = Variant.Text;
+
+    [Parameter]
+    public TransactionCodesFilter transactioncode { get; set; } = new TransactionCodesFilter();
+
+    //public PurchaseRequisitionModel transactioncode { get; set; } = new PurchaseRequisitionModel();
+
+
+    bool isAddingNew;
+
+    private List<TransactionsCode> transactionCodesList { get; set; }
+    private TransactionsCode transactionCodes { get; set; } = new TransactionsCode();
+    private TransactionsCode edittransactionCodes = null;
+
+    public int Id { get; set; }
+
+    public string CompCode { get; set; }
+
+
+    protected async override Task OnInitializedAsync()
+    {
+            // await loadAllData();
+            // if (Id is not null)
+            // {
+            //     await loadAllDataById();
+            // }
+            await GetRequisitionNo();
+            await GetLastRequisitionNo();
+    }
+
+
+    private void AddNew()
+    {
+        isAddingNew = true;
+    }
+
+    private async Task GetRequisitionNo2()
+    {
+        var response = await http.PostAsJsonAsync($"api/PurchaseRequisitions/GetTransactionNoLists?companyCode={CompCode}", transactioncode.TableId);
+        if (response.IsSuccessStatusCode)
+        {
+            transactionCodesList = await response.Content.ReadFromJsonAsync<List<TransactionsCode>>();
+
+        }
+
+    }
+    private string lastEntryCode { get; set; }
+    private async Task GetLastRequisitionNo()
+    {
+        var response = await http.GetAsync($"api/PurchaseRequisitions/GetMonthlyPurchaseRequisitionCodes?companyCode={CompCode}");
+
+        if (response.IsSuccessStatusCode)
+        {
+            var maxCode = await response.Content.ReadAsStringAsync();
+            lastEntryCode = maxCode.ToString();
+        }
+    }
+
+    private async Task GetRequisitionNo()
+    {
+        var response = await http.PostAsJsonAsync($"api/PurchaseRequisitions/GetRequisitionNo?companyCode={CompCode}", transactioncode);
+        if (response.IsSuccessStatusCode)
+        {
+            transactionCodesList = await response.Content.ReadFromJsonAsync<List<TransactionsCode>>();
+            // transactionCodesList = transactionCodesList.FirstOrDefault(sa => sa.IsDefault == true);
+
+        }
+    }
+
+} *@

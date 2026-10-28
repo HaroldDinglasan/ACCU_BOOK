@@ -1,0 +1,2440 @@
+﻿@page "/PurchaseInvoices"
+@page "/PurchaseInvoices/Edit/{Id:guid}"
+@attribute [Authorize(Roles = "Admin, User")]
+
+@if (isLoading)
+{
+    <Spinner />
+}
+
+@* TABLE HEADER *@
+<RadzenTemplateForm TItem="PurchaseInvoicesModel" Data="purchaseinvoicesHeader" Submit="@OnSubmit">
+
+    <RadzenStack Gap="0.2rem">
+
+        <RadzenCard Style="Padding: 0.5rem">
+
+            <RadzenRow JustifyContent="JustifyContent.Start" AlignItems="AlignItems.Center" Gap="0.5rem">
+
+                <RadzenColumn Size="12" SizeSM="5">
+
+                    <RadzenStack AlignItems="AlignItems.Center" Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.Normal">
+
+                        <RadzenButton Disabled=@(purchaseinvoicesHeader.CreditorId is null || btnDiseabled)
+                                      Size="@smallbtn"
+                                      Icon="save"
+                                      BusyText="Saving..."
+                                      IsBusy=@busy
+                                      ButtonStyle="ButtonStyle.Primary"
+                                      Text="@btnText"
+                                      ButtonType="@Radzen.ButtonType.Submit" />
+
+                        <RadzenButton Visible="@btnDiseabled" Text="New" Icon="add" Size="@smallbtn"
+                                      ButtonStyle="ButtonStyle.Success"
+                                      ButtonType="@Radzen.ButtonType.Button"
+                                      Click="@OnNew" />
+
+                        <RadzenButton Disabled=@(purchaseinvoicesHeader.CreditorId is null || Id is not null || btnDiseabled) Text="Transfer" Size="@smallbtn" ButtonStyle="ButtonStyle.Primary" @ref="@transferbutton" Icon="compare_arrows" Click="@(args => popuptransfer.ToggleAsync(transferbutton.Element))" />
+                    </RadzenStack>
+
+                </RadzenColumn>
+
+                <RadzenColumn Size="12" SizeSM="7">
+                    <RadzenStack AlignItems="AlignItems.Center" Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End">
+                        <RadzenButton Disabled="@(permission?.AllowRead != true)" Size="@smallbtn" ButtonStyle="ButtonStyle.Light" Click="@Navigate" Text="Search" Icon="search"></RadzenButton>
+                    </RadzenStack>
+                </RadzenColumn>
+
+            </RadzenRow>
+        </RadzenCard>
+
+        <RadzenCard>
+
+            <div style="margin-bottom: 0.5rem">
+                Purchase Invoices @purchaseinvoicesHeader.PurchaseInvoiceCode <RadzenBadge Visible="@(status != string.Empty)" Shade="Shade.Dark" BadgeStyle="BadgeStyle.Danger" Text="@status" class="rz-ms-2" />
+            </div>
+
+            <RadzenTabs RenderMode="TabRenderMode.Client">
+                <Tabs>
+
+                    <RadzenTabsItem Text="Details">
+                        <RadzenRow>
+
+                            <RadzenColumn Size="12" SizeMD="4">
+                                <RadzenStack Gap="0.2rem">
+
+                                    <RadzenRow AlignItems="@alignItems">
+                                        <RadzenColumn Size="12" SizeMD="12">
+
+                                            <RadzenFormField Style="width:100%" Text="Supplier" AllowFloatingLabel="false">
+                                                <RadzenDropDownDataGrid class="@redtext"
+                                                                        Disabled="@(purchaseinvoicesHeader.TransferFromInfo != null || goodsReceivedNotesDetails is not null)"
+                                                                        @bind-value=purchaseinvoicesHeader.CreditorId
+                                                                        Change=@(args => OnCreditorChanged((Guid?)args))
+                                                                        AllowSorting="false"
+                                                                        Style="width: 100%;"
+                                                                        PageSize="10"
+                                                                        Data="@supplieraccountList"
+                                                                        AllowVirtualization="true"
+                                                                        AllowColumnResize="true"
+                                                                        AllowClear="true"
+                                                                        FilterCaseSensitivity="@filter"
+                                                                        AllowFilteringByAllStringColumns="true"
+                                                                        TextProperty="CompanyCode"
+                                                                        Density="@density"
+                                                                        ValueProperty="Id">
+                                                    <Columns>
+                                                        <RadzenDropDownDataGridColumn Width="4%" Property="CompanyCode" Title="Supplier #"></RadzenDropDownDataGridColumn>
+                                                        <RadzenDropDownDataGridColumn Width="10%" Property="CompanyName" Title="Name"></RadzenDropDownDataGridColumn>
+                                                    </Columns>
+
+                                                </RadzenDropDownDataGrid>
+
+                                            </RadzenFormField>
+
+                                        </RadzenColumn>
+                                    </RadzenRow>
+
+                                    <RadzenRow AlignItems="@alignItems">
+                                        <RadzenColumn Size="12" SizeMD="12">
+                                            <RadzenFormField Style="width: 100%" Text="From" AllowFloatingLabel="false">
+                                                <RadzenTextBox class="@redtext" @bind-Value="purchaseinvoicesHeader.CreditorName" Style="width: 100%;" />
+                                            </RadzenFormField>
+                                        </RadzenColumn>
+                                    </RadzenRow>
+
+                                    <RadzenRow AlignItems="@alignItems">
+                                        <RadzenColumn Size="12" SizeMD="12">
+                                            <RadzenFormField Style="width: 100%" Text="Term" AllowFloatingLabel="false">
+                                                <RadzenDropDownDataGrid Name="Terms" class="@redtext"
+                                                                        @bind-Value=purchaseinvoicesHeader.TermId"
+                                                                        Data="@termList"
+                                                                        Style="width: 100%;"
+                                                                        AllowSorting="false"
+                                                                        PageSize="10"
+                                                                        AllowVirtualization="true"
+                                                                        AllowClear="true"
+                                                                        FilterCaseSensitivity="@filter"
+                                                                        AllowFilteringByAllStringColumns="true"
+                                                                        TextProperty="Term"
+                                                                        Density="@density"
+                                                                        ValueProperty="Id">
+                                                    <Columns>
+                                                        <RadzenDropDownDataGridColumn Width="10%" Property="Term" Title="Term"></RadzenDropDownDataGridColumn>
+                                                        <RadzenDropDownDataGridColumn Width="10%" Property="Description" Title="Description"></RadzenDropDownDataGridColumn>
+                                                    </Columns>
+                                                </RadzenDropDownDataGrid>
+                                            </RadzenFormField>
+                                            <RadzenRequiredValidator Component="Terms" Text="'Term' must be not empty." Style="position: relative" />
+                                        </RadzenColumn>
+                                    </RadzenRow>
+
+                                    <RadzenRow AlignItems="@alignItems">
+                                        <RadzenColumn Size="12" SizeMD="12">
+                                            <RadzenFormField Style="width:100%" Text="Location" AllowFloatingLabel="false">
+                                                <RadzenDropDownDataGrid class="@redtext"
+                                                                        @bind-Value="@purchaseinvoicesHeader.StockLocationId"
+                                                                        Change="@(args => OnStockLocationChanged(args))"
+                                                                        Data="@stocklocationList"
+                                                                        AllowSorting="false"
+                                                                        Style="width: 120%;"
+                                                                        PageSize="10"
+                                                                        AllowVirtualization="true"
+                                                                        AllowColumnResize="true"
+                                                                        AllowClear="true"
+                                                                        FilterCaseSensitivity="@filter"
+                                                                        AllowFilteringByAllStringColumns="true"
+                                                                        TextProperty="LocationCode"
+                                                                        Density="@density"
+                                                                        ValueProperty="Id">
+                                                    <Columns>
+                                                        <RadzenDropDownDataGridColumn Width="15%" Property="LocationCode" Title="Location #"></RadzenDropDownDataGridColumn>
+                                                        <RadzenDropDownDataGridColumn Width="15%" Property="Description" Title="Description"></RadzenDropDownDataGridColumn>
+                                                        <RadzenDropDownDataGridColumn Width="8%" Property="IsActive" Title="Active">
+                                                            <Template Context="data"><RadzenCheckBox TValue="bool" Value="data.IsActive"></RadzenCheckBox></Template>
+                                                        </RadzenDropDownDataGridColumn>
+                                                    </Columns>
+                                                </RadzenDropDownDataGrid>
+                                            </RadzenFormField>
+                                        </RadzenColumn>
+                                    </RadzenRow>
+
+                                    <RadzenRow AlignItems="@alignItems">
+                                        <RadzenColumn Size="12" SizeMD="12">
+                                            <RadzenFormField Style="width:100%" Text="Project" AllowFloatingLabel="false">
+                                                <RadzenDropDownDataGrid class="@redtext" @bind-Value="purchaseinvoicesHeader.ProjectId"
+                                                                        AllowSorting="false"
+                                                                        Style="width: 100%;"
+                                                                        PageSize="10"
+                                                                        Data="@projectList"
+                                                                        AllowVirtualization="true"
+                                                                        AllowColumnResize="true"
+                                                                        AllowClear="true"
+                                                                        FilterCaseSensitivity="@filter"
+                                                                        AllowFilteringByAllStringColumns="true"
+                                                                        TextProperty="ProjectCode"
+                                                                        Density="@density"
+                                                                        ValueProperty="Id">
+                                                    <Columns>
+                                                        <RadzenDropDownDataGridColumn Width="15%" Property="ProjectCode"></RadzenDropDownDataGridColumn>
+                                                        <RadzenDropDownDataGridColumn Width="15%" Property="Description"></RadzenDropDownDataGridColumn>
+                                                        <RadzenDropDownDataGridColumn Width="8%" Property="IsActive" Title="Active">
+                                                            <Template Context="data2"><RadzenCheckBox TValue="bool" Value="data2.IsActive"></RadzenCheckBox></Template>
+                                                        </RadzenDropDownDataGridColumn>
+                                                    </Columns>
+                                                </RadzenDropDownDataGrid>
+                                            </RadzenFormField>
+                                        </RadzenColumn>
+                                    </RadzenRow>
+
+                                </RadzenStack>
+                            </RadzenColumn>
+
+                            <RadzenColumn Size="12" SizeMD="4">
+                                <RadzenStack Gap="0.2rem">
+                                    <RadzenRow AlignItems="@alignItems">
+                                        <RadzenColumn Size="12" SizeMD="12">
+
+                                            <RadzenFormField Style="width:100%" Text="Currency" AllowFloatingLabel="false">
+                                                <RadzenDropDownDataGrid Disabled="true" class="@redtext"
+                                                                        @bind-Value=@purchaseinvoicesHeader.CurrencyId
+                                                                        AllowSorting="false"
+                                                                        Style="width: 100%;"
+                                                                        PageSize=10
+                                                                        AllowColumnResize="true"
+                                                                        AllowClear="true"
+                                                                        FilterCaseSensitivity="@filter"
+                                                                        AllowFilteringByAllStringColumns="true"
+                                                                        TextProperty="CurrencyCode"
+                                                                        Density="@density"
+                                                                        Data="@currencyList"
+                                                                        ValueProperty="Id">
+                                                    <Columns>
+                                                        <RadzenDropDownDataGridColumn Width="10%" Property="CurrencyCode" Title="CurrencyCode"></RadzenDropDownDataGridColumn>
+                                                        <RadzenDropDownDataGridColumn Width="10%" Property="Description" Title="Description"></RadzenDropDownDataGridColumn>
+                                                    </Columns>
+                                                </RadzenDropDownDataGrid>
+                                            </RadzenFormField>
+
+                                        </RadzenColumn>
+                                    </RadzenRow>
+
+                                    <RadzenRow AlignItems="@alignItems">
+                                        <RadzenColumn Size="12" SizeMD="12">
+                                            <RadzenFormField Style="width:100%" Text="Attention" AllowFloatingLabel="false">
+                                                <RadzenTextBox class="@redtext" @bind-Value=@purchaseinvoicesHeader.Attention Style="width: 100%;" />
+                                            </RadzenFormField>
+                                        </RadzenColumn>
+                                    </RadzenRow>
+
+                                    <RadzenRow AlignItems="@alignItems">
+                                        <RadzenColumn Size="12" SizeMD="12">
+                                            <RadzenFormField Style="width:100%" Text="Purchaser" AllowFloatingLabel="false">
+                                                <RadzenDropDownDataGrid class="@redtext"
+                                                                        @bind-Value=@purchaseinvoicesHeader.PurchaserId
+                                                                        AllowSorting="false"
+                                                                        Style="width: 100%;"
+                                                                        PageSize=10
+                                                                        Data="@purchaserList"
+                                                                        AllowVirtualization="true"
+                                                                        AllowColumnResize="true"
+                                                                        AllowClear="true"
+                                                                        FilterCaseSensitivity="@filter"
+                                                                        AllowFilteringByAllStringColumns="true"
+                                                                        TextProperty="Name"
+                                                                        Density="@density"
+                                                                        ValueProperty="Id">
+                                                    <Columns>
+                                                        <RadzenDropDownDataGridColumn Width="10%" Property="Name" Title="Purchaser #"></RadzenDropDownDataGridColumn>
+                                                    </Columns>
+                                                </RadzenDropDownDataGrid>
+                                            </RadzenFormField>
+                                        </RadzenColumn>
+                                    </RadzenRow>
+
+                                    <RadzenRow AlignItems="@alignItems">
+                                        <RadzenColumn Size="12" SizeMD="12">
+                                            <RadzenFormField Style="width:100%" Text="Supplier DO No" AllowFloatingLabel="false">
+                                                <RadzenTextBox class="@redtext" @bind-Value=@purchaseinvoicesHeader.CreditorDONo Style="width: 100%;" />
+                                            </RadzenFormField>
+                                        </RadzenColumn>
+                                    </RadzenRow>
+
+                                </RadzenStack>
+                            </RadzenColumn>
+
+                            <RadzenColumn Size="12" SizeMD="4">
+                                <RadzenStack Gap="0.2rem">
+
+                                    <RadzenRow AlignItems="@alignItems">
+                                        <RadzenColumn Size="12" SizeMD="12">
+                                            <RadzenFormField Style="width:100%" Text="Rate" AllowFloatingLabel="false">
+                                                <RadzenNumeric ShowUpDown="false" Disabled="true" class="@redtext" @bind-Value=@purchaseinvoicesHeader.CurrencyRate Style="width: 100%;" Placeholder="Exchange Rate"></RadzenNumeric>
+                                                @*   <RadzenTextBox @bind-Value=purchaserequisition.CurrencyRate Style="width: 100%;" Placeholder="Exchange Rate" /> *@
+                                            </RadzenFormField>
+                                        </RadzenColumn>
+                                    </RadzenRow>
+
+                                    <RadzenRow AlignItems="@alignItems">
+                                        <RadzenColumn Size="12" SizeMD="12">
+                                            <RadzenFormField Style="width:100%" Text="Doc Date" AllowFloatingLabel="false">
+                                                <RadzenDatePicker Change="SetPurchaseInvoicesNo" class="@redtext" @bind-Value="@purchaseinvoicesHeader.PurchaseInvoiceDate" DateFormat="MM/dd/yyyy" Style="width:100%" />
+                                            </RadzenFormField>
+                                        </RadzenColumn>
+                                    </RadzenRow>
+
+                                    <RadzenRow AlignItems="@alignItems">
+                                        <RadzenColumn Size="12" SizeMD="12">
+                                            <RadzenFormField Style="width:92%" Text="Invoice No." AllowFloatingLabel="false">
+                                                @*     <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0rem;" Wrap="FlexWrap.Wrap">
+                                                        <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Style="width: 90%;" Gap="0.5rem;">
+                                                            <RadzenDropDown Change="SetRequisitionNo" SelectedItemsText="" Placeholder="@goodsreceivednotesHeader.PurchaseOrderCode" class="@redtext" @bind-Value=@goodsreceivednotesHeader.PurchaseOrderCode Data=@transactionCodesList TextProperty="@nameof(TransactionsCode.Format)" SelectedItem="0" ValueProperty="@nameof(TransactionsCode.Format)" Style="width: 100%;" />
+                                                        </RadzenStack>
+                                                        <RadzenButton Click="() => OpenDialog(2)" Icon="more_horiz"></RadzenButton>
+                                                    </RadzenStack> *@
+                                                <RadzenTextBox class="@redtext" @bind-Value="@purchaseinvoicesHeader.PurchaseInvoiceCode" Style="width: 100%;" />
+                                            </RadzenFormField>
+                                            <RadzenFormField Style="width:5%" AllowFloatingLabel="false">
+                                                <RadzenButton @ref=@button Icon="list" Click="@(args => popup.ToggleAsync(button.Element))" />
+                                            </RadzenFormField>
+                                        </RadzenColumn>
+                                    </RadzenRow>
+
+                                    <RadzenRow AlignItems="@alignItems">
+                                        <RadzenColumn Size="12" SizeMD="12">
+                                            <RadzenFormField Style="width:100%" Text="Reference No." AllowFloatingLabel="false">
+                                                <RadzenTextBox Name="Reference" class="@redtext" @bind-Value="@purchaseinvoicesHeader.ReferenceNo" Style="width: 100%;" />
+                                            </RadzenFormField>
+                                            <RadzenRequiredValidator Component="Reference" Text="'Reference No.' must be not empty." Style="position: relative" />
+                                        </RadzenColumn>
+                                    </RadzenRow>
+
+                                    <RadzenRow AlignItems="@alignItems" JustifyContent="JustifyContent.Center" Style="margin-top:1rem;">
+
+                                        <RadzenColumn Size="3">
+                                            <RadzenSwitch Style="transform: scale(0.7);" @bind-Value=purchaseinvoicesHeader.IsDetailPosting Name="Active" Change=@(args => IsDeferredVATIsDetailPosting("IsDetailPosting")) />
+                                            <RadzenText class="@redtext" TextStyle="@textStyle" Style="" Text="Detail Posting"></RadzenText>
+                                        </RadzenColumn>
+
+                                        <RadzenColumn Size="3">
+                                            <RadzenSwitch Style="transform: scale(0.7);" @bind-Value=purchaseinvoicesHeader.IsDeferredVAT Change=@(args => IsDeferredVATIsDetailPosting("IsDeferredVAT")) Name="Active" />
+                                            <RadzenText class="@redtext" TextStyle="@textStyle" Style="" Text="Deferred VAT"></RadzenText>
+                                        </RadzenColumn>
+
+                                        
+                                        <RadzenColumn Size="3">
+                                            <RadzenSwitch Style="transform: scale(0.7);" @bind-Value=purchaseinvoicesHeader.IsTaxInclusive Name="Active" Change="@IsTaxInclusiveChanged" />
+                                            <RadzenText class="@redtext" TextStyle="@textStyle" Style="" Text="Tax Inclusive"></RadzenText>
+                                        </RadzenColumn>
+
+                                        @if (Id is not null)
+                                        {
+                                            <RadzenColumn Size="3">
+                                                <RadzenSwitch Style="transform: scale(0.7);" @bind-Value="@purchaseinvoicesHeader.IsCancelled" Change=@(args => OnSwitchChanged("IsCancelled")) />
+                                                <RadzenText class="@redtext" TextStyle="@textStyle" Style="" Text="Is Cancelled"></RadzenText>
+                                            </RadzenColumn>
+
+                                        }
+
+                                    </RadzenRow>
+
+                                </RadzenStack>
+                            </RadzenColumn>
+
+                        </RadzenRow>
+                    </RadzenTabsItem>
+
+                    <RadzenTabsItem Text="Supplier">
+                        <RadzenRow>
+                            <RadzenColumn Size="6" SizeMD="6">
+                                <RadzenStack Gap="0.2rem">
+
+                                    <RadzenRow AlignItems="@alignItems">
+                                        <RadzenColumn Size="12" SizeMD="12">
+                                            <RadzenFormField Style="width:100%" Text="Address" AllowFloatingLabel="false">
+                                                <RadzenTextBox class="@redtext" @bind-Value=@purchaseinvoicesHeader.Address1 Style="width: 100%;" />
+                                            </RadzenFormField>
+                                        </RadzenColumn>
+                                    </RadzenRow>
+
+                                    <RadzenRow AlignItems="@alignItems">
+                                        <RadzenColumn Size="12" SizeMD="12">
+                                            <RadzenFormField Style="width:100%" Text="Address2" AllowFloatingLabel="false">
+                                                <RadzenTextBox class="@redtext" @bind-Value=@purchaseinvoicesHeader.Address2 Style="width: 100%;" />
+                                            </RadzenFormField>
+                                        </RadzenColumn>
+                                    </RadzenRow>
+
+                                    <RadzenRow AlignItems="@alignItems">
+                                        <RadzenColumn Size="12" SizeMD="12">
+                                            <RadzenFormField Style="width:100%" Text="Address3" AllowFloatingLabel="false">
+                                                <RadzenTextBox class="@redtext" @bind-Value=@purchaseinvoicesHeader.Address3 Style="width: 100%;" />
+                                            </RadzenFormField>
+                                        </RadzenColumn>
+                                    </RadzenRow>
+
+                                    <RadzenRow AlignItems="@alignItems">
+                                        <RadzenColumn Size="12" SizeMD="12">
+                                            <RadzenFormField Style="width:100%" Text="Address4" AllowFloatingLabel="false">
+                                                <RadzenTextBox class="@redtext" @bind-Value=@purchaseinvoicesHeader.Address4 Style="width: 100%;" />
+                                            </RadzenFormField>
+                                        </RadzenColumn>
+                                    </RadzenRow>
+
+                                </RadzenStack>
+                            </RadzenColumn>
+
+                            <RadzenColumn Size="6" SizeMD="6">
+                                <RadzenStack Gap="0.2rem">
+
+                                    <RadzenRow AlignItems="@alignItems">
+                                        <RadzenColumn Size="12" SizeMD="12">
+                                            <RadzenFormField Style="width:100%" Text="GST ID" AllowFloatingLabel="false">
+                                                <RadzenTextBox Disabled="true" class="@redtext" Style="width: 100%;" />
+                                            </RadzenFormField>
+                                        </RadzenColumn>
+                                    </RadzenRow>
+
+                                    <RadzenRow AlignItems="@alignItems">
+                                        <RadzenColumn Size="12" SizeMD="12">
+                                            <RadzenFormField Style="width:100%" Text="Delivery Term" AllowFloatingLabel="false">
+                                                <RadzenTextBox class="@redtext" @bind-Value=@purchaseinvoicesHeader.DeliveryTerm Style="width: 100%;" />
+                                            </RadzenFormField>
+                                        </RadzenColumn>
+                                    </RadzenRow>
+
+                                    <RadzenRow AlignItems="@alignItems">
+                                        <RadzenColumn Size="12" SizeMD="4">
+                                            <RadzenFormField Style="width:100%" Text="Phone" AllowFloatingLabel="false">
+                                                <RadzenTextBox class="@redtext" @bind-Value=@purchaseinvoicesHeader.Phone Style="width: 100%;" />
+                                            </RadzenFormField>
+                                        </RadzenColumn>
+
+                                        <RadzenColumn Size="12" SizeMD="4">
+                                            <RadzenFormField Style="width:100%" Text="Fax" AllowFloatingLabel="false">
+                                                <RadzenTextBox class="@redtext" @bind-Value=@purchaseinvoicesHeader.Fax Style="width: 100%;" />
+                                            </RadzenFormField>
+                                        </RadzenColumn>
+                                    </RadzenRow>
+
+                                </RadzenStack>
+                            </RadzenColumn>
+                        </RadzenRow>
+                    </RadzenTabsItem>
+
+                    <RadzenTabsItem Text="Deliver To">
+                        <RadzenRow>
+                            <RadzenColumn Size="6" SizeMD="6">
+                                <RadzenStack Gap="0.2rem">
+                                    <RadzenRow AlignItems="@alignItems">
+                                        <RadzenColumn Size="12" SizeMD="12">
+                                            <RadzenFormField Style="width:100%" Text="Address" AllowFloatingLabel="false">
+                                                <RadzenTextBox class="@redtext" @bind-Value=@purchaseinvoicesHeader.DeliverAddress1 Style="width: 100%;" />
+                                            </RadzenFormField>
+                                        </RadzenColumn>
+                                    </RadzenRow>
+                                    <RadzenRow AlignItems="@alignItems">
+                                        <RadzenColumn Size="12" SizeMD="12">
+                                            <RadzenFormField Style="width:100%" Text="Address2" AllowFloatingLabel="false">
+                                                <RadzenTextBox class="@redtext" @bind-Value=@purchaseinvoicesHeader.DeliverAddress2 Style="width: 100%;" />
+                                            </RadzenFormField>
+                                        </RadzenColumn>
+                                    </RadzenRow>
+                                    <RadzenRow AlignItems="@alignItems">
+                                        <RadzenColumn Size="12" SizeMD="12">
+                                            <RadzenFormField Style="width:100%" Text="Address3" AllowFloatingLabel="false">
+                                                <RadzenTextBox class="@redtext" @bind-Value=@purchaseinvoicesHeader.DeliverAddress3 Style="width: 100%;" />
+                                            </RadzenFormField>
+                                        </RadzenColumn>
+                                    </RadzenRow>
+                                    <RadzenRow AlignItems="@alignItems">
+                                        <RadzenColumn Size="12" SizeMD="12">
+                                            <RadzenFormField Style="width:100%" Text="Address4" AllowFloatingLabel="false">
+                                                <RadzenTextBox class="@redtext" @bind-Value=@purchaseinvoicesHeader.DeliverAddress4 Style="width: 100%;" />
+                                            </RadzenFormField>
+                                        </RadzenColumn>
+                                    </RadzenRow>
+                                </RadzenStack>
+                            </RadzenColumn>
+                            <RadzenColumn Size="6" SizeMD="6">
+                                <RadzenStack Gap="0.2rem">
+                                    <RadzenRow AlignItems="@alignItems">
+                                        <RadzenColumn Size="12" SizeMD="10">
+                                            <RadzenFormField Style="width:100%" Text="Delivery Contact" AllowFloatingLabel="false">
+                                                <RadzenTextBox class="@redtext" @bind-Value=@purchaseinvoicesHeader.DeliverContact Style="width: 100%;" />
+                                            </RadzenFormField>
+                                        </RadzenColumn>
+                                    </RadzenRow>
+                                    <RadzenRow AlignItems="@alignItems">
+                                        <RadzenColumn Size="12" SizeMD="10">
+                                            <RadzenFormField Style="width:100%" Text="Phone" AllowFloatingLabel="false">
+                                                <RadzenTextBox class="@redtext" @bind-Value=@purchaseinvoicesHeader.DeliverPhone Style="width: 100%;" />
+                                            </RadzenFormField>
+                                        </RadzenColumn>
+                                    </RadzenRow>
+                                    <RadzenRow AlignItems="@alignItems">
+                                        <RadzenColumn Size="12" SizeMD="10">
+                                            <RadzenFormField Style="width:100%" Text="Fax" AllowFloatingLabel="false">
+                                                <RadzenTextBox class="@redtext" @bind-Value=@purchaseinvoicesHeader.DeliverFax Style="width: 100%;" />
+                                            </RadzenFormField>
+                                        </RadzenColumn>
+                                    </RadzenRow>
+                                </RadzenStack>
+                            </RadzenColumn>
+                        </RadzenRow>
+                    </RadzenTabsItem>
+
+                    <RadzenTabsItem Text="Others">
+                        <RadzenRow>
+                            <RadzenColumn Size="12" SizeMD="4">
+                                <RadzenStack Gap="0.2rem">
+
+                                    <RadzenRow AlignItems="@alignItems">
+                                        <RadzenColumn Size="12" SizeMD="12">
+
+                                            <RadzenFormField Style="width:100%" Text="Title" AllowFloatingLabel="false">
+                                                <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0rem;" Wrap="FlexWrap.Wrap">
+                                                    <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Style="width: 90%;" Gap="0.5rem;">
+                                                        <RadzenDropDown class="@redtext" @bind-Value=@purchaseinvoicesHeader.Title Data=@descriptionsList TextProperty="@nameof(Descriptions.Description)" SelectedItem="0" ValueProperty="@nameof(Descriptions.Description)" Style="width: 100%;" />
+                                                    </RadzenStack>
+                                                </RadzenStack>
+                                            </RadzenFormField>
+
+                                        </RadzenColumn>
+                                    </RadzenRow>
+
+                                    <RadzenRow AlignItems="@alignItems">
+                                        <RadzenColumn Size="12" SizeMD="12">
+                                            <RadzenFormField Style="width:100%" Text="Transfer From" AllowFloatingLabel="false">
+                                                <RadzenTextBox Disabled=true class="@redtext" @bind-Value=@purchaseinvoicesHeader.TransferFromInfo Style="width: 100%;" />
+                                            </RadzenFormField>
+                                        </RadzenColumn>
+                                    </RadzenRow>
+                                   
+                                </RadzenStack>
+                            </RadzenColumn>
+
+                            <RadzenColumn Size="12" SizeMD="4">
+                                <RadzenStack Gap="0.2rem">
+                                    <RadzenRow AlignItems="@alignItems">
+                                        <RadzenColumn Size="12" SizeMD="12">
+                                            <RadzenFormField Style="width:100%" Text="Ref 1" AllowFloatingLabel="false">
+                                                <RadzenTextBox class="@redtext" @bind-Value=@purchaseinvoicesHeader.Ref1 Style="width: 100%;" />
+                                            </RadzenFormField>
+                                        </RadzenColumn>
+                                    </RadzenRow>
+                                    <RadzenRow AlignItems="@alignItems">
+                                        <RadzenColumn Size="12" SizeMD="12">
+                                            <RadzenFormField Style="width:100%" Text="Ref 2" AllowFloatingLabel="false">
+                                                <RadzenTextBox class="@redtext" @bind-Value=@purchaseinvoicesHeader.Ref2 Style="width: 100%;" />
+                                            </RadzenFormField>
+                                        </RadzenColumn>
+                                    </RadzenRow>
+                                </RadzenStack>
+                            </RadzenColumn>
+
+                            <RadzenColumn Size="12" SizeMD="4">
+                                <RadzenStack Gap="0.2rem">
+                                    <RadzenRow AlignItems="@alignItems">
+                                        <RadzenColumn Size="12" SizeMD="12">
+                                            <RadzenFormField Style="width:100%" Text="Remark 1" AllowFloatingLabel="false">
+                                                <RadzenTextBox class="@redtext" @bind-Value=@purchaseinvoicesHeader.Remark1 Style="width: 100%;" />
+                                            </RadzenFormField>
+                                        </RadzenColumn>
+                                    </RadzenRow>
+                                    <RadzenRow AlignItems="@alignItems">
+                                        <RadzenColumn Size="12" SizeMD="12">
+                                            <RadzenFormField Style="width:100%" Text="Remark 2" AllowFloatingLabel="false">
+                                                <RadzenTextBox class="@redtext" @bind-Value=@purchaseinvoicesHeader.Remark2 Style="width: 100%;" />
+                                            </RadzenFormField>
+                                        </RadzenColumn>
+                                    </RadzenRow>
+                                </RadzenStack>
+                            </RadzenColumn>
+
+                        </RadzenRow>
+                    </RadzenTabsItem>
+
+                    <RadzenTabsItem Text="Notes">
+                        <RadzenRow>
+                            <RadzenColumn Size="12" SizeMD="12">
+                                <RadzenStack Gap="0.2rem">
+                                    <RadzenRow AlignItems="@alignItems">
+                                        <RadzenColumn Size="12" SizeMD="12">
+                                            <RadzenTextArea @bind-Value=@purchaseinvoicesHeader.Notes Rows="10" Style="width:100%" class="@redtext" aria-label="TextArea" />
+                                        </RadzenColumn>
+                                    </RadzenRow>
+                                </RadzenStack>
+                            </RadzenColumn>
+                        </RadzenRow>
+                    </RadzenTabsItem>
+
+
+                    <RadzenTabsItem Text="Approvals">
+                        @* <RadzenDropDownDataGrid class="@redtext" @bind-Value=@purchaserequisitionmodel.RequestByUserId ValueProperty="@nameof(SecuritySystemUser.Oid)" TextProperty="@nameof(SecuritySystemUser.UserName)"
+                                                    Data="@requestedList" AllowClear="true" FilterCaseSensitivity="@filter" AllowFilteringByAllStringColumns="true" Density="@density"
+                                                    AllowSorting="false" Style="width: 100%;" PageSize=10 AllowVirtualization="true" AllowColumnResize="true">
+                                <Columns>
+                                    <RadzenDropDownDataGridColumn Property="@nameof(SecuritySystemUser.UserName)" Title="User Name"></RadzenDropDownDataGridColumn>
+                                    <RadzenDropDownDataGridColumn Property="@nameof(SecuritySystemUser.FullName)" Title="Full Name"></RadzenDropDownDataGridColumn>
+                                </Columns>
+                            </RadzenDropDownDataGrid> *@
+                        <RadzenTable style="height:335px">
+                            <RadzenTableHeader>
+                                <RadzenTableHeaderRow>
+                                    <RadzenTableHeaderCell Style="width:100px; text-align: center;">
+                                        Level
+                                    </RadzenTableHeaderCell>
+                                    <RadzenTableHeaderCell Style="width:200px; text-align: center;">
+                                        Approver/Supervisor
+                                    </RadzenTableHeaderCell>
+                                    <RadzenTableHeaderCell Style="width:120px; text-align: center;">
+                                        Approved
+                                    </RadzenTableHeaderCell>
+                                    <RadzenTableHeaderCell Style="width:120px; text-align: center;">
+                                        Rejected
+                                    </RadzenTableHeaderCell>
+                                    <RadzenTableHeaderCell Style="width:150px; text-align: center;">
+                                        Date
+                                    </RadzenTableHeaderCell>
+                                    <RadzenTableHeaderCell Style="width:250px; text-align: center;">
+                                        Rejected Reason
+                                    </RadzenTableHeaderCell>
+                                </RadzenTableHeaderRow>
+                            </RadzenTableHeader>
+                            <RadzenTableBody>
+
+                            </RadzenTableBody>
+                        </RadzenTable>
+                    </RadzenTabsItem>
+
+                </Tabs>
+            </RadzenTabs>
+
+            @* TABLE DETAILS*@
+            <br />
+            <RadzenDataGrid EditMode="@editMode"
+                            @ref="purchaseinvoicesDetailsGrid"
+                            Style="width: 100%; font-size:12px"
+                            Data="@purchaseinvoicesDetails"
+                            AllowColumnResize=true
+                            RowCreate="@OnCreateRow"
+                            IsLoading="@isLoading"
+                            AllowColumnPicking="true"
+                            TItem="PurchaseInvoiceDetails"
+                            Density="@density"
+                            RowUpdate="@OnUpdateRow"
+                            CellDoubleClick="@(args => EditRow(args.Data))">
+
+                <HeaderTemplate>
+                    <RadzenButton ButtonStyle="ButtonStyle.Success" Icon="add" Text="Add New Order" Size="ButtonSize.ExtraSmall" Click="@(() => InsertAfterRow(purchaseinvoicesDetails.LastOrDefault()))" Disabled="@(purchaseinvoicesDetailsToInsert.Any() || purchaseinvoicesDetailsToUpdate.Any() || purchaseinvoicesHeader.IsCancelled is true)" />
+                </HeaderTemplate>
+                <Columns>
+
+                    <RadzenDataGridColumn Width="45px" TextAlign="TextAlign.Center" Property="Action" Frozen="true" FrozenPosition="FrozenColumnPosition.Left">
+                        <Template Context="purchaseinvoicesdetails">
+                            <RadzenButton Icon="edit" ButtonStyle="ButtonStyle.Secondary" Variant="Variant.Text" Size="ButtonSize.ExtraSmall" Click="@(args => EditRow(purchaseinvoicesdetails))" title="Edit this row" Disabled="@(purchaseinvoicesHeader.IsCancelled is true)" />
+
+                        </Template>
+                        <EditTemplate Context="purchaseinvoicesdetails">
+                            <RadzenButton Icon="check" ButtonStyle="ButtonStyle.Success" Variant="Variant.Text" Size="ButtonSize.ExtraSmall" Click="@((args) => SaveRow(purchaseinvoicesdetails))" title="Save" />
+                        </EditTemplate>
+                    </RadzenDataGridColumn>
+
+                    <RadzenDataGridColumn Visible=false Width="5rem" TItem="PurchaseInvoiceDetails" Property="@nameof(PurchaseInvoiceDetails.IsTaxInclusive)" Title="IsTaxInclusive" TextAlign="TextAlign.Center" />
+                    <RadzenDataGridColumn Visible=false Width="5rem" TItem="PurchaseInvoiceDetails" Property="@nameof(PurchaseInvoiceDetails.Id)" Title="Id" TextAlign="TextAlign.Center" />
+                    <RadzenDataGridColumn Visible=false Width="5rem" TItem="PurchaseInvoiceDetails" Property="@nameof(PurchaseInvoiceDetails.PurchaseInvoiceId)" Title="PurchaseOrderId" TextAlign="TextAlign.Center" />
+                    <RadzenDataGridColumn Visible=false Width="5rem" TItem="PurchaseInvoiceDetails" Property="@nameof(PurchaseInvoiceDetails.Pos)" Title="Pos" TextAlign="TextAlign.Center" />
+
+                    <RadzenDataGridColumn Width="11rem" TItem="PurchaseInvoiceDetails" Property="@nameof(PurchaseInvoiceDetails.StockId)" Title="Stock Code" TextAlign="TextAlign.Center">
+                        <Template Context="purchaseinvoicesdetails">
+                            @{
+                                var stock = stockList?.FirstOrDefault(s => s.Id == purchaseinvoicesdetails.StockId);
+                            }
+                            @stock?.StockCode
+                        </Template>
+                        <EditTemplate Context="purchaseinvoicesdetails">
+                            <RadzenDropDownDataGrid @bind-Value="purchaseinvoicesdetails.StockId"
+                                                    Change="@(args => OnStockChanged(args, purchaseinvoicesdetails))"
+                                                    Style="width: 100%; font-size:12px" PageSize="10" Data="@stockList"
+                                                    AllowVirtualization="true" AllowColumnResize="true"
+                                                    AllowClear="true" AllowSorting="false"
+                                                    FilterCaseSensitivity="@filter" AllowFilteringByAllStringColumns="true"
+                                                    TextProperty="StockCode" Density="@density" ValueProperty="Id">
+                                <Columns>
+                                    <RadzenDropDownDataGridColumn Width="6%" Property="StockCode" Title="Stock #" />
+                                    <RadzenDropDownDataGridColumn Width="10%" Property="StockName" Title="StockName" />
+                                </Columns>
+                            </RadzenDropDownDataGrid>
+                        </EditTemplate>
+                    </RadzenDataGridColumn>
+
+                    @*OCTOBER 20, 2026*@
+                    <RadzenDataGridColumn Width="100px" TItem="PurchaseInvoiceDetails" Title="GLAccount" TextAlign="TextAlign.Center">
+                        <Template Context="purchaseinvoicesdetails">
+                            @{
+                                /// OCTOBER 15, 2026
+                                var stockglAccount = glaccountlist?.FirstOrDefault(w => w.Id == purchaseinvoicesdetails.GLAccountId);
+                            }
+                            @stockglAccount?.GLAccountCode
+                        </Template>
+
+                    </RadzenDataGridColumn>
+
+                    <RadzenDataGridColumn Width="290px" TItem="PurchaseInvoiceDetails" Property="@nameof(PurchaseInvoiceDetails.Description)" Title="Description" TextAlign="TextAlign.Center">
+                        <EditTemplate Context="purchaseinvoicesdetails">
+                            <RadzenTextBox Disabled="@IsDisable" Style="width: 100%; font-size:12px" @bind-Value="purchaseinvoicesdetails.Description"></RadzenTextBox>
+                        </EditTemplate>
+                    </RadzenDataGridColumn>
+
+                    @* BATCH NO DROPDOWN *@
+                    @* ADDED 10/15/2026 *@
+                    <RadzenDataGridColumn Width="160px" TItem="PurchaseInvoiceDetails" Property="@nameof(PurchaseInvoiceDetails.StockBatchNumberId)" Title="Batch No" TextAlign="TextAlign.Center">
+                        <Template Context="purchaseinvoicesdetails">
+                            @{
+                                var batchcode = stockbatchnumberList?.FirstOrDefault(b => b.Id == purchaseinvoicesdetails.StockBatchNumberId);
+                            }
+                            @batchcode?.BatchNo
+                        </Template>
+                        <EditTemplate Context="purchaseinvoicesdetails">
+                            <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center">
+                                <RadzenTextBox @ref="textBox" Value="@stockbatchnumbercode" Style="width: 100%; font-size:12px"
+                                               @oninput="@(args => OnInput(args, purchaseinvoicesdetails))"
+                                               @onclick="@(args => batchnumberpopup.ToggleAsync(textBox.Element))" />
+
+                                <RadzenPopup @ref=batchnumberpopup id="batchnumberpopup" AutoFocusFirstElement="false" class="batchnumber-popup">
+                                    <RadzenDataGrid @ref=stockbatchnumbergrid id="stockbatchnumbergrid"
+                                                    RowSelect="@(item => OnRowSelect(item, purchaseinvoicesdetails))"
+                                                    Density="Density.Compact"
+                                                    TItem="StockBatchNumbersModel"
+                                                    Data="@GetBatchNumberForStock(purchaseinvoicesdetails.StockId)"
+                                                    AllowSorting="true" Style="height:360px">
+
+                                        <HeaderTemplate>
+                                            <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.SpaceBetween">
+                                                <span>Stock Batch Numbers</span>
+                                                <RadzenButton Icon="add" Text="New" Size="ButtonSize.ExtraSmall"
+                                                              ButtonStyle="ButtonStyle.Success"
+                                                              Click="@(() => NewBatch(purchaseinvoicesdetails))" />
+                                            </RadzenStack>
+                                        </HeaderTemplate>
+
+                                        <EmptyTemplate>
+                                            <p class="rz-m-4">No batch numbers for this stock yet. Click <b>New</b> to create one.</p>
+                                        </EmptyTemplate>
+
+                                        <Columns>
+                                            <RadzenDataGridColumn Width="45px" Sortable="false" Filterable="false" TextAlign="TextAlign.Center">
+                                                <Template Context="batch">
+                                                    <RadzenButton Icon="edit" Variant="Variant.Text" Size="ButtonSize.ExtraSmall"
+                                                                  ButtonStyle="ButtonStyle.Secondary" title="Edit batch"
+                                                                  Click="@(args => EditBatch(batch, purchaseinvoicesdetails))"
+                                                                  @onclick:stopPropagation="true" />
+                                                </Template>
+                                            </RadzenDataGridColumn>
+                                            <RadzenDataGridColumn Property="BatchNo" Width="75px" Title="Batch #" />
+                                            <RadzenDataGridColumn Property="Description" Width="160px" Title="Description" />
+                                            <RadzenDataGridColumn Property="BatchNoManufacturingDate" Width="100px" Title="Mfg Date" FormatString="{0:MM/dd/yyyy}" />
+                                            <RadzenDataGridColumn Property="BatchNoExpiryDate" Width="100px" Title="Exp Date" FormatString="{0:MM/dd/yyyy}" />
+                                            <RadzenDataGridColumn Property="BalanceQty" Width="100px" Title="Balance">
+                                                <Template Context="item">
+                                                    @(item.BalanceQty == 0 ? "" : item.BalanceQty?.ToString("N4"))
+                                                </Template>
+                                            </RadzenDataGridColumn>
+                                        </Columns>
+                                    </RadzenDataGrid>
+                                </RadzenPopup>
+
+                                <RadzenButton Icon="more_horiz" ButtonStyle="ButtonStyle.Primary" />
+                            </RadzenStack>
+                        </EditTemplate>
+                    </RadzenDataGridColumn>
+
+                    <RadzenDataGridColumn TItem="PurchaseInvoiceDetails" Property="@nameof(PurchaseInvoiceDetails.Qty)" Title="Qty" TextAlign="TextAlign.Center">
+                        <Template Context="purchaseinvoicesdetails">
+                            @(purchaseinvoicesdetails.Qty == 0 ? "" : purchaseinvoicesdetails.Qty.ToString("N4"))
+                        </Template>
+                        <EditTemplate Context="purchaseinvoicesdetails">
+                            <RadzenNumeric Disabled="@IsDisable" Change="@(args => TransactionHelper(purchaseinvoicesdetails))" Style="width: 100%; font-size:12px" TValue="decimal" @bind-Value="purchaseinvoicesdetails.Qty" Format="#.0000" />
+                        </EditTemplate>
+                    </RadzenDataGridColumn>
+
+                    <RadzenDataGridColumn TItem="PurchaseInvoiceDetails" Property="@nameof(PurchaseInvoiceDetails.UOMId)" Title="UOM" TextAlign="TextAlign.Center">
+                        <Template Context="purchaseinvoicesdetails">
+                            @{
+                                var uoms = uomsList?.FirstOrDefault(u => u.Id == purchaseinvoicesdetails.UOMId);
+                            }
+                            @uoms?.UOMCode
+                        </Template>
+                        <EditTemplate Context="purchaseinvoicesdetails">
+
+                            <RadzenDropDownDataGrid Disabled="@IsDisable"
+                                                    @bind-Value="purchaseinvoicesdetails.UOMId"
+                                                    Style="width: 100%; font-size:12px"
+                                                    PageSize="10" Data="@GetUOMsForStock(purchaseinvoicesdetails.StockId)"
+                                                    AllowVirtualization="true"
+                                                    AllowColumnResize="true"
+                                                    AllowClear="true"
+                                                    AllowSorting="false"
+                                                    FilterCaseSensitivity="@filter"
+                                                    AllowFilteringByAllStringColumns="true"
+                                                    TextProperty="UOMCode"
+                                                    Density="@density"
+                                                    ValueProperty="Id">
+                                <Columns>
+                                    <RadzenDropDownDataGridColumn Width="6%" Property="UOMCode" Title="UOM #" />
+                                    <RadzenDropDownDataGridColumn Width="10%" Property="Description" Title="Description" />
+                                </Columns>
+                            </RadzenDropDownDataGrid>
+                        </EditTemplate>
+                    </RadzenDataGridColumn>
+
+                    <RadzenDataGridColumn TItem="PurchaseInvoiceDetails" Property="@nameof(PurchaseInvoiceDetails.UnitPrice)" Title="Unit Price" TextAlign="TextAlign.Center">
+                        <Template Context="purchaseinvoicesdetails">
+                            @(purchaseinvoicesdetails.UnitPrice == 0 ? "" : purchaseinvoicesdetails.UnitPrice.ToString("N4"))
+                        </Template>
+                        <EditTemplate Context="purchaseinvoicesdetails">
+                            <RadzenNumeric Change="@(args => TransactionHelper(purchaseinvoicesdetails))" Disabled="@IsDisable" Style="width: 100%; font-size:12px" TValue="decimal" @bind-Value="purchaseinvoicesdetails.UnitPrice" Format="#.0000" />
+                        </EditTemplate>
+                    </RadzenDataGridColumn>
+
+                    <RadzenDataGridColumn TItem="PurchaseInvoiceDetails" Property="Discount" Title="Disc" TextAlign="TextAlign.Center">
+                        <Template Context="purchaseinvoicesdetails">
+                            @(purchaseinvoicesdetails.Discount == string.Empty ? string.Empty : purchaseinvoicesdetails.Discount)
+                        </Template>
+                        <EditTemplate Context="purchaseinvoicesdetails">
+                            <RadzenTextBox Style="width: 100%; font-size:12px"
+                                           Disabled="@IsDisable"
+                                           @bind-Value="purchaseinvoicesdetails.Discount"
+                                           Change="@(args => OnDiscountChanged(purchaseinvoicesdetails))">
+                            </RadzenTextBox>
+                        </EditTemplate>
+                    </RadzenDataGridColumn>
+
+                    <RadzenDataGridColumn TItem="PurchaseInvoiceDetails" Property="@nameof(PurchaseInvoiceDetails.Amount)" Title="Amount" TextAlign="TextAlign.Center">
+                        <Template Context="purchaseinvoicesdetails">
+                            @(purchaseinvoicesdetails.Amount == 0 ? "" : purchaseinvoicesdetails.Amount.ToString("N2"))
+                        </Template>
+                    </RadzenDataGridColumn>
+
+                    <RadzenDataGridColumn TItem="PurchaseInvoiceDetails" Property="@nameof(PurchaseInvoiceDetails.TaxCodeId)" Title="Tax Code" TextAlign="TextAlign.Center">
+                        <Template Context="purchaseinvoicesdetails">
+                            @{
+                                var taxcode = taxCodesList?.FirstOrDefault(t => t.Id == purchaseinvoicesdetails.TaxCodeId);
+                            }
+                            @taxcode?.TaxCode
+
+                            @* taxCodesList *@
+                        </Template>
+                        <EditTemplate Context="purchaseinvoicesdetails">
+                            <RadzenDropDownDataGrid Change="@(args => TransactionHelper(purchaseinvoicesdetails))"
+                                                    Disabled="@IsDisable" @bind-Value="purchaseinvoicesdetails.TaxCodeId"
+                                                    AllowSorting="false"
+                                                    Style="font-size:12px"
+                                                    PageSize="10"
+                                                    Data="@taxCodesList"
+                                                    AllowClear="true"
+                                                    FilterCaseSensitivity="@filter"
+                                                    AllowFilteringByAllStringColumns="true"
+                                                    TextProperty="TaxCode" Density="@density" ValueProperty="Id">
+                                <Columns>
+                                    <RadzenDropDownDataGridColumn Width="100px" Property="TaxCode" Title="Vat #" />
+                                    <RadzenDropDownDataGridColumn Width="100px" Property="Rate" Title="Rate" />
+                                    <RadzenDropDownDataGridColumn Width="100px" Property="VatType" Title="VatType" />
+                                    <RadzenDropDownDataGridColumn Width="250px" Property="Description" Title="Description" />
+                                </Columns>
+                            </RadzenDropDownDataGrid>
+                        </EditTemplate>
+                    </RadzenDataGridColumn>
+
+                    <RadzenDataGridColumn TItem="PurchaseInvoiceDetails" Property="@nameof(PurchaseInvoiceDetails.TaxAmount)" Title="Tax" TextAlign="TextAlign.Center">
+                        <Template Context="purchaseinvoicesdetails">
+                            @(purchaseinvoicesdetails.TaxAmount == 0 ? "" : purchaseinvoicesdetails.TaxAmount.ToString("N4"))
+                        </Template>
+                    </RadzenDataGridColumn>
+
+                    <RadzenDataGridColumn TItem="PurchaseInvoiceDetails" Property="@nameof(PurchaseInvoiceDetails.WTaxCode)" Title="WTax Code" TextAlign="TextAlign.Center">
+                        <Template Context="purchaseinvoicesdetails">
+                            @{
+                                var wtaxcode = wTaxCodesList?.FirstOrDefault(w => w.Id == purchaseinvoicesdetails.WTaxCode);
+                            }
+                            @wtaxcode?.Code
+                        </Template>
+
+                        @* WTAXCODE DROPDOWN *@
+                        <EditTemplate Context="purchaseinvoicesdetails">
+                            <RadzenDropDownDataGrid Disabled="@IsDisable"
+                                                    @bind-Value="purchaseinvoicesdetails.WTaxCode"
+                                                    AllowSorting="false"
+                                                    Style="font-size:12px"
+                                                    PageSize="10"
+                                                    Data="@wTaxCodesList"
+                                                    AllowClear="true"
+                                                    FilterCaseSensitivity="@filter"
+                                                    AllowFilteringByAllStringColumns="true"
+                                                    TextProperty="Code"
+                                                    Density="@density"
+                                                    ValueProperty="Id"
+                                                    Change="@(args => TransactionHelper(purchaseinvoicesdetails))">
+                                <Columns>
+                                    <RadzenDropDownDataGridColumn Width="100px" Property="Code" Title="Code" />
+                                    <RadzenDropDownDataGridColumn Width="100px" Property="Rate" Title="Rate">
+                                        <Template Context="wtaxcode">
+                                            @((wtaxcode.Rate * 100).ToString("0.00") + "%")
+                                        </Template>
+                                    </RadzenDropDownDataGridColumn>
+                                    <RadzenDropDownDataGridColumn Width="250px" Property="Description" Title="Description" />
+                                </Columns>
+                            </RadzenDropDownDataGrid>
+                        </EditTemplate>
+                    </RadzenDataGridColumn>
+
+                    <RadzenDataGridColumn TItem="PurchaseInvoiceDetails" Property="@nameof(PurchaseInvoiceDetails.WTaxAmount)" Title="WTax" TextAlign="TextAlign.Center">
+                        <Template Context="purchaseinvoicesdetails">
+                            @(purchaseinvoicesdetails.WTaxAmount == 0 ? "" : purchaseinvoicesdetails.WTaxAmount.ToString("N4"))
+                        </Template>
+                    </RadzenDataGridColumn>
+                    <RadzenDataGridColumn TItem="PurchaseInvoiceDetails" Property="@nameof(PurchaseInvoiceDetails.NetAmount)" Title="Net" TextAlign="TextAlign.Center">
+                        <Template Context="purchaseinvoicesdetails">
+                            @(purchaseinvoicesdetails.NetAmount == 0 ? "" : purchaseinvoicesdetails.NetAmount.ToString("N2"))
+                        </Template>
+                    </RadzenDataGridColumn>
+
+
+                    <RadzenDataGridColumn Width="45px" TextAlign="TextAlign.Center" Property="Action" Frozen="true" FrozenPosition="FrozenColumnPosition.Right">
+                        <Template Context="purchaseinvoicesdetails">
+                            <RadzenButton Icon="delete" ButtonStyle="ButtonStyle.Danger" title="Delete" Variant="Variant.Text" Size="ButtonSize.ExtraSmall" Click="@(args => DeleteRow(purchaseinvoicesdetails))" Disabled="@(purchaseinvoicesDetails.Count == 1 || purchaseinvoicesHeader.IsCancelled is true)" />
+                        </Template>
+                    </RadzenDataGridColumn>
+
+                </Columns>
+            </RadzenDataGrid>
+            @* END OF TABLE DETAILS*@
+
+        </RadzenCard>
+
+        <RadzenCard Style="Padding: 0.5rem">
+            <RadzenRow JustifyContent="JustifyContent.Right" AlignItems="AlignItems.Center" Gap="0.5rem">
+                <RadzenColumn Size="12" SizeSM="5">
+                    <RadzenStack AlignItems="AlignItems.Center" Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End">
+
+                        <RadzenFormField Style="width:100%" Text="Taxable" AllowFloatingLabel="false">
+                            <RadzenNumeric Disabled=true Value="@purchaseinvoicesHeader.TaxExclusiveTotalAmountLocal" Format="#,0.00" ShowUpDown="false" TextAlign="TextAlign.Right" Style="width: 100%;" Placeholder="" />
+                        </RadzenFormField>
+
+                        <RadzenFormField Style="width:100%" Text="Tax" AllowFloatingLabel="false">
+                            <RadzenNumeric Disabled=true Value="@purchaseinvoicesHeader.TaxTotalAmountLocal" Format="#,0.00" ShowUpDown="false" TextAlign="TextAlign.Right" Style="width: 100%;" Placeholder="" />
+                        </RadzenFormField>
+
+                        <RadzenFormField Style="width:100%" Text="Due Amount" AllowFloatingLabel="false">
+                            <RadzenNumeric Disabled=true Value="@DueAmount" Format="#,0.00" ShowUpDown="false" TextAlign="TextAlign.Right" Style="width: 100%;" Placeholder="" />
+                        </RadzenFormField>
+
+                    </RadzenStack>
+                </RadzenColumn>
+            </RadzenRow>
+        </RadzenCard>
+
+
+    </RadzenStack>
+</RadzenTemplateForm>
+
+<RadzenPopup @ref=popup Lazy=true class="my-popup">
+    <RadzenDataGrid RowDoubleClick="() => SetPurchaseInvoicesPopup(selectedtransactionCodesList.FirstOrDefault().Id)"
+                    TItem="TransactionsCode"
+                    @ref=transactionsCodeGrid
+                    @bind-Value="@selectedtransactionCodesList"
+                    Data=@transactionCodesList>
+        <Columns>
+            <RadzenDataGridColumn TItem="TransactionsCode" Property="@nameof(TransactionsCode.Format)" Title="Format" TextAlign="TextAlign.Center" Width="100px">
+                <Template Context="transactionCode">
+                    @transactionCode.Format
+                </Template>
+            </RadzenDataGridColumn>
+        </Columns>
+    </RadzenDataGrid>
+</RadzenPopup>
+
+<style type="text/css">
+    .my-popup {
+        display: none;
+        position: absolute;
+        overflow: hidden;
+        height: 160px;
+        width: 300px;
+        border: var(--rz-panel-border);
+        background-color: var(--rz-panel-background-color);
+        box-shadow: var(--rz-panel-shadow);
+        border-radius: var(--rz-border-radius);
+    }
+
+    .popuptransfer {
+        display: none;
+        position: absolute;
+        overflow: hidden;
+        height: auto;
+        width: auto;
+        max-height: 90vh;
+        max-width: 90vw;
+        border: var(--rz-panel-border);
+        background-color: #f0f0f0;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+        border-radius: var(--rz-border-radius);
+    }
+</style>
+
+<RadzenPopup @ref=popuptransfer Lazy=true class="popuptransfer">
+    <RadzenCard>
+        <RadzenStack Gap="0.2rem">
+
+            <RadzenRow JustifyContent="JustifyContent.Start" AlignItems="AlignItems.Center" Gap="0.5rem">
+                <RadzenColumn Size="12" SizeSM="7">
+
+                    <RadzenStack AlignItems="AlignItems.Center" Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.Normal">
+                        <RadzenTextBox Disabled=@(filteredGoodReceivedNoteTransferModel == null)
+                                       @bind-Value="@searchText"
+                                       Placeholder="Search..."
+                                       Style="font-size:smaller; width:30rem;"
+                                       Change="@(args => ApplyFilter())" />
+                        <RadzenButton Disabled=@(filteredGoodReceivedNoteTransferModel == null) Icon="search" Click="@ApplyFilter" Text="Find" />
+                        <RadzenButton Disabled=@(filteredGoodReceivedNoteTransferModel == null) Icon="delete" Click="@ClearFilter" Text="Find" />
+                    </RadzenStack>
+                </RadzenColumn>
+            </RadzenRow>
+
+            <RadzenDataGrid @ref="grids"
+                            @bind-Value="selectedGoodsReceivedNotesTransferModel"
+                            SelectionMode="DataGridSelectionMode.Multiple"
+                            TItem="PurchasesTranferList"
+                            IsLoading="@isLoading"
+                            Sort="@ShowLoading"
+                            Group="@ShowLoading"
+                            Filter="@ShowLoading"
+                            AllowColumnReorder="true"
+                            AllowAlternatingRows="false"
+                            ColumnWidth="200px"
+                            Data="@filteredGoodReceivedNoteTransferModel"
+                            AllowColumnPicking="true"
+                            Style="height: 60vh"
+                            KeyProperty="Id"
+                            PagerHorizontalAlign="HorizontalAlign.Center"
+                            AllowColumnResize="true"
+                            Density="@density"
+                            AllowVirtualization="true"
+                            AllowSorting="true"
+                            AllowFiltering="true"
+                            FilterMode="FilterMode.CheckBoxList"
+                            FilterCaseSensitivity="@filter"
+                            LogicalFilterOperator="LogicalFilterOperator.Or">
+
+                <HeaderTemplate>
+                    <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="1rem" Wrap="FlexWrap.Wrap">
+                        <span>
+                            For Transfer <RadzenBadge Visible="@(status != string.Empty)" Shade="Shade.Dark" BadgeStyle="BadgeStyle.Danger" Text="@status" class="rz-ms-2" />
+                        </span>
+                    </RadzenStack>
+                </HeaderTemplate>
+
+                <Columns>
+                    <RadzenDataGridColumn Width="60px" Sortable="false" Filterable="false">
+                        <HeaderTemplate>
+                            <RadzenCheckBox TriState="false" TValue="bool?" InputAttributes="@(new Dictionary<string, object>() { { "aria-label", "Select all items" } })"
+                                            Value="@(selectedGoodsReceivedNotesTransferModel == null || selectedGoodsReceivedNotesTransferModel?.Any() != true ? false : !filteredGoodReceivedNoteTransferModel.All( i => selectedGoodsReceivedNotesTransferModel.Select(e => e.Id).Contains(i.Id)) ? null : filteredGoodReceivedNoteTransferModel.Any(i => selectedGoodsReceivedNotesTransferModel.Select(e => e.Id).Contains(i.Id)))"
+                                            Change="@(args => selectedGoodsReceivedNotesTransferModel = args == true ? (selectedGoodsReceivedNotesTransferModel ?? Enumerable.Empty<PurchasesTranferList>()).Union(filteredGoodReceivedNoteTransferModel.Where(i => !(selectedGoodsReceivedNotesTransferModel ?? Enumerable.Empty<PurchasesTranferList>()).Select(e => e.Id).Contains(i.Id))).ToList() : null)" />
+                        </HeaderTemplate>
+                        <Template Context="data">
+                            <RadzenCheckBox TriState="false" Value="@(selectedGoodsReceivedNotesTransferModel != null && selectedGoodsReceivedNotesTransferModel.Select(e => e.Id).Contains(data.Id))" TValue="bool" />
+                        </Template>
+                    </RadzenDataGridColumn>
+
+                    <RadzenDataGridColumn Visible="true" Width="8rem" Property="@nameof(PurchasesTranferList.DocCode)" Title="PO #" />
+                    <RadzenDataGridColumn Visible="true" Width="8rem" Property="@nameof(PurchasesTranferList.DocDate)" FormatString="{0:MM/dd/yyyy}" Title="Date" />
+                    <RadzenDataGridColumn Visible="true" Property="@nameof(PurchasesTranferList.CreditorName)" Title="Account Name" />
+                    <RadzenDataGridColumn Visible="true" Width="8rem" Property="@nameof(PurchasesTranferList.Purchaser)" Title="Purchaser" />
+                    <RadzenDataGridColumn Visible="true" Width="6rem" Property="@nameof(PurchasesTranferList.Term)" Title="Term" />
+                    <RadzenDataGridColumn Visible="true" Width="10rem" TextAlign="TextAlign.Right" Property="@nameof(PurchasesTranferList.TaxTotalAmount)" Title="Tax Total Amount">
+                        <Template Context="data">
+                            <span>@(data.TaxTotalAmount == 0 ? "" : data.TaxTotalAmount.ToString("#,0.00"))</span>
+                        </Template>
+                    </RadzenDataGridColumn>
+                    <RadzenDataGridColumn Visible=true Width="10rem" TextAlign="TextAlign.Right" Property="@nameof(PurchasesTranferList.NetTotalAmount)" Title="Due Amount">
+                        <Template Context="data">
+                            <span>@(data.NetTotalAmount == 0 ? "" : data.NetTotalAmount.ToString("#,0.00"))</span>
+                        </Template>
+                    </RadzenDataGridColumn>
+
+                </Columns>
+            </RadzenDataGrid>
+
+            <RadzenRow JustifyContent="JustifyContent.Start" AlignItems="AlignItems.Center" Gap="0.5rem">
+                <RadzenColumn Size="12" SizeSM="7">
+                    <RadzenStack AlignItems="AlignItems.Center" Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.Normal">
+                        Test Data:
+                    </RadzenStack>
+                </RadzenColumn>
+
+                <RadzenColumn Size="12" SizeSM="5">
+                    <RadzenStack AlignItems="AlignItems.Center" Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.Right">
+                        <RadzenButton Icon="check" Click=@OnOkClicked Text="Ok" /> @* dito is magrereturn sya ng mga naselect na check na data papunt dito NavManager.NavigateTo($"/PurchaseOrders/Transfer/{PRId}"); *@
+                        <RadzenButton Icon="cancel" Text="Cancel" Click="async args => { selectedGoodsReceivedNotesTransferModel = null; await popuptransfer.CloseAsync(); }" /> @* then dito magcclose yung dialog *@
+                    </RadzenStack>
+                </RadzenColumn>
+            </RadzenRow>
+
+        </RadzenStack>
+    </RadzenCard>
+</RadzenPopup>
+
+@* //FOR POP UP DIALOG *@
+<style type="text/css">
+    .my-popup {
+        display: none;
+        position: absolute;
+        overflow: hidden;
+        height: 160px;
+        width: 300px;
+        border: var(--rz-panel-border);
+        background-color: var(--rz-panel-background-color);
+        box-shadow: var(--rz-panel-shadow);
+        border-radius: var(--rz-border-radius)
+    }
+
+</style>
+
+
+@code {
+    [Parameter] public Guid? Id { get; set; }
+
+    string btnText = "Save";
+    string redtext;
+    string status = string.Empty;
+    bool busy = false;
+    bool isLoading = true;
+    bool btnDiseabled = false;
+    int totalGoodReceivedNote = 0;
+
+    RadzenDataGrid<TransactionsCode> transactionsCodeGrid;
+    RadzenButton button;
+    RadzenPopup popup;
+    RadzenButton transferbutton;
+    RadzenPopup popuptransfer;
+    protected IList<TransactionsCode> selectedtransactionCodesList { get; set; }
+    private IList<PurchasesTranferList> selectedGoodsReceivedNoteTransferModel { get; set; }
+
+    // ADDED 10/15/2026
+    RadzenPopup batchnumberpopup;
+    RadzenTextBox textBox;
+    string stockbatchnumbercode = "";
+    private string batchSearchText = "";
+    RadzenDataGrid<StockBatchNumbersModel> stockbatchnumbergrid;
+    protected List<StockBatchNumbersModel> stockbatchnumberList { get; set; } = new();  
+    private List<StockBatchNumbersModel> pendingBatchNumbers = new();
+
+
+    private string searchText = string.Empty;
+
+    // FOR TRANSFER LIST
+    private RadzenDataGrid<PurchasesTranferList> grids;
+    private IList<PurchasesTranferList> selectedGoodsReceivedNotesTransferModel { get; set; }
+    private IEnumerable<PurchasesTranferList> goodreceivednoteTransferModelList { get; set; }
+    private IEnumerable<PurchasesTranferList> filteredGoodReceivedNoteTransferModel;
+
+    protected ForTransferHeader forTransferHeader { get; set; } = new ForTransferHeader();
+    protected List<ForTransferDetails> forTransferDetails { get; set; }
+
+    ButtonSize smallbtn = ButtonSize.Small;
+    AlignItems alignItems = AlignItems.Center;
+    Density density = Density.Compact;
+    TextStyle textStyle = TextStyle.Body2;
+    FilterCaseSensitivity filter = FilterCaseSensitivity.CaseInsensitive;
+    DataGridEditMode editMode = DataGridEditMode.Single;
+    [CascadingParameter] public Task<AuthenticationState> authenticationState { get; set; }
+
+    protected bool IsDisable => purchaseinvoicesDetails.FirstOrDefault()?.StockId == null;
+
+    // MODEL
+    private PurchaseInvoicesModel purchaseinvoicesHeader { get; set; } = new PurchaseInvoicesModel();
+    protected List<PurchaseInvoiceDetails> purchaseinvoicesDetails { get; set; }
+    RadzenDataGrid<PurchaseInvoiceDetails> purchaseinvoicesDetailsGrid;
+
+    List<PurchaseInvoiceDetails> purchaseinvoicesDetailsToInsert = new List<PurchaseInvoiceDetails>();
+    List<PurchaseInvoiceDetails> purchaseinvoicesDetailsToUpdate = new List<PurchaseInvoiceDetails>();
+
+    // FOR GETTING GOODS RECEIVED NOTES DETAILS
+    public List<Guid> selectedIds = new();
+    private GoodsReceivedNotesModel goodsReceivedNotesHeader { get; set; }
+    protected List<GoodsReceivedNotesDetails> goodsReceivedNotesDetails { get; set; }
+    Variant variant = Variant.Flat;
+
+    // ALL LIST FOR DROPDOWN BOX INPUT
+    protected IEnumerable<Creditors> supplieraccountList { get; set; }
+    protected IEnumerable<Terms> termList { get; set; }
+    protected IEnumerable<StockLocations> stocklocationList { get; set; }
+    protected IEnumerable<Projects> projectList { get; set; }
+    protected IEnumerable<Currencies> currencyList { get; set; }
+    protected IEnumerable<Purchasers> purchaserList { get; set; }
+    protected IEnumerable<Stocks> stockList { get; set; }
+    protected IEnumerable<UOMs> uomsList { get; set; }
+    protected IEnumerable<TaxCodes> taxCodesList { get; set; }
+    protected IEnumerable<WTaxCodes> wTaxCodesList { get; set; }
+    protected IEnumerable<StockUnitPrice> lastSellingPrice { get; set; }
+    protected IEnumerable<Descriptions> descriptionsList { get; set; }
+    protected IEnumerable<TransactionsCode> transactionCodesList { get; set; }
+    protected TransactionCodesFilter transactionCodesFilter = new TransactionCodesFilter();
+    protected DescriptionFilter descriptionFilter { get; set; } = new DescriptionFilter();
+
+    protected TaxCodeFilter taxCodeFilter = new TaxCodeFilter();
+
+    // OCTOBER 20, 2026
+    private IEnumerable<GLAccounts> glaccountlist { get; set; }
+    protected async Task LoadGLAccounts()
+    {
+        var data = await gLAccountsServices.GetGLAccounts();
+        glaccountlist = data is not null ? data : new List<GLAccounts>();
+    }
+
+    // OCTOBER 20, 2026
+    protected IEnumerable<StockGLAccounts> StockGLAccountsList { get; set; }
+    protected async Task GetStockSalesAccountList()
+    {
+        var data = await stockItemsService.GetStockSalesAccountList();
+        StockGLAccountsList = data is not null ? data : new List<StockGLAccounts>();
+    }
+
+
+    protected async Task GetBatchNumbersLists()
+    {
+        var data = await stockItemsService.GetStockBatchNumberList();
+        stockbatchnumberList = data?.ToList() ?? new List<StockBatchNumbersModel>();
+    }
+
+    protected async Task GetSupplierList()
+    {
+        var data = await suppliersServices.GetSupplierLists();
+        supplieraccountList = data is not null ? data : new List<Creditors>();
+    }
+
+    protected async Task GetTermList()
+    {
+        var data = await termService.GetTermsLists();
+        termList = data is not null ? data : new List<Terms>();
+    }
+
+    protected async Task GetLocationList()
+    {
+        var data = await stockItemsService.GetStockLocationList();
+        stocklocationList = data is not null ? data : new List<StockLocations>();
+    }
+
+    private IEnumerable<UOMs> GetUOMsForStock(Guid? stockId)
+    {
+        if (stockId == null || uomsList == null)
+            return Enumerable.Empty<UOMs>();
+        return uomsList.Where(u => u.StockId == stockId);
+    }
+
+    protected async Task GetStocksPriceList()
+    {
+        var data = await stockItemsService.GetStocksPriceList("PO");
+        lastSellingPrice = data is not null ? data : new List<StockUnitPrice>();
+    }
+
+    protected async Task GetProjectList()
+    {
+        var data = await projectService.GetProjectsLists();
+        projectList = data is not null ? data : new List<Projects>();
+    }
+
+    protected async Task GetCurrencyList()
+    {
+        var data = await currenciesService.GetCurrencies();
+        currencyList = data is not null ? data : new List<Currencies>();
+    }
+
+    protected void SetDefaultCurrency()
+    {
+        var selectedCurrency = currencyList.FirstOrDefault(c => c.Id == 1);
+        purchaseinvoicesHeader.CurrencyId = selectedCurrency.Id;
+        purchaseinvoicesHeader.CurrencyRate = selectedCurrency.DefaultPurchaseRate;
+    }
+
+    protected async Task GetPurchaserList()
+    {
+        var data = await purchaseRequisitionsService.GetPurchaserLists();
+        purchaserList = data is not null ? data : new List<Purchasers>();
+    }
+
+    protected async Task GetStockList()
+    {
+        var data = await stockItemsService.GetStockList();
+        stockList = data is not null ? data : new List<Stocks>();
+    }
+
+    protected async Task GetUOMSList()
+    {
+        var data = await stockItemsService.GetUOMsList();
+        uomsList = data is not null ? data : new List<UOMs>();
+    }
+
+    protected async Task GetTransactionNo()
+    {
+        var data = await transactionCodeService.GetTransactionNo(transactionCodesFilter);
+        transactionCodesList = data is not null ? data.ToList() : new List<TransactionsCode>();
+    }
+
+    protected async Task GetDescriptions()
+    {
+        var data = await descriptionsService.GetDescriptions(descriptionFilter);
+        descriptionsList = data is not null ? data : new List<Descriptions>();
+
+        var selected = descriptionsList.FirstOrDefault(sa => sa.IsDefault == true);
+        purchaseinvoicesHeader.Title = selected.Description; // Select first item
+    }
+
+    protected async Task GetTaxCodesList()
+    {
+        taxCodeFilter.IsOutOrIn = false;// true for Output Tax Codes
+        taxCodeFilter.IsActive = true; // true for Active Tax Codes
+
+        var data = await allTaxCodeService.GetTaxCodes(taxCodeFilter);
+        taxCodesList = data is not null ? data : new List<TaxCodes>();
+    }
+
+    protected async Task GetWTaxCodesList()
+    {
+        var data = await allTaxCodeService.GetWTaxCodes();
+        wTaxCodesList = data is not null ? data : new List<WTaxCodes>();
+    }
+
+    private async Task GetGoodsReceivedNotesListing(string CreditorId)
+    {
+        var data = await purchaseTransferLinkServices.GetPurchasesTranferLists(CreditorId, "GRN");
+
+        goodreceivednoteTransferModelList = data is not null ? data : new List<PurchasesTranferList>();
+
+        totalGoodReceivedNote = goodreceivednoteTransferModelList.Count();
+
+        await LoadfilteredGoodReceivedNoteTransfer();
+    }
+
+    private async Task LoadfilteredGoodReceivedNoteTransfer()
+    {
+        filteredGoodReceivedNoteTransferModel = goodreceivednoteTransferModelList;
+    }
+
+    protected async Task loadAllData()
+    {
+        await GetTransactionNo();
+        await GetSupplierList();
+        await GetTermList();
+        await GetLocationList();
+        await GetCurrencyList();
+        await GetProjectList();
+        await GetPurchaserList();
+        await GetDescriptions();
+        await GetStockList();
+        await GetUOMSList();
+        await GetTaxCodesList();
+        await GetWTaxCodesList();
+        await SetPurchaseInvoicesNo();
+        await GetStocksPriceList();     
+        await GetBatchNumbersLists(); 
+
+        await LoadGLAccounts(); // OCTOBER 20, 2026
+        await GetStockSalesAccountList(); // OCTOBER 20, 2026
+
+        SetDefaultCurrency();
+        isLoading = false;
+        StateHasChanged();
+
+    }
+
+    private async Task loadAllDataById()
+    {
+        await GetPurchaseInvoicesById();
+        await GetPurchaseInvoiceDetailById();
+        LoadGRNStatus();
+        isLoading = false;
+        StateHasChanged();
+    }
+
+    protected void LoadGRNStatus()
+    {
+        var statusList = new List<string>();
+
+        if (purchaseinvoicesHeader.IsCancelled)
+            statusList.Add("Cancelled");
+
+        if (statusList.Any())
+        {
+            status = $"({string.Join(", ", statusList)})";
+        }
+
+        StateHasChanged();
+    }
+
+    protected async override Task OnInitializedAsync()
+    {
+        var authState = (await authenticationState).User;
+        if (authState.Identity.IsAuthenticated)
+        {
+            var RoleId = authState.FindFirst("RoleId").Value;
+            GetLoadMenuPermission(RoleId);
+        }
+    }
+
+    private SystemMenuObjectPermission? permission;
+    protected async void GetLoadMenuPermission(string RoleId)
+    {
+        permission = await permissionService.GetPermissionAsync(
+         RoleId,
+        "Purchase Invoices");  // ✅ match whatever the DB actually has
+
+        if (permission is null)
+            return;
+
+        SetTransactionCodeData();
+        InitializePurchaseInvoicesDetails();
+        await loadAllData();
+
+        if (Id != null)
+            await loadAllDataById();
+
+        StateHasChanged();
+    }
+
+    private void SetTransactionCodeData()
+    {
+        descriptionFilter.OwnerCode = "PurchaseInvoices.Title";        //For Code Getting Format from db.TransactionCodes
+        transactionCodesFilter.TableId = 20;
+    }
+
+    // Initialize with 5 rows and set default Pos index
+    protected async void InitializePurchaseInvoicesDetails()
+    {
+        // Initialize with 5 rows and set default Pos index
+        purchaseinvoicesDetails = Enumerable.Range(1, 5)
+                .Select(i => new PurchaseInvoiceDetails
+                {
+                    Pos = i,
+                    PurchaseInvoiceId = Id ?? purchaseinvoicesHeader.Id,
+                    IsTaxInclusive = purchaseinvoicesHeader.IsTaxInclusive
+                })
+                .ToList();
+    }
+
+    // FOR RUNNING NUMBERS
+    protected TransactionsCode selectedTransacCode => transactionCodesList.FirstOrDefault(sa => sa.IsDefault == true);
+    protected RunningNumbers runningNumbers { get; set; } = new RunningNumbers();
+
+    protected async Task SetGoodsReceivedNotePopup(int Id)
+    {
+        await SetPurchaseInvoicesNo();
+    }
+
+    protected async Task SetPurchaseInvoicesNo()
+    {
+        runningNumbers.DocDate = purchaseinvoicesHeader.PurchaseInvoiceDate;
+        runningNumbers.Format = selectedTransacCode?.Format;
+        runningNumbers.ColumnName = "PurchaseInvoiceCode";
+        runningNumbers.TableName = "PurchaseInvoices";
+
+        await GetNextQuotationCodeAsync();
+        await popup.CloseAsync();
+    }
+
+    protected async Task SetPurchaseInvoicesPopup(int Id)
+    {
+        await SetPurchaseInvoicesNo();
+    }
+
+    private async Task GetNextQuotationCodeAsync()
+    {
+        var data = await runningNumberService.GetNextRunningNumber(runningNumbers);
+        purchaseinvoicesHeader.PurchaseInvoiceCode = data is not null ? data : string.Empty;
+    }
+
+    // DROPDOWN SUPPLIER
+    protected void OnCreditorChanged(object Id)
+    {
+        if (Id is not null)
+        {
+            if (supplieraccountList.FirstOrDefault(sa => sa.Id == (Guid)Id) is var selectedsuppliers && selectedsuppliers != null)
+            {
+                LoadGoodsReceivedNotesModel(selectedsuppliers);
+            }
+        }
+        else
+        {
+            ClearLoadGoodsReceivedNotesModel();
+        }
+    }
+
+    private void OnStockLocationChanged(object stockLocationId)
+    {
+        Guid? selectedId = stockLocationId as Guid?;
+
+        foreach (var detail in purchaseinvoicesDetails)
+        {
+            detail.StockLocationId = selectedId;
+        }
+        StateHasChanged();
+    }
+
+    // ANG PURPOSE NITO AY ONCE NA MAG SELECT NG SUPPLIER OR CREDITOR
+    protected void LoadGoodsReceivedNotesModel(Creditors selectedsuppliers)
+    {
+        // SET CURRENCY RATE
+        purchaseinvoicesHeader.CreditorId = selectedsuppliers.Id;
+        purchaseinvoicesHeader.CurrencyId = selectedsuppliers.CurrencyId;
+        purchaseinvoicesHeader.CreditorName = selectedsuppliers.CompanyName;
+        purchaseinvoicesHeader.TermId = selectedsuppliers.TermId;
+        purchaseinvoicesHeader.PurchaserId = selectedsuppliers.TermId;
+
+        purchaseinvoicesHeader.CurrencyRate = currencyList.FirstOrDefault(c => c.Id == selectedsuppliers.CurrencyId)?.DefaultPurchaseRate ?? 0;
+        purchaseinvoicesHeader.Attention = selectedsuppliers.ContactPerson;
+        purchaseinvoicesHeader.PurchaserId = selectedsuppliers.PurchaserId;
+        purchaseinvoicesHeader.Address1 = selectedsuppliers.Address1;
+        purchaseinvoicesHeader.Address2 = selectedsuppliers.Address2;
+        purchaseinvoicesHeader.Address3 = selectedsuppliers.Address3;
+        purchaseinvoicesHeader.Address4 = selectedsuppliers.Address4;
+        purchaseinvoicesHeader.Phone = selectedsuppliers.PhoneNo1;
+        purchaseinvoicesHeader.Fax = selectedsuppliers.FaxNo1;
+        purchaseinvoicesHeader.Notes = selectedsuppliers.Notes;
+
+        purchaseinvoicesHeader.DeliverContact = selectedsuppliers.ContactPerson;
+        purchaseinvoicesHeader.IsApproved = true;
+
+        purchaseinvoicesHeader.Address1 = selectedsuppliers.Address1;
+        purchaseinvoicesHeader.Address2 = selectedsuppliers.Address2;
+        purchaseinvoicesHeader.Address3 = selectedsuppliers.Address3;
+        purchaseinvoicesHeader.Address4 = selectedsuppliers.Address4;
+        purchaseinvoicesHeader.DeliverPhone = selectedsuppliers.PhoneNo1;
+
+        purchaseinvoicesHeader.DeliverAddress1 = selectedsuppliers.DeliveryAddress1;
+        purchaseinvoicesHeader.DeliverAddress2 = selectedsuppliers.DeliveryAddress2;
+        purchaseinvoicesHeader.DeliverAddress3 = selectedsuppliers.DeliveryAddress3;
+        purchaseinvoicesHeader.DeliverAddress4 = selectedsuppliers.DeliveryAddress4;
+
+        // FOR TRANSFER LIST
+        GetGoodsReceivedNotesListing(selectedsuppliers.Id.ToString());
+        StateHasChanged();
+    }
+
+    void ClearLoadGoodsReceivedNotesModel()
+    {
+        purchaseinvoicesHeader = new();
+        SetDefaultCurrency();
+    }
+
+    protected async Task GetPurchaseInvoicesById()
+    {
+        var data = await purchaseInvoicesService.GetPurchaseInvoicesById(Id.ToString());
+        purchaseinvoicesHeader = data is not null ? data : new PurchaseInvoicesModel();
+        SetRedText();
+    }
+
+    protected void SetRedText()
+    {
+        redtext = purchaseinvoicesHeader.IsCancelled == true ? "rz-color-danger-darker" : "";
+    }
+
+    private async Task IsDeferredVATIsDetailPosting(string switchName)
+    {
+        if (Id is null)
+        {
+            purchaseinvoicesHeader.IsDeferredVAT = false;
+            purchaseinvoicesHeader.IsDetailPosting = false;
+            NotificationHelper.ShowWarning(
+                notificationService,
+                "",
+                "Please click the 'Save' (checkmark) button for any active or newly added detail rows in the grid before saving."
+            );
+            return;
+        }
+
+        await SetDeferredVATIsDetailPosting(switchName);
+
+    }
+
+    private HeaderSwitchModel headerSwitchModel = new HeaderSwitchModel();
+    private async Task SetDeferredVATIsDetailPosting(string switchName)
+    {
+        headerSwitchModel = new()
+        {
+            Id = Id,
+            TableName = "PurchaseInvoices",
+            SwitchName = switchName,
+            IsDeferredVAT = purchaseinvoicesHeader.IsDeferredVAT,
+            IsDetailPosting = purchaseinvoicesHeader.IsDetailPosting
+        };
+
+        await headerSwitchServices.UpdateHeaderSwitch(headerSwitchModel);
+    }
+
+    protected async Task GetPurchaseInvoiceDetailById()
+    {
+        var data = await purchaseInvoicesService.GetPurchaseInvoiceDetailById(Id.ToString());
+        purchaseinvoicesDetails = data is not null ? data.ToList() : new List<PurchaseInvoiceDetails>();
+    }
+
+    protected void IsTaxInclusiveChanged()
+    {
+        foreach (var row in purchaseinvoicesDetails)
+        {
+            row.IsTaxInclusive = purchaseinvoicesHeader.IsTaxInclusive;
+
+            // if (row.ItemTypeCode is not ("T" or "D"))
+            // TransactionNumberHelper.Compute(row);
+            if (row.Description?.Split(' ')[0] is not ("DISCOUNT" or "SUBTOTAL"))
+                TransactionNumberHelper.Compute(row);
+
+
+        }
+        LoadSubtotalRow();
+        LoadAllTaxTotalDiscNetAmount();
+    }
+
+    private void LoadSubtotalRow()
+    {
+        ///
+
+        if (purchaseinvoicesDetails == null || !purchaseinvoicesDetails.Any())
+            return;
+
+        var subtotalRow = purchaseinvoicesDetails
+           .FirstOrDefault(x => x.Description?.StartsWith("SUBTOTAL") == true);
+
+        if (subtotalRow == null)
+            return;
+
+        var rows = purchaseinvoicesDetails
+            .Where(x => x.Description?.Split(' ')[0] is not ("SUBTOTAL" or "DISCOUNT" or "SALES DISCOUNT"))
+            .ToList();
+
+        subtotalRow.Amount = rows.Sum(x => x.Amount);
+        subtotalRow.AmountLocal = rows.Sum(x => x.AmountLocal);
+
+        subtotalRow.DiscountAmount = rows.Sum(x => x.DiscountAmount);
+        subtotalRow.DiscountAmountLocal = rows.Sum(x => x.DiscountAmountLocal);
+
+        subtotalRow.NetAmount = rows.Sum(x => x.NetAmount);
+        subtotalRow.NetAmountLocal = rows.Sum(x => x.NetAmountLocal);
+
+        subtotalRow.TaxAmount = rows.Sum(x => x.TaxAmount);
+        subtotalRow.TaxAmountLocal = rows.Sum(x => x.TaxAmountLocal);
+
+        subtotalRow.SubAmount = rows.Sum(x => x.SubAmount);
+        subtotalRow.SubAmountLocal = rows.Sum(x => x.SubAmountLocal);
+
+        subtotalRow.TaxExclusiveAmount = rows.Sum(x => x.TaxExclusiveAmount);
+        subtotalRow.TaxExclusiveAmountLocal = rows.Sum(x => x.TaxExclusiveAmountLocal);
+
+        subtotalRow.WTaxAmount = rows.Sum(x => x.WTaxAmount);
+        subtotalRow.WTaxAmountLocal = rows.Sum(x => x.WTaxAmountLocal);
+
+    }
+
+    protected async Task RefreshGrid()
+    {
+        // Refresh the grid
+        await purchaseinvoicesDetailsGrid.Reload();
+    }
+
+    //CONTINUE ON THIS PART
+    private void OnDiscountChanged(PurchaseInvoiceDetails row)
+    {
+
+        // DiscountAndSubtotalHelper.Compute(row);
+
+        DiscountAndSubtotalHelper.Compute(row);
+        TransactionHelper(row);
+        LoadAllTaxTotalDiscNetAmount();
+        StateHasChanged();
+    }
+
+    private void TransactionHelper(PurchaseInvoiceDetails row)
+    {
+        row.TaxRate = taxCodesList.FirstOrDefault(tax => tax.Id == row.TaxCodeId)?.TaxRate ?? 0;
+        row.WTaxRate = wTaxCodesList.FirstOrDefault(tax => tax.Id == row.WTaxCode)?.Rate ?? 0;
+        TransactionNumberHelper.Compute(row);
+
+        LoadAllTaxTotalDiscNetAmount();   
+        StateHasChanged();                
+    }
+
+    private void LoadAllTaxTotalDiscNetAmount()
+    {
+        ///INCLUDE HERE THE TAX, DISCOUNT, WTAX, AMOUT, ALL QUOTATION DETAILS AMOUNT
+
+
+        var filteredList = purchaseinvoicesDetails?.Where(x => (x.Description?.Split(' ')[0] != "SUBTOTAL"));
+
+
+        purchaseinvoicesHeader.TotalAmount = filteredList?.Sum(x => x.Amount) ?? 0.00m;
+        purchaseinvoicesHeader.TotalAmountLocal = filteredList?.Sum(x => x.AmountLocal) ?? 0.00m;
+
+        purchaseinvoicesHeader.DiscountAmount = filteredList?.Sum(x => x.DiscountAmount) ?? 0.00m;
+        purchaseinvoicesHeader.DiscountAmountLocal = filteredList?.Sum(x => x.DiscountAmountLocal) ?? 0.00m;
+
+        purchaseinvoicesHeader.NetTotalAmount = filteredList?.Sum(x => x.NetAmount) ?? 0.00m;
+        purchaseinvoicesHeader.NetTotalAmountLocal = filteredList?.Sum(x => x.NetAmountLocal) ?? 0.00m;
+
+        purchaseinvoicesHeader.TaxTotalAmount = filteredList?.Sum(x => x.TaxAmount) ?? 0.00m;
+        purchaseinvoicesHeader.TaxTotalAmountLocal = filteredList?.Sum(x => x.TaxAmountLocal) ?? 0.00m;
+
+        purchaseinvoicesHeader.SubtotalAmount = filteredList?.Sum(x => x.SubAmount) ?? 0.00m;
+        purchaseinvoicesHeader.SubtotalAmountLocal = filteredList?.Sum(x => x.SubAmountLocal) ?? 0.00m;
+
+        purchaseinvoicesHeader.TaxExclusiveTotalAmount = filteredList?.Sum(x => x.TaxExclusiveAmount) ?? 0.00m;
+        purchaseinvoicesHeader.TaxExclusiveTotalAmountLocal = filteredList?.Sum(x => x.TaxExclusiveAmountLocal) ?? 0.00m;
+
+        purchaseinvoicesHeader.WTaxTotalAmount = filteredList?.Sum(x => x.WTaxAmount) ?? 0.00m;
+        purchaseinvoicesHeader.WTaxTotalAmountLocal = filteredList?.Sum(x => x.WTaxAmountLocal) ?? 0.00m;
+    }
+
+    private async Task OnSwitchChanged(string switchName)
+    {
+        if (Id is null)
+        {
+            purchaseinvoicesHeader.IsCancelled = false;
+            NotificationHelper.ShowWarning(
+                notificationService,
+                "",
+                "Please click the 'Save' (checkmark) button for any active or newly added detail rows in the grid before saving."
+            );
+            return;
+        }
+
+        await SetSwitchValue(switchName);
+        SetRedText();
+    }
+
+    private ForCloseCancelledDocumentsModel forCloseCancelledDocumentsModel = new ForCloseCancelledDocumentsModel();
+    private async Task SetSwitchValue(string switchName)
+    {
+        forCloseCancelledDocumentsModel = new()
+        {
+            Id = Id,
+            TableName = "PurchaseInvoices",
+            SwitchName = switchName,
+            IsCancelled = purchaseinvoicesHeader.IsCancelled
+        };
+
+        await headerSwitchServices.UpdateForCloseOrCancelled(forCloseCancelledDocumentsModel);
+
+    }
+
+    //Has Condition Here cause IF ITEMTYPECODE IS "T" OR "D" IT WILL NOT BE INCLUDED IN TAXABLE AMOUNT
+    public decimal Amount => purchaseinvoicesDetails?.Where(x => x.ItemTypeCode != "D" && x.ItemTypeCode != "T").Sum(x => x.Amount) ?? 0.00m;
+    public decimal AmountLocal => purchaseinvoicesDetails?.Where(x => x.ItemTypeCode != "D" && x.ItemTypeCode != "T").Sum(x => x.AmountLocal) ?? 0.00m;
+    public decimal DiscountAmount => purchaseinvoicesDetails?.Where(x => x.ItemTypeCode != "D" && x.ItemTypeCode != "T").Sum(p => p.DiscountAmount) ?? 0.00m;
+    public decimal DiscountAmountLocal => purchaseinvoicesDetails?.Where(x => x.ItemTypeCode != "D" && x.ItemTypeCode != "T").Sum(p => p.DiscountAmountLocal) ?? 0.00m;
+    public decimal NetAmount => purchaseinvoicesDetails?.Where(x => x.ItemTypeCode != "D" && x.ItemTypeCode != "T").Sum(p => p.NetAmount) ?? 0.00m;
+    public decimal NetAmountLocal => purchaseinvoicesDetails?.Where(x => x.ItemTypeCode != "D" && x.ItemTypeCode != "T").Sum(p => p.NetAmountLocal) ?? 0.00m;
+    public decimal TaxAmount => purchaseinvoicesDetails?.Where(x => x.ItemTypeCode != "D" && x.ItemTypeCode != "T").Sum(p => p.TaxAmount) ?? 0.00m;
+    public decimal TaxAmountLocal => purchaseinvoicesDetails?.Where(x => x.ItemTypeCode != "D" && x.ItemTypeCode != "T").Sum(p => p.TaxAmountLocal) ?? 0.00m;
+    public decimal SubAmount => purchaseinvoicesDetails?.Where(x => x.ItemTypeCode != "D" && x.ItemTypeCode != "T").Sum(p => p.SubAmount) ?? 0.00m;
+    public decimal SubAmountLocal => purchaseinvoicesDetails?.Where(x => x.ItemTypeCode != "D" && x.ItemTypeCode != "T").Sum(p => p.SubAmountLocal) ?? 0.00m;
+    public decimal TaxExclusiveAmount => purchaseinvoicesDetails?.Where(x => x.ItemTypeCode != "D" && x.ItemTypeCode != "T").Sum(p => p.TaxExclusiveAmount) ?? 0.00m;
+    public decimal TaxExclusiveAmountLocal => purchaseinvoicesDetails?.Where(x => x.ItemTypeCode != "D" && x.ItemTypeCode != "T").Sum(p => p.TaxExclusiveAmountLocal) ?? 0.00m;
+    public decimal WTaxAmount => purchaseinvoicesDetails?.Where(x => x.ItemTypeCode != "D" && x.ItemTypeCode != "T").Sum(p => p.WTaxAmount) ?? 0.00m;
+    public decimal WTaxAmountLocal => purchaseinvoicesDetails?.Where(x => x.ItemTypeCode != "D" && x.ItemTypeCode != "T").Sum(p => p.WTaxAmountLocal) ?? 0.00m;
+
+    public decimal DueAmount => (purchaseinvoicesHeader?.NetTotalAmountLocal ?? 0m) - (purchaseinvoicesHeader?.WTaxTotalAmountLocal ?? 0m);
+
+    private async Task OnSubmit()
+    {
+        busy = true;
+
+        if (purchaseinvoicesDetailsToInsert.Any() || purchaseinvoicesDetailsToUpdate.Any())
+        {
+            NotificationHelper.ShowWarning(notificationService, "Unsaved Details", "Please click the 'Save' (checkmark) button for any active or newly added detail rows in the grid before saving.");
+            busy = false;
+            return;
+        }
+
+        LoadAllTaxTotalDiscNetAmount();
+
+        if (pendingBatchNumbers.Any())
+        {
+            var batchResult = await stockItemsService.SaveStockBatchNumbers(pendingBatchNumbers);
+            if (!batchResult.StartsWith("Success"))
+            {
+                await DialogService.Alert(batchResult);
+                busy = false;
+                return;
+            }
+            pendingBatchNumbers.Clear();
+        }
+
+
+        var data = await purchaseInvoicesService.SavePurchaseInvoiceWithTransferAsync(purchaseinvoicesHeader, purchaseinvoicesDetails, forTransferHeader, forTransferDetails);
+
+        if (data is not null)
+        {
+            if (data.Contains("Success"))
+            {
+                await DialogService.Alert(data);
+                btnDiseabled = true;
+                busy = false;
+            }
+            else
+            {
+                await DialogService.Alert(data);
+                busy = false;
+            }
+        }
+        else
+        {
+            busy = false;
+        }
+    }
+
+    // ADDED 10/15/2026
+    async Task OnInput(ChangeEventArgs args, PurchaseInvoiceDetails purchaseinvoicedetails)
+    {
+        batchSearchText = args.Value?.ToString();
+
+        if (string.IsNullOrWhiteSpace(batchSearchText))
+        {
+            purchaseinvoicedetails.StockBatchNumberId = null;
+            stockbatchnumbercode = string.Empty;
+        }
+
+        await stockbatchnumbergrid.Reload();
+    }
+
+    // ADDED 10/15/2026
+    private async Task OnRowSelect(StockBatchNumbersModel batch, PurchaseInvoiceDetails purchaseinvoicedetails)
+    {
+        purchaseinvoicedetails.StockBatchNumberId = batch.Id;
+        stockbatchnumbercode = batch.BatchNo;
+
+        await batchnumberpopup.CloseAsync();
+    }
+
+    private IEnumerable<StockBatchNumbersModel> GetBatchNumberForStock(Guid? stockId)
+    {
+        if (stockId == null || stockbatchnumberList == null)
+            return Enumerable.Empty<StockBatchNumbersModel>();
+
+        return stockbatchnumberList
+            .Where(x => x.StockId == stockId)
+            .Where(x =>
+                string.IsNullOrWhiteSpace(batchSearchText) ||
+                (x.BatchNo?.Contains(batchSearchText, StringComparison.OrdinalIgnoreCase) ?? false) ||
+                (x.Description?.Contains(batchSearchText, StringComparison.OrdinalIgnoreCase) ?? false))
+            .OrderByDescending(x => x.BalanceQty);
+    }
+
+    // "New" button in the popup — always goes to the create form
+    // ADDED 10/15/2026
+    private async Task NewBatch(PurchaseInvoiceDetails detail)
+    {
+        if (detail.StockId is not Guid stockId)
+        {
+            notificationService.Notify(new NotificationMessage
+            {
+                Severity = NotificationSeverity.Warning,
+                Summary = "Batch No",
+                Detail = "Select a stock code first."
+            });
+            return;
+        }
+
+        await batchnumberpopup.CloseAsync();
+        await OpenStockBatchDialog(stockId, detail);
+    }
+
+    // "Edit" button in the popup grid
+    // ADDED 10/15/2026
+    private async Task EditBatch(StockBatchNumbersModel batch, PurchaseInvoiceDetails detail)
+    {
+        if (detail.StockId is not Guid stockId) return;
+
+        await batchnumberpopup.CloseAsync();
+        await OpenStockBatchDialog(stockId, detail, batch);
+    }
+
+    // Opens the combined Stock In / Stock Out dialog
+    // ADDED 10/15/2026
+    private async Task OpenStockBatchDialog(Guid stockId, PurchaseInvoiceDetails detail, StockBatchNumbersModel? existing = null)
+    {
+        var parameters = new Dictionary<string, object>
+        {
+            { "StockId", stockId },
+            { "PurchaseInvoiceDetails", detail }
+        };
+
+        if (existing != null)
+            parameters.Add("ExistingBatch", existing);
+
+        var result = await DialogService.OpenAsync<StockBatchNoInOutModal>(
+            "Stock Batch No In Out",
+            parameters,
+            new DialogOptions
+            {
+                Width = "900px",
+                Height = "600px",
+                Resizable = true,
+                Draggable = true,
+                CloseDialogOnOverlayClick = false
+            });
+
+        if (result is StockBatchNumbersModel batch && ApplyBatch(batch))
+        {
+            if (existing != null)
+                Upsert(pendingBatchNumbers, batch);
+
+            detail.StockBatchNumberId = batch.Id;
+            stockbatchnumbercode = batch.BatchNo;
+        }
+
+        StateHasChanged();
+    }
+
+    // Applies whatever the dialog returned.
+    // If the batch already exists in stockbatchnumberList, it's an EXISTING batch
+    // (picked from the Stock Out grid) — no need to save it again.
+    // If it's not in the list yet, it's NEW/EDITED — save it in OnSubmit.
+    // ADDED 10/15/2026
+    private bool ApplyBatch(StockBatchNumbersModel batch)
+    {
+        var alreadyExists = stockbatchnumberList.Any(b => b.Id == batch.Id);
+
+        if (!alreadyExists)
+        {
+            var duplicateBatchNo = stockbatchnumberList.Any(b =>
+                b.Id != batch.Id &&
+                b.StockId == batch.StockId &&
+                string.Equals(b.BatchNo?.Trim(), batch.BatchNo?.Trim(), StringComparison.OrdinalIgnoreCase));
+
+            if (duplicateBatchNo)
+            {
+                notificationService.Notify(new NotificationMessage
+                {
+                    Severity = NotificationSeverity.Warning,
+                    Summary = "Batch No",
+                    Detail = $"Batch No '{batch.BatchNo}' already exists for this stock."
+                });
+                return false;
+            }
+
+            Upsert(pendingBatchNumbers, batch); // needs to be saved on Submit
+        }
+
+        Upsert(stockbatchnumberList, batch); // so it shows up in the grid/popup right away
+        return true;
+    }
+
+    // ADDED 10/15/2026
+    private static void Upsert(List<StockBatchNumbersModel> list, StockBatchNumbersModel batch)
+    {
+        var i = list.FindIndex(b => b.Id == batch.Id);
+        if (i >= 0) list[i] = batch; else list.Add(batch);
+    }
+
+    private void ApplyFilter()
+    {
+        if (string.IsNullOrWhiteSpace(searchText))
+        {
+            filteredGoodReceivedNoteTransferModel = goodreceivednoteTransferModelList;
+        }
+        else
+        {
+            filteredGoodReceivedNoteTransferModel = goodreceivednoteTransferModelList.Where(x =>
+                (!string.IsNullOrEmpty(x.DocDate.ToString()) && x.DocDate.ToString().Contains(searchText, StringComparison.OrdinalIgnoreCase)) ||
+                (!string.IsNullOrEmpty(x.DocCode) && x.DocCode.Contains(searchText, StringComparison.OrdinalIgnoreCase)) ||
+                (!string.IsNullOrEmpty(x.CreditorName) && x.CreditorName.Contains(searchText, StringComparison.OrdinalIgnoreCase)) ||
+                (!string.IsNullOrEmpty(x.Purchaser) && x.Purchaser.Contains(searchText, StringComparison.OrdinalIgnoreCase)) ||
+                (!string.IsNullOrEmpty(x.RequestBy) && x.RequestBy.Contains(searchText, StringComparison.OrdinalIgnoreCase))
+            );
+        }
+        StateHasChanged();
+    }
+
+    private void ClearFilter()
+    {
+        searchText = string.Empty;
+        filteredGoodReceivedNoteTransferModel = goodreceivednoteTransferModelList;
+        StateHasChanged();
+    }
+
+    async Task ShowLoading()
+    {
+        isLoading = true;
+
+        await Task.Yield();
+    }
+
+    private async void OnOkClicked()
+    {
+        if (selectedGoodsReceivedNotesTransferModel != null && selectedGoodsReceivedNotesTransferModel.Any())
+        {
+            // collect all Id as comma-separated
+            var PODetailsId = string.Join(",", selectedGoodsReceivedNotesTransferModel.Select(x => x.Id));
+
+            if (!string.IsNullOrWhiteSpace(PODetailsId))
+            {
+                selectedIds = PODetailsId.Split(',', StringSplitOptions.RemoveEmptyEntries)
+                        .Select(Guid.Parse)
+                        .ToList();
+                // SET FIRST ROW DATA OF HIGHEST TAX AMOUNT
+                var highestTaxItem = selectedGoodsReceivedNotesTransferModel.OrderByDescending(x => x.TaxTotalAmount).FirstOrDefault();
+                await GetGoodsReceivedNoteHeaderById(highestTaxItem.Id.ToString());
+                await GetGoodsReceivedNoteDetailsById();
+            }
+        }
+        else
+        {
+            status = "Please select at least one";
+            StateHasChanged();
+        }
+    }
+
+    protected async Task GetGoodsReceivedNoteHeaderById(string GRNId)
+    {
+        await ShowLoading();
+
+        var header = await purchaseinvoiceTransferLinkServices.GetGoodReceivedNoteHeaderIdForTransfer(GRNId);
+
+        goodsReceivedNotesHeader = header is not null ? header : new GoodsReceivedNotesModel();
+    }
+
+    protected async Task GetGoodsReceivedNoteDetailsById()
+    {
+        await ShowLoading();
+
+        var grnDetails = new List<GoodsReceivedNotesDetails>();
+
+        foreach (var GRNDetailsId in selectedIds)
+        {
+            var detailsdata = await purchaseinvoiceTransferLinkServices.GetGoodReceivedNoteDetailsByIdForTransfer(GRNDetailsId.ToString());
+            if (detailsdata != null)
+                grnDetails.AddRange(detailsdata);
+        }
+
+        goodsReceivedNotesDetails = grnDetails;
+        LoadForTransferDetails();
+    }
+
+    async void LoadForTransferDetails()
+    {
+        // TRANSFER HEADER         
+        purchaseinvoicesHeader.IsApproved = goodsReceivedNotesHeader.IsApproved;
+        purchaseinvoicesHeader.TermId = goodsReceivedNotesHeader.TermId;
+        purchaseinvoicesHeader.IsTaxInclusive = goodsReceivedNotesHeader.IsTaxInclusive;
+        purchaseinvoicesHeader.DeliveryTerm = goodsReceivedNotesHeader.DeliveryTerm;
+        purchaseinvoicesHeader.StockLocationId = goodsReceivedNotesHeader.StockLocationId;
+        purchaseinvoicesHeader.PurchaserId = goodsReceivedNotesHeader.PurchaserId;
+        purchaseinvoicesHeader.ProjectId = goodsReceivedNotesHeader.ProjectId;
+        purchaseinvoicesHeader.Attention = goodsReceivedNotesHeader.Attention;
+        purchaseinvoicesHeader.ReferenceNo = goodsReceivedNotesHeader.ReferenceNo;
+        purchaseinvoicesHeader.Notes = goodsReceivedNotesHeader.Notes;
+
+        // SET TRANSFER HEADER FROM INFO
+        purchaseinvoicesHeader.TransferFromInfo = goodsReceivedNotesHeader.GoodsReceivedNoteCode;
+
+        // FOR TRANSFER HEADER
+        forTransferHeader.GoodsReceivedNoteHeaderId = goodsReceivedNotesHeader.Id;
+        forTransferHeader.TransferToInfo = purchaseinvoicesHeader.PurchaseInvoiceCode;
+
+        // SET TRANSFER DETAILS
+        forTransferDetails = goodsReceivedNotesDetails
+            .Select(item => new ForTransferDetails
+            {
+                GoodsReceivedNoteDetailId = item.Id,
+                TransferredBaseUnit = item.Qty,
+                Transferred = item.Qty,
+                SourceKey = item.Id,
+            }).ToList();
+
+        // TRANSFER DETAILS
+        purchaseinvoicesDetails = goodsReceivedNotesDetails
+            .Select((item, index) => new PurchaseInvoiceDetails
+            {
+                // MAP FIELDS FROM GOODS RECEIVED NOTES DETAILS TO PURCHASE INVOICE DETAILS 
+                GoodsReceivedNotesDetailId = item.Id,
+                Pos = index + 1,
+                PurchaseInvoiceId = purchaseinvoicesHeader.Id,
+                StockId = item.StockId,
+                StockBatchNumberId = item.StockBatchNumberId,
+                Description = item.Description,
+                ProjectId = item.ProjectId,
+                DepartmentId = item.DepartmentId,
+                StockLocationId = item.StockLocationId,
+                Qty = item.Qty,
+                UOMId = item.UOMId,
+                UnitPrice = item.UnitPrice,
+                Discount = item.Discount,
+                Amount = item.Amount,
+                SupplierItemCode = item.SupplierItemCode,
+                ReferenceNo = item.ReferenceNo,
+                CostCentreId = item.CostCentreId,
+                AmountLocal = item.AmountLocal,
+                DiscountAmount = item.DiscountAmount,
+                DiscountAmountLocal = item.DiscountAmountLocal,
+                NetAmount = item.NetAmount,
+                NetAmountLocal = item.NetAmountLocal,
+                Note = item.Note,
+                ItemTypeCode = item.ItemTypeCode,
+                IsBundled = item.IsBundled,
+                IsSubItem = item.IsSubItem,
+                BundledTransactionId = item.BundledTransactionId,
+                TaxCodeId = item.TaxCodeId,
+                IsTaxInclusive = item.IsTaxInclusive,
+                TaxRate = item.TaxRate,
+                TaxClass = item.TaxClass,
+                TaxAmount = item.TaxAmount,
+                TaxAmountLocal = item.TaxAmountLocal,
+                SubAmount = item.SubAmount,
+                SubAmountLocal = item.SubAmountLocal,
+                TaxExclusiveAmount = item.TaxExclusiveAmount,
+                TaxExclusiveAmountLocal = item.TaxExclusiveAmountLocal,
+                RefTransferFrom = item.RefTransferFrom,
+                WTaxCode = item.WTaxCode,
+                WTaxRate = item.WTaxRate,
+                WTaxAmount = item.WTaxAmount,
+                WTaxAmountLocal = item.WTaxAmountLocal,
+                SgstAmount = item.SgstAmount,
+                CgstAmount = item.CgstAmount,
+                IgstAmount = item.IgstAmount,
+                SgstAmountLocal = item.SgstAmountLocal,
+                CgstAmountLocal = item.CgstAmountLocal,
+                IgstAmountLocal = item.IgstAmountLocal,
+                CreditorItemId = item.CreditorItemId,
+                Ref = item.Ref,
+                Ref2 = item.Ref2,
+                Ref3 = item.Ref3,
+                Ref4 = item.Ref4,
+                Ref5 = item.Ref5,
+                DateRef1 = item.DateRef1,
+                DateRef2 = item.DateRef2,
+                NumRef1 = item.NumRef1,
+                NumRef2 = item.NumRef2,
+                TariffCodeId = item.TariffCodeId,
+                LocalOneCentsDiff = item.LocalOneCentsDiff,
+                ServiceAmount = item.ServiceAmount,
+                ServiceAmountLocal = item.ServiceAmountLocal,
+                SubcodeId = item.SubcodeId,
+                CommissionGroupId = item.CommissionGroupId,
+                PackingUOMId = item.PackingUOMId,
+                Packing = item.Packing,
+                PackingQty = item.PackingQty,
+                PackingUOM1 = item.PackingUOM1,
+                PackingUOM2 = item.PackingUOM2,
+                HighestUOM = item.HighestUOM,
+                DimensionId = item.DimensionId,
+                TaxExemptNo = item.TaxExemptNo,
+                TaxExemptDetails = item.TaxExemptDetails,
+                MarkupDiscountAmount = item.MarkupDiscountAmount,
+                MarkupDiscountAmountLocal = item.MarkupDiscountAmountLocal,
+                AmountTaxExempted = item.AmountTaxExempted,
+                AmountTaxExemptedLocal = item.AmountTaxExemptedLocal,
+                MarkupDiscountPrice = item.MarkupDiscountPrice
+            })
+            .ToList();
+
+        // compute header totals from the newly-loaded detail rows
+        LoadAllTaxTotalDiscNetAmount();
+
+        await popuptransfer.CloseAsync();
+        isLoading = false;
+        StateHasChanged();
+
+    }
+
+    private async Task OnStockChanged(object stockId, PurchaseInvoiceDetails purchaseinvoicesDetails)
+    {
+        var selectedSupplier = supplieraccountList.FirstOrDefault(c => c.Id == purchaseinvoicesHeader.CreditorId);
+
+        var uomRate = uomsList.FirstOrDefault(u => u.Id == purchaseinvoicesDetails.UOMId && u.IsActive == true);
+
+        if (stockId != null && stockId is Guid selectedStockId)
+        {
+            var stockglAccount = StockGLAccountsList?.FirstOrDefault(s => s.StockId == selectedStockId); // OCTOBER 20, 2026
+
+            var selectedStock = stockList?.FirstOrDefault(s => s.Id == selectedStockId);
+
+            if (selectedStock != null)
+            {
+                if (selectedStock.ItemTypeCode is ("T" or "D"))
+                {
+                    purchaseinvoicesDetails.Qty = 0.00000000M;
+                    purchaseinvoicesDetails.UOMId = null;
+                    purchaseinvoicesDetails.UnitPrice = 0.00000000M;
+                    purchaseinvoicesDetails.PurchaseInvoiceId = purchaseinvoicesHeader.Id;
+                    purchaseinvoicesDetails.StockId = selectedStock.Id;
+                    purchaseinvoicesDetails.StockLocationId = purchaseinvoicesHeader.StockLocationId;
+                    purchaseinvoicesDetails.Discount = string.Join("/", Regex.Matches(selectedStock.StockName, @"\d+%").Select(m => m.Value));
+                    purchaseinvoicesDetails.Description = selectedStock.StockName;
+                    purchaseinvoicesDetails.ItemTypeCode = selectedStock.ItemTypeCode;
+                    purchaseinvoicesDetails.TaxCodeId = null;
+                    purchaseinvoicesDetails.WTaxCode = null;
+                    purchaseinvoicesDetails.Amount = Amount;
+                    purchaseinvoicesDetails.AmountLocal = AmountLocal;
+                    purchaseinvoicesDetails.DiscountAmount = DiscountAmount;
+                    purchaseinvoicesDetails.DiscountAmountLocal = DiscountAmountLocal;
+                    purchaseinvoicesDetails.NetAmount = NetAmount;
+                    purchaseinvoicesDetails.NetAmountLocal = NetAmountLocal;
+                    purchaseinvoicesDetails.TaxAmount = TaxAmount;
+                    purchaseinvoicesDetails.TaxAmountLocal = TaxAmountLocal;
+                    purchaseinvoicesDetails.SubAmount = SubAmount;
+                    purchaseinvoicesDetails.SubAmountLocal = SubAmountLocal;
+                    purchaseinvoicesDetails.TaxExclusiveAmount = TaxExclusiveAmount;
+                    purchaseinvoicesDetails.TaxExclusiveAmountLocal = TaxExclusiveAmountLocal;
+                    purchaseinvoicesDetails.WTaxAmount = WTaxAmount;
+                    purchaseinvoicesDetails.WTaxAmountLocal = WTaxAmountLocal;
+                    purchaseinvoicesDetails.GLAccountId = stockglAccount.SalesAccountId; // OCTOBER 20, 2026
+                    if (selectedStock.ItemTypeCode is ("D"))
+                    {
+                        //LoadSubtotalRow();
+                        DiscountAndSubtotalHelper.Compute(purchaseinvoicesDetails);
+                    }
+                }
+                else
+                {
+                    if (selectedStock.StockName is ("SALES DISCOUNT"))
+                    {
+                        purchaseinvoicesDetails.Qty = 1.00000000M;
+                        purchaseinvoicesDetails.UOMId = null;
+                        purchaseinvoicesDetails.UnitPrice = DiscountAmount;//SUM OF DISCOUNT AMOUNT
+                        purchaseinvoicesDetails.PurchaseInvoiceId = purchaseinvoicesHeader.Id;
+                        purchaseinvoicesDetails.StockId = selectedStock.Id;
+                        purchaseinvoicesDetails.StockLocationId = purchaseinvoicesHeader.StockLocationId;
+                        purchaseinvoicesDetails.Description = selectedStock.StockName;
+                        purchaseinvoicesDetails.ItemTypeCode = selectedStock.ItemTypeCode;
+                        purchaseinvoicesDetails.TaxCodeId = null;
+                        purchaseinvoicesDetails.WTaxCode = null;
+                        purchaseinvoicesDetails.Amount = DiscountAmount;
+                        purchaseinvoicesDetails.AmountLocal = DiscountAmount;
+                        purchaseinvoicesDetails.NetAmount = DiscountAmount;
+                        purchaseinvoicesDetails.NetAmountLocal = DiscountAmount;
+                        purchaseinvoicesDetails.SubAmount = DiscountAmount;
+                        purchaseinvoicesDetails.SubAmountLocal = DiscountAmount;
+                        purchaseinvoicesDetails.TaxExclusiveAmount = DiscountAmount;
+                        purchaseinvoicesDetails.TaxExclusiveAmountLocal = DiscountAmount;
+                        purchaseinvoicesDetails.GLAccountId = stockglAccount.SalesAccountId; // OCTOBER 20, 2026
+                    }
+                    else
+                    {
+                        //       .Select(item =>
+                        // {
+                        //     var uomRate = uomsList.FirstOrDefault(u => u.Id == item.UOMId);
+
+                        //     return new ForTransferDetails
+                        //     {
+                        //         PurchaseRequisitionDetailId = item.Id,
+                        //         TransferredBaseUnit = item.Qty,
+                        //         Transferred = item.Qty * (uomRate?.Rate ?? 1),
+                        //         SourceKey = item.Id,
+                        //     };
+                        // })
+                        // .ToList();
+
+                        //IsDisable = false;
+                        purchaseinvoicesDetails.PurchaseInvoiceId = purchaseinvoicesHeader.Id;
+                        purchaseinvoicesDetails.StockLocationId = purchaseinvoicesHeader.StockLocationId;
+
+                        // Populate Description
+                        purchaseinvoicesDetails.Description = selectedStock.StockName;
+                        purchaseinvoicesDetails.Discount = string.Empty;
+
+                        //Set Tax Code Id
+                        purchaseinvoicesDetails.TaxCodeId = selectedSupplier?.DefaultTaxCodeId;
+                        purchaseinvoicesDetails.WTaxCode = selectedSupplier?.DefaultWTaxCodeId;
+
+                        purchaseinvoicesDetails.GLAccountId = stockglAccount.SalesAccountId; // OCTOBER 20, 2026
+
+                        // Default Quantity
+                        purchaseinvoicesDetails.ItemTypeCode = selectedStock.ItemTypeCode;
+
+                        purchaseinvoicesDetails.Qty = 1.0000M;
+
+                        // Set the base UOM
+                        var baseUOM = uomsList?.FirstOrDefault(u => u.StockId == selectedStockId && u.UOMCode == selectedStock.BaseUOM);
+                        if (baseUOM != null)
+                        {
+                            purchaseinvoicesDetails.UOMId = baseUOM.Id;
+                        }
+
+                        // Load Last Price
+                        var data = lastSellingPrice.Where(x => x.StockId == selectedStockId).FirstOrDefault();
+                        if (data != null)
+                        {
+                            purchaseinvoicesDetails.UnitPrice = data.UnitPrice;
+                            TransactionHelper(purchaseinvoicesDetails);
+                        }
+                        else
+                        {
+                            purchaseinvoicesDetails.UnitPrice = 0.00000000M;
+                        }
+                    }
+                }
+
+                StateHasChanged();
+            }
+        }
+        else
+        {
+            // Clear fields if no stock is selected
+            purchaseinvoicesDetails.UnitPrice = 0.00000000M;
+            purchaseinvoicesDetails.StockId = null;
+            purchaseinvoicesDetails.StockLocationId = null;
+            purchaseinvoicesDetails.Description = string.Empty;
+            purchaseinvoicesDetails.Qty = 0.00m;
+            purchaseinvoicesDetails.UOMId = null;
+            purchaseinvoicesDetails.Discount = null;
+            purchaseinvoicesDetails.TaxCodeId = null;
+            purchaseinvoicesDetails.WTaxCode = null;
+
+            purchaseinvoicesDetails.GLAccountId = null; // OCTOBER 20, 2026
+
+            purchaseinvoicesDetails.PackingUOM1 = 0.00M;
+            purchaseinvoicesDetails.PackingUOM2 = 0.00M;
+            purchaseinvoicesDetails.HighestUOM = null;
+
+            purchaseinvoicesDetails.Amount = 0.00M;
+            purchaseinvoicesDetails.AmountLocal = 0.00M;
+            purchaseinvoicesDetails.DiscountAmount = 0.00M;
+            purchaseinvoicesDetails.DiscountAmountLocal = 0.00M;
+            purchaseinvoicesDetails.NetAmount = 0.00M;
+            purchaseinvoicesDetails.NetAmountLocal = 0.00M;
+            purchaseinvoicesDetails.TaxAmount = 0.00M;
+            purchaseinvoicesDetails.TaxAmountLocal = 0.00M;
+            purchaseinvoicesDetails.SubAmount = 0.00M;
+            purchaseinvoicesDetails.SubAmountLocal = 0.00M;
+            purchaseinvoicesDetails.TaxExclusiveAmount = 0.00M;
+            purchaseinvoicesDetails.TaxExclusiveAmountLocal = 0.00M;
+            purchaseinvoicesDetails.WTaxAmount = 0.00M;
+            purchaseinvoicesDetails.WTaxAmountLocal = 0.00M;
+            LoadAllTaxTotalDiscNetAmount();
+            StateHasChanged();
+        }
+    }
+
+    // CREATE ROW
+    void OnCreateRow(PurchaseInvoiceDetails purchaseinvoicesDetails)
+    {
+        purchaseinvoicesDetailsToInsert.Remove(purchaseinvoicesDetails);
+    }
+
+    async Task InsertAfterRow(PurchaseInvoiceDetails purchaseinvoicesDetails)
+    {
+        if (purchaseinvoicesDetailsToInsert.Any() || purchaseinvoicesDetailsToUpdate.Any())
+        {
+            NotificationHelper.ShowWarning(notificationService, "Unsaved Details", "Please click the 'Save' (checkmark) button for any active or newly added detail rows in the grid before saving.");
+            return;
+        }
+
+        if (!purchaseinvoicesDetailsGrid.IsValid) return;
+        if (editMode == DataGridEditMode.Single)
+        {
+            Reset();
+        }
+    }
+
+    async Task SaveRow(PurchaseInvoiceDetails purchaseinvoicesDetails)
+    {
+        // This method is called when the user clicks the 'Save' (checkmark) button for a row in the grid.
+        await purchaseinvoicesDetailsGrid.UpdateRow(purchaseinvoicesDetails);
+        await purchaseinvoicesDetailsGrid.Reload();
+        StateHasChanged();
+    }
+
+    async Task EditRow(PurchaseInvoiceDetails purchaseinvoicesDetails)
+    {
+        // If there's another row already in edit/insert mode, prevent editing this one.
+        if (purchaseinvoicesDetailsToInsert.Any() || purchaseinvoicesDetailsToUpdate.Any())
+        {
+            NotificationHelper.ShowWarning(notificationService, "Unsaved Details", "Please click the 'Save' (checkmark) button for any active or newly added detail rows in the grid before saving.");
+            return;
+        }
+
+        if (!purchaseinvoicesDetailsGrid.IsValid) return;
+        if (editMode == DataGridEditMode.Single)
+        {
+            Reset();
+        }
+
+        stockbatchnumbercode = stockbatchnumberList
+            .FirstOrDefault(b => b.Id == purchaseinvoicesDetails.StockBatchNumberId)?.BatchNo ?? string.Empty;
+
+        purchaseinvoicesDetailsToUpdate.Add(purchaseinvoicesDetails); // Track it as an item being updated
+        await purchaseinvoicesDetailsGrid.EditRow(purchaseinvoicesDetails);
+        StateHasChanged(); // Ensure UI updates and list is reflected
+    }
+
+    void OnUpdateRow(PurchaseInvoiceDetails purchaseinvoicesDetails)
+    {
+        Reset(purchaseinvoicesDetails);
+
+        LoadSubtotalRow();
+        LoadAllTaxTotalDiscNetAmount();
+    }
+
+    async Task DeleteRow(PurchaseInvoiceDetails row)
+    {
+        if (purchaseinvoicesDetailsToInsert.Any() || purchaseinvoicesDetailsToUpdate.Any())
+        {
+            NotificationHelper.ShowWarning(notificationService, "Unsaved Details", "Please click the 'Save' (checkmark) button for any active or newly added detail rows in the grid before saving.");
+            return;
+        }
+
+        if (await DialogService.Confirm("You are about to delete records. Do you want to proceed?", "Delete") == true)
+        {
+            await purchaseInvoicesService.DeletePurchaseInvoiceDetails(row.Id.ToString());
+
+            Reset(row);
+            purchaseinvoicesDetails.Remove(row); // ✅ list.Remove(item) — no more ambiguity
+
+            if (row.GoodsReceivedNotesDetailId is not null)
+            {
+                var grnDetail = goodsReceivedNotesDetails.FirstOrDefault(x => x.Id == row.GoodsReceivedNotesDetailId);
+                goodsReceivedNotesDetails.Remove(grnDetail);
+
+                var forTransferDetail = forTransferDetails.FirstOrDefault(x => x.Id == row.GoodsReceivedNotesDetailId);
+                forTransferDetails.Remove(forTransferDetail);
+            }
+            ResetPosIndexes();
+
+
+            await purchaseinvoicesDetailsGrid.Reload();
+            StateHasChanged();
+        }
+    }
+
+    void Reset(PurchaseInvoiceDetails purchaseinvoicesDetails)
+    {
+        purchaseinvoicesDetailsToInsert.Remove(purchaseinvoicesDetails);
+        purchaseinvoicesDetailsToUpdate.Remove(purchaseinvoicesDetails);
+    }
+
+    void Reset()
+    {
+        purchaseinvoicesDetailsToInsert.Clear();
+        purchaseinvoicesDetailsToUpdate.Clear();
+    }
+
+    // Helper to reset Pos index after any add/delete
+    private void ResetPosIndexes()
+    {
+        for (int i = 0; i < purchaseinvoicesDetails.Count; i++)
+        {
+            purchaseinvoicesDetails[i].Pos = i + 1;
+        }
+    }
+
+    private void OnNew()
+    {
+        navManager.NavigateTo("/PurchaseInvoices", forceLoad: true);
+    }
+
+    private void Navigate()
+    {
+        navManager.NavigateTo("/PurchaseInvoiceList");
+    }
+
+}
+

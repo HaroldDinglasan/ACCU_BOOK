@@ -1,0 +1,167 @@
+﻿@using Radzen
+@using Microsoft.AspNetCore.Components
+
+<RadzenCard Variant="Variant.Flat"
+            Style="background:var(--rz-background-color);border:1px solid var(--rz-divider);">
+
+    <RadzenRow AlignItems="AlignItems.Center"
+               JustifyContent="JustifyContent.SpaceBetween"
+               Gap="0.2rem">
+
+        <!-- LEFT -->
+        <RadzenColumn Size="12" SizeMD="6">
+
+            <RadzenStack Orientation="Orientation.Horizontal"
+                         AlignItems="AlignItems.Center"
+                         Gap="0.75rem">
+
+                @if (!string.IsNullOrWhiteSpace(Icon))
+                {
+                    <RadzenIcon Icon="@Icon"
+                                IconColor="var(--rz-primary)"
+                                Style="font-size:1.6rem;" />
+                }
+
+                <RadzenStack Gap="0.5">
+
+                    <RadzenText TextStyle="TextStyle.Subtitle2"
+                                TagName="TagName.H1"
+                               >
+                        @Title
+                    </RadzenText>
+
+                    @if (!string.IsNullOrWhiteSpace(Subtitle))
+                    {
+                        <RadzenText TextStyle="TextStyle.Body2">
+                            @Subtitle
+                        </RadzenText>
+                    }
+
+                </RadzenStack>
+
+                @if (ShowBackButton)
+                {
+                    <RadzenButton Size="@ButtonSize"
+                                  Variant="Variant.Flat"
+                                  ButtonStyle="ButtonStyle.Light"
+                                  Icon="@BackIcon"
+                                  Text="@BackText"
+                                  Click="@OnBackSearch" />
+                }
+
+                @LeftContent
+
+            </RadzenStack>
+
+        </RadzenColumn>
+
+        <!-- RIGHT -->
+        <RadzenColumn Size="12" SizeMD="6">
+
+            <RadzenStack Orientation="Orientation.Horizontal"
+                         JustifyContent="JustifyContent.End"
+                         AlignItems="AlignItems.Center"
+                         Gap="0.5rem">
+
+            @*     @if (ShowBackButton)
+                {
+                    <RadzenButton Size="@ButtonSize"
+                                  Variant="Variant.Flat"
+                                  ButtonStyle="ButtonStyle.Light"
+                                  Icon="@BackIcon"
+                                  Text="@BackText"
+                                  Click="@OnBackSearch" />
+                } *@
+
+                @BeforeSaveButtons
+
+                @if (ShowSaveButton)
+                {
+                    <RadzenButton Size="@ButtonSize"
+                                  Icon="@SaveIcon"
+                                  Text="@SaveText"
+                                  BusyText="@BusyText"
+                                  Disabled="@SaveDisabled"
+                                  IsBusy="@SaveBusy"
+                                  ButtonStyle="ButtonStyle.Primary"
+                                  ButtonType="ButtonType.Submit" />
+                }
+
+                @AfterSaveButtons
+
+            </RadzenStack>
+
+        </RadzenColumn>
+
+    </RadzenRow>
+
+</RadzenCard>
+
+@code {
+
+    //==========================
+    // HEADER
+    //==========================
+
+    [Parameter] public string Title { get; set; } = "";
+    [Parameter] public string? Subtitle { get; set; }
+
+    [Parameter] public string Icon { get; set; } = "description";
+
+    //==========================
+    // BUTTON SETTINGS
+    //==========================
+
+    [Parameter] public ButtonSize ButtonSize { get; set; } = ButtonSize.Small;
+
+    //==========================
+    // BACK BUTTON
+    //==========================
+
+    [Parameter] public bool ShowBackButton { get; set; } = true;
+
+    [Parameter] public string BackText { get; set; } = "Back";
+
+    [Parameter] public string BackIcon { get; set; } = "arrow_back";
+
+    [Parameter] public EventCallback OnBackSearch { get; set; }
+
+
+
+
+    
+    //==========================
+    // SAVE BUTTON
+    //==========================
+
+
+
+    [Parameter] public EventCallback TransferEvent { get; set; }
+
+    //==========================
+    // SAVE BUTTON
+    //==========================
+
+    [Parameter] public bool ShowSaveButton { get; set; } = true;
+
+    [Parameter] public string SaveText { get; set; } = "Save";
+
+    [Parameter] public string SaveIcon { get; set; } = "border_color";
+
+    [Parameter] public bool SaveDisabled { get; set; }
+
+    [Parameter] public bool SaveBusy { get; set; }
+
+    [Parameter] public string BusyText { get; set; } = "Saving...";
+
+    //==========================
+    // CUSTOM CONTENT
+    //==========================
+
+    [Parameter] public RenderFragment? LeftContent { get; set; }
+
+    [Parameter] public RenderFragment? BeforeSaveButtons { get; set; }
+
+    [Parameter] public RenderFragment? AfterSaveButtons { get; set; }
+
+}

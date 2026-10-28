@@ -1,0 +1,594 @@
+﻿@page "/Suppliers"
+@page "/Suppliers/Edit/{id:guid}"
+@attribute [Authorize(Roles = "Admin,User")]
+
+@if (isLoading)
+{
+	<Spinner />
+}
+
+<RadzenTemplateForm TItem="Creditors" Data="suppliers" Submit="@OnSubmit">
+	<RadzenStack Gap="0.2rem">
+
+		@* <RadzenCard Style="Padding: 0.5rem">
+			<RadzenRow JustifyContent="JustifyContent.Start" AlignItems="AlignItems.Center" Gap="0.5rem">
+				<RadzenColumn Size="12" SizeSM="5">
+					<RadzenStack AlignItems="AlignItems.Center" Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.Normal">
+						<RadzenButton Size="@smallbtn" Disabled="@isDisable" IsBusy="@isBusy" ButtonType="ButtonType.Submit" Text="Save" Icon="save"></RadzenButton>
+					</RadzenStack>
+				</RadzenColumn>
+				<RadzenColumn Size="12" SizeSM="7">
+					<RadzenStack AlignItems="AlignItems.Center" Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End">
+						<RadzenButton Size="ButtonSize.Small" ButtonStyle="ButtonStyle.Base" Text="Search" Click="@(() => navigate(2))" Icon="search"></RadzenButton>
+					</RadzenStack>
+				</RadzenColumn>
+			</RadzenRow>
+		</RadzenCard> *@
+
+		<CrudToolbar Title="@(Id.HasValue ? "Edit Supplier" : "Create Supplier")"
+					 Subtitle="Manage supplier information"
+					 Icon="badge"
+					 ButtonSize="@smallbtn"
+					 SaveText="Save"
+					 SaveBusy="@isBusy"
+					 SaveDisabled="@isDisable"
+					 BackText="Back to Search"
+					 OnBackSearch="@(() => navigate(2))">
+		</CrudToolbar>
+
+		<RadzenColumn Size="12" SizeSM="6">
+			<RadzenCard>
+				<RadzenStack Gap="0.5rem">
+					<RadzenRow AlignItems="@alignItems">
+						<RadzenColumn Size="12" SizeMD="9">
+							<RadzenFormField Text="Supplier Name*" Style="width: 100%;" AllowFloatingLabel="false">
+								<RadzenTextBox @bind-Value=@suppliers.CompanyName Name="SupplierName" Style=" width: 100%;" />
+							</RadzenFormField>
+							<RadzenRequiredValidator Component="SupplierName" Text="'Supplier Name' must be not empty." Style="position: relative" />
+						</RadzenColumn>
+						<RadzenColumn Size="12" SizeMD="1">
+							<RadzenText TextStyle="@textStyle" Text="Start Date"></RadzenText>
+						</RadzenColumn>
+						<RadzenColumn Size="12" SizeMD="2">
+							<RadzenDatePicker Style=" width: 100%;" @bind-Value=@suppliers.StartDate DateFormat="MM/dd/yyyy"></RadzenDatePicker>
+						</RadzenColumn>
+					</RadzenRow>
+
+					<RadzenRow AlignItems="@alignItems">
+						<RadzenColumn Size="12" SizeMD="9">
+							<RadzenTextBox @bind-Value=@suppliers.CompanyName2 Style=" width: 100%;" />
+						</RadzenColumn>
+
+						<RadzenColumn Size="12" SizeMD="1">
+							<RadzenText TextStyle="@textStyle" Text="Category"></RadzenText>
+						</RadzenColumn>
+						<RadzenColumn Size="12" SizeMD="2">
+							<RadzenDropDownDataGrid @bind-Value=@suppliers.CategoryId Style="width: 100%;" PageSize=10 AllowColumnResize="true"
+													AllowClear="true" AllowVirtualization="true" AllowFilteringByAllStringColumns="true"
+													TextProperty="CategoryCode" Density="@density" Data="@debtorsCategoryList" ValueProperty="Id">
+								<Columns>
+									<RadzenDropDownDataGridColumn Property="CategoryCode" Title="Category #"></RadzenDropDownDataGridColumn>
+									<RadzenDropDownDataGridColumn Property="Description" Title="Description"></RadzenDropDownDataGridColumn>
+								</Columns>
+							</RadzenDropDownDataGrid>
+						</RadzenColumn>
+					</RadzenRow>
+
+					<RadzenRow AlignItems="@alignItems">
+						<RadzenColumn Size="12" SizeMD="1">
+							<RadzenText TextStyle="@textStyle" Text="Control Account*"></RadzenText>
+						</RadzenColumn>
+						<RadzenColumn Size="12" SizeMD="5">
+							<RadzenDropDownDataGrid Name="ControlAccount" @bind-Value=@suppliers.ControlAccountId Style="width: 100%;" PageSize=10 AllowColumnResize="true"
+													AllowClear="true" AllowVirtualization="true" AllowFilteringByAllStringColumns="true"
+													TextProperty="GLAccountCode" Density="@density" Data="@filteredControlAccountList" ValueProperty="Id">
+								<Columns>
+									<RadzenDropDownDataGridColumn Property="GLAccountCode" Title="GL Account Code"></RadzenDropDownDataGridColumn>
+									<RadzenDropDownDataGridColumn Property="Description" Title="Description"></RadzenDropDownDataGridColumn>
+								</Columns>
+							</RadzenDropDownDataGrid>
+							<RadzenRequiredValidator Component="ControlAccount" Text="'Control Account' must be not empty." Style="position: relative" />
+						</RadzenColumn>
+
+
+						<RadzenColumn Size="12" SizeMD="1">
+							<RadzenText TextStyle="@textStyle" Text="Classification"></RadzenText>
+						</RadzenColumn>
+						<RadzenColumn Size="12" SizeMD="2">
+							@*  <RadzenTextBox @bind-Value=@customers.Classification Disabled="true" Style=" width: 100%;"></RadzenTextBox> *@
+						</RadzenColumn>
+						<RadzenColumn Size="12" SizeMD="1">
+							<RadzenText TextStyle="@textStyle" Text="Status"></RadzenText>
+						</RadzenColumn>
+						<RadzenColumn Size="12" SizeMD="2">
+							<RadzenDropDown TValue="string" @bind-Value=@suppliers.Status ValueProperty="Status" Data="@status" TextProperty="Status" Style="width: 100%" />
+						</RadzenColumn>
+					</RadzenRow>
+
+					<RadzenRow AlignItems="@alignItems">
+						<RadzenColumn Size="12" SizeMD="1">
+							<RadzenText TextStyle="@textStyle" Text="Supplier Code*"></RadzenText>
+						</RadzenColumn>
+						<RadzenColumn Size="12" SizeMD="3">
+							<RadzenTextBox Name="CustomerNo" Placeholder="--Auto Generate--" @bind-Value=@suppliers.CompanyCode Style=" width: 100%;"></RadzenTextBox>
+							<RadzenRequiredValidator Component="CustomerNo" Text="'Supplier Code' must be not empty." Style="position: relative" />
+						</RadzenColumn>
+
+						<RadzenColumn Size="12" SizeMD="5"></RadzenColumn>
+						<RadzenColumn Size="12" SizeMD="1">
+							<RadzenText TextStyle="@textStyle" Text="Group Company"></RadzenText>
+						</RadzenColumn>
+						<RadzenColumn Size="12" SizeMD="2">
+							<RadzenTextBox Disabled="true" Placeholder="Group Company"></RadzenTextBox>
+						</RadzenColumn>
+					</RadzenRow>
+
+					<RadzenRow AlignItems="@alignItems">
+
+						<RadzenColumn Size="12" SizeMD="1">
+							<RadzenText TextStyle="@textStyle" Text="TIN No"></RadzenText>
+						</RadzenColumn>
+						<RadzenColumn Size="12" SizeMD="3">
+							<RadzenMask Mask="***-***-***" CharacterPattern="[0-9]" @bind-Value=@suppliers.RegistrationNo Placeholder="000-000-000" Style=" width: 100%;"></RadzenMask>
+							@*  <RadzenTextBox @bind-Value=@customers.RegistrationNo Style=" width: 100%;"></RadzenTextBox> *@
+						</RadzenColumn>
+
+						<RadzenColumn Size="12" SizeMD="3">
+							<RadzenMask Mask="*****" CharacterPattern="[0-9]" Placeholder="00000" Style=" width: 100%;"></RadzenMask>
+							@*   <RadzenTextBox Style=" width: 100%;"></RadzenTextBox> *@
+						</RadzenColumn>
+
+						<RadzenColumn Size="12" SizeMD="4">  <RadzenCheckBox @bind-Value=@suppliers.IsDeferredVAT Name="Active"></RadzenCheckBox> <small>Deferred VAT</small></RadzenColumn>
+
+					</RadzenRow>
+
+					<RadzenTabs RenderMode="TabRenderMode.Client">
+						<Tabs>
+							<RadzenTabsItem Text="Details">
+								<RadzenRow AlignItems="AlignItems.Normal">
+									<RadzenColumn Size="12" SizeSM="4">
+										<RadzenFieldset Text="Address">
+
+											<RadzenFormField Text="Substreet,Street" Style="width: 100%;" AllowFloatingLabel="false">
+												<RadzenTextBox @bind-Value=@suppliers.Address1 Style=" width: 100%;"></RadzenTextBox>
+											</RadzenFormField>
+											<RadzenFormField Text="Barangay,District/Municipality" Style="width: 100%;" AllowFloatingLabel="false">
+												<RadzenTextBox @bind-Value=@suppliers.Address2 Style=" width: 100%;"></RadzenTextBox>
+											</RadzenFormField>
+											<RadzenFormField Text="City/Province" Style="width: 100%;" AllowFloatingLabel="false">
+												<RadzenTextBox @bind-Value=@suppliers.Address3 Style=" width: 100%;"></RadzenTextBox>
+											</RadzenFormField>
+											<RadzenFormField Text="Country" Style="width: 100%;" AllowFloatingLabel="false">
+												<RadzenTextBox @bind-Value=@suppliers.Address4 Style=" width: 100%;"></RadzenTextBox>
+											</RadzenFormField>
+											<RadzenFormField Text="Zip Code" Style="width: 100%;" AllowFloatingLabel="false">
+												<RadzenTextBox @bind-Value=@suppliers.ZipCode Style=" width: 100%;"></RadzenTextBox>
+											</RadzenFormField>
+										</RadzenFieldset>
+									</RadzenColumn>
+
+									<RadzenColumn Size="12" SizeSM="4">
+										<RadzenFieldset Text="Contact">
+											<RadzenFormField Text="Contact Person" Style="width: 100%;" AllowFloatingLabel="false">
+												<RadzenTextBox @bind-Value=@suppliers.ContactPerson Style=" width: 100%;"></RadzenTextBox>
+											</RadzenFormField>
+											<RadzenFormField Text="Email" Style="width: 100%;" AllowFloatingLabel="false">
+												<RadzenTextBox @bind-Value=@suppliers.Email Style=" width: 100%;"></RadzenTextBox>
+											</RadzenFormField>
+											<RadzenFormField Text="Phone #" Style="width: 100%;" AllowFloatingLabel="false">
+												<RadzenTextBox @bind-Value=@suppliers.PhoneNo1 Style=" width: 100%;"></RadzenTextBox>
+											</RadzenFormField>
+											<RadzenFormField Text="Phone 2 #" Style="width: 100%;" AllowFloatingLabel="false">
+												<RadzenTextBox @bind-Value=@suppliers.PhoneNo2 Style=" width: 100%;"></RadzenTextBox>
+											</RadzenFormField>
+											<RadzenFormField Text="Fax #" Style="width: 100%;" AllowFloatingLabel="false">
+												<RadzenTextBox @bind-Value=@suppliers.FaxNo1 Style=" width: 100%;"></RadzenTextBox>
+											</RadzenFormField>
+											<RadzenFormField Text="Fax # 2" Style="width: 100%;" AllowFloatingLabel="false">
+												<RadzenTextBox @bind-Value=@suppliers.FaxNo2 Style=" width: 100%;"></RadzenTextBox>
+											</RadzenFormField>
+										</RadzenFieldset>
+									</RadzenColumn>
+
+									<RadzenColumn Size="12" SizeMD="4">
+										<RadzenFieldset Text="Misc">
+											<RadzenFormField Text="Business Nature" Style="width: 100%;" AllowFloatingLabel="false">
+												<RadzenTextBox @bind-Value=@suppliers.BusinessNature Style=" width: 100%;"></RadzenTextBox>
+											</RadzenFormField>
+
+											<RadzenFormField Text="Areas" Style="width: 100%;" AllowFloatingLabel="false">
+												<RadzenDropDownDataGrid @bind-Value=suppliers.AreaId Style="width: 100%;" AllowSorting="false" PageSize=10 Data="@areasList" AllowVirtualization="true" AllowColumnResize="true"
+																		AllowClear="true" FilterCaseSensitivity="@filter" AllowFilteringByAllStringColumns="true"
+																		TextProperty="AreaCode" Density="@density" ValueProperty="Id">
+													<Columns>
+														<RadzenDropDownDataGridColumn Width="10%" Property="AreaCode" Title="Term"></RadzenDropDownDataGridColumn>
+														<RadzenDropDownDataGridColumn Width="10%" Property="Description" Title="Description"></RadzenDropDownDataGridColumn>
+													</Columns>
+												</RadzenDropDownDataGrid>
+											</RadzenFormField>
+											<RadzenFormField Text="Term*" Style="width: 100%;" AllowFloatingLabel="false">
+												<RadzenDropDownDataGrid Name="Terms" @bind-Value=suppliers.TermId Style="width: 100%;" AllowSorting="false" PageSize=10 Data="@termList" AllowVirtualization="true" AllowColumnResize="true"
+																		AllowClear="true" FilterCaseSensitivity="@filter" AllowFilteringByAllStringColumns="true"
+																		TextProperty="Term" Density="@density" ValueProperty="Id">
+													<Columns>
+														<RadzenDropDownDataGridColumn Width="10%" Property="Term" Title="Term"></RadzenDropDownDataGridColumn>
+														<RadzenDropDownDataGridColumn Width="10%" Property="Description" Title="Description"></RadzenDropDownDataGridColumn>
+													</Columns>
+												</RadzenDropDownDataGrid>
+											</RadzenFormField>
+											<RadzenRequiredValidator Component="Terms" Text="'Term' must be not empty." Style="position: relative" />
+
+											<RadzenFormField Text="Purchaser" Style="width: 100%;" AllowFloatingLabel="false">
+												<RadzenDropDownDataGrid @bind-Value=suppliers.PurchaserId Style="width: 100%;" AllowSorting="false" PageSize=10 Data="@purchaserList" AllowVirtualization="true" AllowColumnResize="true"
+																		AllowClear="true" FilterCaseSensitivity="@filter" AllowFilteringByAllStringColumns="true"
+																		TextProperty="StaffCode" Density="@density" ValueProperty="Id">
+													<Columns>
+														<RadzenDropDownDataGridColumn Width="10%" Property="StaffCode" Title="Purchaser #"></RadzenDropDownDataGridColumn>
+													</Columns>
+												</RadzenDropDownDataGrid>
+											</RadzenFormField>
+											@* 
+											<RadzenFormField Text="Account Group" Style="width: 100%;" AllowFloatingLabel="false">
+												<RadzenTextBox Style=" width: 100%;"></RadzenTextBox>
+											</RadzenFormField> *@
+
+											<RadzenFormField Text="Currency*" Style="width: 100%;" AllowFloatingLabel="false">
+												<RadzenDropDownDataGrid Placeholder="" @bind-Value=@suppliers.CurrencyId Style="width: 100%;" PageSize=10 AllowColumnResize="true"
+																		AllowClear="true" FilterCaseSensitivity="@filter" AllowFilteringByAllStringColumns="true"
+																		TextProperty="CurrencyCode" Density="@density" Data="@currencyList" ValueProperty="Id">
+													<Columns>
+														<RadzenDropDownDataGridColumn Property="CurrencyCode" Title="CurrencyCode"></RadzenDropDownDataGridColumn>
+														<RadzenDropDownDataGridColumn Property="Description" Title="Description"></RadzenDropDownDataGridColumn>
+													</Columns>
+												</RadzenDropDownDataGrid>
+											</RadzenFormField>
+
+											<RadzenFormField Text="Default VAT Code" Style="width: 100%;" AllowFloatingLabel="false">
+												<RadzenDropDownDataGrid @bind-Value=@suppliers.DefaultTaxCodeId Style="width: 100%;" AllowSorting="false" PageSize=10 AllowColumnResize="true"
+																		AllowClear="true" Data="@defaultVATCodeList" FilterCaseSensitivity="@filter" AllowFilteringByAllStringColumns="true" AllowVirtualization="true"
+																		TextProperty="TaxCode" Density="@density" ValueProperty="Id">
+													<Columns>
+														<RadzenDropDownDataGridColumn Width="20%" Property="TaxCode" Title="Vat #"></RadzenDropDownDataGridColumn>
+														<RadzenDropDownDataGridColumn Width="20%" Property="TaxRate" Title="Rate"></RadzenDropDownDataGridColumn>
+														<RadzenDropDownDataGridColumn Width="20%" Property="TaxType" Title="Vat Type"></RadzenDropDownDataGridColumn>
+														<RadzenDropDownDataGridColumn Property="Description" Title="Description"></RadzenDropDownDataGridColumn>
+													</Columns>
+												</RadzenDropDownDataGrid>
+											</RadzenFormField>
+
+											<RadzenFormField Text="Defaul WTaX Code" Style="width: 100%;" AllowFloatingLabel="false">
+												<RadzenDropDownDataGrid @bind-Value=@suppliers.DefaultWTaxCodeId AllowSorting="false" Style="width: 100%" PageSize=10 AllowVirtualization="true" AllowColumnResize="true"
+																		AllowClear="true" FilterCaseSensitivity="@filter" AllowFilteringByAllStringColumns="true" Data="@defaultWTaxCodeList" TextProperty="Code" Density="@density" ValueProperty="Id">
+													<Columns>
+														<RadzenDropDownDataGridColumn Width="5%" Property="Code" Title="Code"></RadzenDropDownDataGridColumn>
+														<RadzenDropDownDataGridColumn Width="5%" Property="Rates" Title="Rate"></RadzenDropDownDataGridColumn>
+														<RadzenDropDownDataGridColumn Width="15%" Property="Description" Title="Description"></RadzenDropDownDataGridColumn>
+													</Columns>
+												</RadzenDropDownDataGrid>
+											</RadzenFormField>
+
+											<RadzenFormField Text="Current Balance" Style="width: 100%;">
+												<RadzenNumeric Disabled="true" ShowUpDown="false" @bind-Value=@suppliers.CurrentBalance Format="#,0.00" Style=" width: 100%;"></RadzenNumeric>
+											</RadzenFormField>
+
+										</RadzenFieldset>
+									</RadzenColumn>
+								</RadzenRow>
+							</RadzenTabsItem>
+						</Tabs>
+					</RadzenTabs>
+				</RadzenStack>
+			</RadzenCard>
+		</RadzenColumn>
+	</RadzenStack>
+
+
+</RadzenTemplateForm>
+
+
+@code {
+	[Parameter]
+	public Guid? Id { get; set; }
+
+	[CascadingParameter]
+	public Task<AuthenticationState> authenticationState { get; set; }
+
+	bool isLoading = true;
+	bool isBusy;
+	bool isVisible = false;
+	bool isDisable = false;
+	public string CompCode { get; set; }
+
+	private IEnumerable<GLAccounts> controlAccountList { get; set; } //Get GLAccount
+	private IEnumerable<CreditorCategory> debtorsCategoryList { get; set; } //Get DebtorCategory
+	private IEnumerable<Areas> areasList { get; set; }
+	private IEnumerable<Terms> termList { get; set; }
+	protected IEnumerable<Purchasers> purchaserList { get; set; }
+	private IEnumerable<Currencies> currencyList { get; set; }
+	private IEnumerable<DefaultVatCode> defaultVATCodeList { get; set; }
+	private IEnumerable<WTaxCodes> defaultWTaxCodeList { get; set; }
+	private TaxCodeFilter taxCodefilter { get; set; }
+
+
+	private Creditors suppliers { get; set; } = new Creditors();
+	IList<Creditors> selectedSuppliers { get; set; }
+	IEnumerable<Creditors> suppliersList { get; set; }
+
+	AlignItems alignItems = AlignItems.Center;
+	TextStyle textStyle = TextStyle.Body2;
+	ButtonSize smallbtn = ButtonSize.Small;
+	Density density = Density.Compact;
+	FilterCaseSensitivity filter = FilterCaseSensitivity.CaseInsensitive;
+
+	protected async override Task OnInitializedAsync()
+	{
+		var authState = (await authenticationState).User;
+		if (authState.Identity.IsAuthenticated)
+		{
+			var RoleId = authState.FindFirst("RoleId").Value;
+			GetLoadMenuPermission(RoleId);
+		}
+	}
+
+
+	public IEnumerable<SystemMenuObjectPermission> systemMenuObjectPermissionList;
+	protected async void GetLoadMenuPermission(string RoleId)
+	{
+
+		var data = await menuService.GetSystemMenuObjectPermissionId(RoleId);
+		if (data is not null)
+			systemMenuObjectPermissionList = data;
+		StateHasChanged();
+
+		var result = systemMenuObjectPermissionList.FirstOrDefault(x => x.MenuName == "Suppliers");
+		if (result.AllowNavigate == true)
+		{
+
+			await ShowLoading();
+			await loadAllData();
+			if (Id != null)
+			{
+				await loadById();
+				isVisible = true;
+			}
+			StateHasChanged();
+		}
+		else
+		{
+			navManager.NavigateTo("/NotAuthorized");
+			StateHasChanged();
+		}
+
+
+	}
+
+	async Task ShowLoading()
+	{
+		await Task.Yield();
+
+		isLoading = false;
+	}
+
+
+
+	private async Task loadAllData()
+	{
+		await LoadDebtorCategory();
+		await LoadControlAccount();
+		await GetPurchaserList();
+		await GetTermList();
+		await GetCurrencies();
+		await GetDefaultVatCode();
+		await GetDefaultWTaxCodes();
+		ApplyFilters();
+		loadStatus();
+
+		isLoading = false;
+		StateHasChanged();
+	}
+	private async Task loadById()
+	{
+		await GetSupplierById();
+
+		isLoading = false;
+		StateHasChanged();
+	}
+
+
+	private void OnFormChange(object sender)
+	{
+		// When any field changes, enable the save button
+		isDisable = true;
+	}
+
+	//Get Supplier From db.Creditors By Id
+	protected async Task GetSupplierById()
+	{
+		var data = await supplierServices.GetSupplierById(Id.ToString());
+		suppliers = data is not null ? data : new Creditors();
+	}
+
+	private IEnumerable<GLAccounts> filteredControlAccountList;
+	private void ApplyFilters()
+	{
+		if (controlAccountList != null)
+		{
+			filteredControlAccountList = controlAccountList.Where(a => a.SpecialAccountId == 6).ToList();
+		}
+	}
+	//Load control account from GLAccounts
+	protected async Task LoadControlAccount()
+	{
+		var data = await customersServices.GetControlAccounts();
+		controlAccountList = data is not null ? data : new List<GLAccounts>();
+	}
+
+	//Load Category from DebtorCategory
+	protected async Task LoadDebtorCategory()
+	{
+		var data = await supplierServices.GetCreditorCategory();
+		debtorsCategoryList = data is not null ? data : new List<CreditorCategory>();
+	}
+
+	//Get Areas List From db.Areas
+	protected async Task GetAreas()
+	{
+		var data = await miscService.GetAreas();
+		areasList = data is not null ? data : new List<Areas>();
+	}
+
+	protected async Task GetTermList()
+	{
+		var data = await miscService.GetTerms();
+		termList = data is not null ? data : new List<Terms>();
+	}
+
+	protected async Task GetPurchaserList()
+	{
+
+		var data = await purchaseRequisitionsService.GetPurchaserLists();
+		purchaserList = data is not null ? data : new List<Purchasers>();
+
+	}
+	//Get Currencies From db.Currencies
+	protected async Task GetCurrencies()
+	{
+		var data = await currenciesService.GetCurrencies();
+		currencyList = data is not null ? data : new List<Currencies>();
+	}
+
+
+
+
+	private async Task GetDefaultVatCode()
+	{
+		var data = await allTaxCodeService.GetDefaultVatCode();
+		defaultVATCodeList = data is not null ? data : new List<DefaultVatCode>();
+	}
+
+
+
+	protected async Task GetDefaultWTaxCodes()
+	{
+		var data = await allTaxCodeService.GetDefaultWTaxCode();
+		defaultWTaxCodeList = data is not null ? data : new List<WTaxCodes>();
+	}
+
+
+	private async Task OnSubmit()
+	{
+		isBusy = true;
+		StateHasChanged();
+		var data = await supplierServices.SaveSupplier(suppliers, Id.ToString());
+		if (data is not null)
+		{
+			if (data.Contains("must be unique"))
+			{
+				await DialogService.Alert(data);
+				isDisable = false;
+				isBusy = false;
+			}
+			else
+			{
+				//requestMessageHandler.isSucccess(true);
+				await DialogService.Alert(data);
+				isBusy = false;
+				isDisable = true;
+			}
+
+		}
+		else
+		{
+			requestMessageHandler.isSucccess(false);
+			isBusy = false;
+		}
+
+	}
+
+	// private async Task AddSupplier()
+	// {
+		
+	// 	StateHasChanged();
+	// 	var data = await supplierServices.SaveSupplier(suppliers);
+	// 	if (data is not null)
+	// 	{
+	// 		if (data.Contains("must be unique"))
+	// 		{
+	// 			await DialogService.Alert(data);
+	// 			isDisable = false;
+	// 			isBusy = false;
+	// 		}
+	// 		else
+	// 		{
+	// 			//requestMessageHandler.isSucccess(true);
+	// 			await DialogService.Alert(data);
+	// 			isBusy = false;
+	// 			isDisable = true;
+	// 		}
+
+	// 	}
+	// 	else
+	// 	{
+	// 		requestMessageHandler.isSucccess(false);
+	// 		isBusy = false;
+	// 	}
+	// }
+
+
+	private async void DeleteSupplier()
+	{
+		if (await DialogService.Confirm("You are about to delete record(s). Do you want to proceed?", "Delete") == true)
+		{
+			var data = await supplierServices.DeleteSupplier(suppliers.GLAccountId.ToString());
+			if (data != null)
+			{
+				await DialogService.Alert(data);
+				navManager.NavigateTo("SuppliersList");
+				StateHasChanged();
+			}
+			else
+			{
+				requestMessageHandler.isSucccess(false);
+			}
+		}
+
+	}
+
+	protected void navigate(int edit)
+	{
+
+		switch (edit)
+		{
+			case 1:
+
+				Id = null;
+				navManager.NavigateTo("Suppliers");
+				StateHasChanged();
+
+				break;
+			case 2:
+				navManager.NavigateTo("SuppliersList");
+				break;
+
+		}
+
+	}
+
+
+	private List<StatusOption> status;
+	protected void loadStatus()
+	{
+		status = new List<StatusOption>
+		{
+			new StatusOption { Status = "ACTIVE" },
+			new StatusOption { Status = "INACTIVE" },
+			new StatusOption { Status = "PROSPECT" },
+			new StatusOption { Status = "SUSPENDED" }
+		};
+		suppliers.Status = "ACTIVE";
+	}
+	private class StatusOption
+	{
+		public string Status { get; set; }
+	}
+}

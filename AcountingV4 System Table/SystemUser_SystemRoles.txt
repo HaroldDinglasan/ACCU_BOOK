@@ -1,0 +1,8 @@
+-- Create the SystemUser_SystemRoles table
+CREATE TABLE SystemUser_SystemRoles (
+    Oid UNIQUEIDENTIFIER NOT NULL DEFAULT NEWID(),      -- Primary Key
+    Users UNIQUEIDENTIFIER NOT NULL,                    -- FK to SystemUser(Oid)
+    RolesId UNIQUEIDENTIFIER NOT NULL,                  -- FK to SystemRole(Oid)
+    OptimisticLockField INT NOT NULL DEFAULT 0         -- Concurrency field
+ 
+);

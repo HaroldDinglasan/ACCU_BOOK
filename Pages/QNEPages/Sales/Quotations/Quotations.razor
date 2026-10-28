@@ -1,0 +1,1971 @@
+﻿@page "/Quotations"
+@page "/Quotations/Edit/{id:guid}"
+@attribute [Authorize(Roles = "Admin,User")]
+
+
+@if (isloading)
+{
+    <Spinner />
+}
+<RadzenTemplateForm TItem="QuotationsModel" Data="quotationsModel" Submit="@OnSubmit">
+    <RadzenStack Gap="0.2rem">
+
+        <CrudToolbar Title="@(Id.HasValue ? "Edit Quotation" : "Create Quotation")"
+                     Subtitle="Manage quotation information"
+                     Icon="badge"
+                     ButtonSize="@smallbtn"
+                     SaveText="Save"
+                     SaveBusy="@busy"
+                        SaveDisabled=@(quotationsModel.DebtorId is null || btnDiseabled || quotationsModel.IsCancelled is true || quotationsModel.IsClosed is true)
+                     BackText="Back to Search"
+                     OnBackSearch="@Navigate"/>
+
+        <RadzenCard>
+            <div style="margin-bottom: 0.5rem">
+                <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.SpaceBetween">
+                 <RadzenStack Orientation="Orientation.Horizontal">
+                    Quotations @quotationsModel.QuotationCode <RadzenBadge Visible="@(status != string.Empty)" Shade="Shade.Dark" BadgeStyle="BadgeStyle.Danger" Text="@status" class="rz-ms-2" />
+                 </RadzenStack>   
+                    <RadzenButton Visible="Id.HasValue" ButtonStyle="ButtonStyle.Light" Icon="info" Click="@OpenDocumentInfoDialog"></RadzenButton>
+                </RadzenStack>
+            </div>
+            <RadzenTabs RenderMode="TabRenderMode.Client">
+                <Tabs>
+                    <RadzenTabsItem Text="Details">
+                        <RadzenRow>
+                            <RadzenColumn Size="12" SizeMD="4">
+                                <RadzenStack Gap="0.2rem">
+                                    <RadzenRow AlignItems="@alignItems">
+                                        <RadzenColumn Size="12" SizeMD="12">
+                                            <RadzenFormField Style="width:100%" Text="Customer" AllowFloatingLabel="false">
+                                                <RadzenDropDownDataGrid Name="Customer" class="@redtext" Disabled="@(quotationsModel.IsCancelled != true && quotationsModel.TransferToInfo != null)"
+                                                                        @bind-Value=quotationsModel.DebtorId
+                                                                        Change=@(args => OnDebtorChanged((Guid?)args))
+                                                                        AllowSorting="false" Style="width: 100%;" PageSize=10
+                                                                        Data="@debtorsaccountList" AllowVirtualization="true" AllowColumnResize="true"
+                                                                        AllowClear="true" FilterCaseSensitivity="@filter" AllowFilteringByAllStringColumns="true"
+                                                                        TextProperty="CompanyCode" Density="@density" ValueProperty="Id">
+                                                    <Columns>
+                                                        <RadzenDropDownDataGridColumn Width="4%" Property="@nameof(Debtors.CompanyCode)" Title="Customer #"></RadzenDropDownDataGridColumn>
+                                                        <RadzenDropDownDataGridColumn Width="10%" Property="@nameof(Debtors.CompanyName)" Title="Name"></RadzenDropDownDataGridColumn>
+                                                    </Columns>
+                                                </RadzenDropDownDataGrid>
+                                            </RadzenFormField>
+                                            <RadzenRequiredValidator Component="Customer" Text="'Customer' must not be empty." Style="position: relative"></RadzenRequiredValidator>
+                                        </RadzenColumn>
+                                    </RadzenRow>
+
+                                    <RadzenRow AlignItems="@alignItems">
+                                        <RadzenColumn Size="12" SizeMD="12">
+                                            <RadzenFormField Style="width:100%" Text="To" AllowFloatingLabel="false">
+                                                <RadzenTextBox class="@redtext" @bind-Value=quotationsModel.DebtorName Style="width: 100%;" />
+                                            </RadzenFormField>
+                                        </RadzenColumn>
+                                    </RadzenRow>
+
+                                    <RadzenRow AlignItems="@alignItems">
+                                        <RadzenColumn Size="12" SizeMD="12">
+                                            <RadzenFormField Style="width:100%" Text="Delivery Term" AllowFloatingLabel="false">
+                                                <RadzenTextBox class="@redtext" @bind-Value=quotationsModel.DeliveryTerm Style="width: 100%;" />
+                                            </RadzenFormField>
+                                        </RadzenColumn>
+                                    </RadzenRow>
+
+
+                                    <RadzenRow AlignItems="@alignItems">
+                                        <RadzenColumn Size="12" SizeMD="12">
+                                            <RadzenFormField Style="width:100%" Text="Term" AllowFloatingLabel="false">
+                                                <RadzenDropDownDataGrid Name="Term" class="@redtext" @bind-Value=@quotationsModel.TermId Style="width: 100%;" AllowSorting="false" PageSize=10 Data="@termList" AllowVirtualization="true" AllowColumnResize="true"
+                                                                        AllowClear="true" FilterCaseSensitivity="@filter" AllowFilteringByAllStringColumns="true"
+                                                                        TextProperty="Term" Density="@density" ValueProperty="Id">
+                                                    <Columns>
+                                                        <RadzenDropDownDataGridColumn Width="10%" Property="Term" Title="Term"></RadzenDropDownDataGridColumn>
+                                                        <RadzenDropDownDataGridColumn Width="10%" Property="Description" Title="Description"></RadzenDropDownDataGridColumn>
+                                                    </Columns>
+                                                </RadzenDropDownDataGrid>
+                                            </RadzenFormField>
+                                            <RadzenRequiredValidator Component="Term" Text="'Term' must not be empty." Style="position: relative"></RadzenRequiredValidator>
+                                        </RadzenColumn>
+                                    </RadzenRow>
+
+
+                                    <RadzenRow AlignItems="@alignItems">
+                                        <RadzenColumn Size="12" SizeMD="12">
+                                            <RadzenFormField Style="width:100%" Text="Location" AllowFloatingLabel="false">
+                                                <RadzenDropDownDataGrid class="@redtext" @bind-Value=@quotationsModel.StockLocationId Change="@(args => OnStockLocationChanged(args))"
+                                                                        AllowSorting="false" Style="width: 120%;" PageSize=10 Data="@stocklocationList" AllowVirtualization="true" AllowColumnResize="true"
+                                                                        AllowClear="true" FilterCaseSensitivity="@filter" AllowFilteringByAllStringColumns="true"
+                                                                        TextProperty="LocationCode" Density="@density" ValueProperty="Id">
+                                                    <Columns>
+                                                        <RadzenDropDownDataGridColumn Width="15%" Property="LocationCode" Title="Location #"></RadzenDropDownDataGridColumn>
+                                                        <RadzenDropDownDataGridColumn Width="15%" Property="Description" Title="Description"></RadzenDropDownDataGridColumn>
+                                                        <RadzenDropDownDataGridColumn Width="8%" Property="IsActive" Title="Active">
+                                                            <Template Context="data"><RadzenCheckBox TValue="bool" Value="data.IsActive"></RadzenCheckBox></Template>
+                                                        </RadzenDropDownDataGridColumn>
+                                                    </Columns>
+                                                </RadzenDropDownDataGrid>
+                                            </RadzenFormField>
+                                        </RadzenColumn>
+                                    </RadzenRow>
+
+
+
+                                </RadzenStack>
+                            </RadzenColumn>
+
+                            <RadzenColumn Size="12" SizeMD="4">
+                                <RadzenStack Gap="0.2rem">
+                                    <RadzenRow AlignItems="@alignItems">
+                                        <RadzenColumn Size="12" SizeMD="12">
+                                            <RadzenFormField Style="width:100%" Text="Currency" AllowFloatingLabel="false">
+                                                <RadzenDropDownDataGrid Disabled="true" class="@redtext" @bind-Value=@quotationsModel.CurrencyId AllowSorting="false" Style="width: 100%;" PageSize=10 AllowColumnResize="true"
+                                                                        AllowClear="true" FilterCaseSensitivity="@filter" AllowFilteringByAllStringColumns="true"
+                                                                        TextProperty="CurrencyCode" Density="@density" Data="@currencyList" ValueProperty="Id">
+                                                    <Columns>
+                                                        <RadzenDropDownDataGridColumn Width="10%" Property="CurrencyCode" Title="CurrencyCode"></RadzenDropDownDataGridColumn>
+                                                        <RadzenDropDownDataGridColumn Width="10%" Property="Description" Title="Description"></RadzenDropDownDataGridColumn>
+                                                    </Columns>
+                                                </RadzenDropDownDataGrid>
+                                            </RadzenFormField>
+                                        </RadzenColumn>
+                                    </RadzenRow>
+
+                                    <RadzenRow AlignItems="@alignItems">
+                                        <RadzenColumn Size="12" SizeMD="12">
+                                            <RadzenFormField Style="width:100%" Text="Attention" AllowFloatingLabel="false">
+                                                <RadzenTextBox class="@redtext" @bind-Value=@quotationsModel.Attention Style="width: 100%;" />
+                                            </RadzenFormField>
+                                        </RadzenColumn>
+                                    </RadzenRow>
+
+                                    <RadzenRow AlignItems="@alignItems">
+                                        <RadzenColumn Size="12" SizeMD="12">
+                                            <RadzenFormField Style="width:100%" Text="Agent" AllowFloatingLabel="false">
+                                                <RadzenDropDownDataGrid class="@redtext" @bind-Value=@quotationsModel.SalesPersonId AllowSorting="false" Style="width: 100%;" PageSize=10 Data="@salespersonList" AllowVirtualization="true" AllowColumnResize="true"
+                                                                        AllowClear="true" FilterCaseSensitivity="@filter" AllowFilteringByAllStringColumns="true"
+                                                                        TextProperty="StaffCode" Density="@density" ValueProperty="Id">
+                                                    <Columns>
+                                                        <RadzenDropDownDataGridColumn Width="10%" Property="StaffCode" Title="Agent #"></RadzenDropDownDataGridColumn>
+                                                    </Columns>
+                                                </RadzenDropDownDataGrid>
+                                            </RadzenFormField>
+                                        </RadzenColumn>
+
+                                    </RadzenRow>
+
+
+                                    <RadzenRow AlignItems="@alignItems">
+                                        <RadzenColumn Size="12" SizeMD="12">
+                                            <RadzenFormField Style="width:100%" Text="Validity" AllowFloatingLabel="false">
+                                                <RadzenTextBox class="@redtext" @bind-Value=@quotationsModel.Validity Style="width: 100%;" />
+                                            </RadzenFormField>
+                                        </RadzenColumn>
+                                    </RadzenRow>
+
+
+                                    <RadzenRow AlignItems="@alignItems">
+                                        <RadzenColumn Size="12" SizeMD="12">
+                                            <RadzenFormField Style="width:100%" Text="Project" AllowFloatingLabel="false">
+                                                <RadzenDropDownDataGrid class="@redtext" @bind-Value=@quotationsModel.ProjectId AllowSorting="false" Style="width: 100%;" PageSize=10 Data="@projectList" AllowVirtualization="true" AllowColumnResize="true"
+                                                                        AllowClear="true" FilterCaseSensitivity="@filter" AllowFilteringByAllStringColumns="true"
+                                                                        TextProperty="ProjectCode" Density="@density" ValueProperty="Id">
+                                                    <Columns>
+                                                        <RadzenDropDownDataGridColumn Width="15%" Property="ProjectCode" Title="Project Code"></RadzenDropDownDataGridColumn>
+                                                        <RadzenDropDownDataGridColumn Width="15%" Property="Description" Title="Description"></RadzenDropDownDataGridColumn>
+                                                        <RadzenDropDownDataGridColumn Width="8%" Property="IsActive" Title="Active">
+                                                            <Template Context="data2"><RadzenCheckBox TValue="bool" Value="data2.IsActive"></RadzenCheckBox></Template>
+                                                        </RadzenDropDownDataGridColumn>
+                                                    </Columns>
+                                                </RadzenDropDownDataGrid>
+                                            </RadzenFormField>
+                                        </RadzenColumn>
+                                    </RadzenRow>
+
+                                </RadzenStack>
+                            </RadzenColumn>
+
+                            <RadzenColumn Size="12" SizeMD="4">
+                                <RadzenStack Gap="0.2rem">
+                                    <RadzenRow AlignItems="@alignItems">
+                                        <RadzenColumn Size="12" SizeMD="12">
+                                            <RadzenFormField Style="width:100%" Text="Rate" AllowFloatingLabel="false">
+                                                <RadzenNumeric ShowUpDown="false" Disabled="true" class="@redtext" @bind-Value=@quotationsModel.CurrencyRate Style="width: 100%;" Placeholder="Exchange Rate"></RadzenNumeric>
+                                                @*   <RadzenTextBox @bind-Value=purchaserequisition.CurrencyRate Style="width: 100%;" Placeholder="Exchange Rate" /> *@
+                                            </RadzenFormField>
+                                        </RadzenColumn>
+                                    </RadzenRow>
+                                    <RadzenRow AlignItems="@alignItems">
+                                        <RadzenColumn Size="12" SizeMD="12">
+                                            <RadzenFormField Style="width:100%" Text="Doc Date" AllowFloatingLabel="false">
+                                                <RadzenDatePicker Change="SetQuotationNo" class="@redtext" @bind-Value="@quotationsModel.QuotationDate" DateFormat="MM/dd/yyyy" Style="width:100%" />
+                                            </RadzenFormField>
+                                        </RadzenColumn>
+                                    </RadzenRow>
+
+                                    <RadzenRow AlignItems="@alignItems">
+                                        <RadzenColumn Size="12" SizeMD="12">
+                                            <RadzenFormField Style="width:92%" Text="Quotation No." AllowFloatingLabel="false">
+                                                <RadzenTextBox class="@redtext" @bind-Value="@quotationsModel.QuotationCode" Style="width: 100%;" />
+                                            </RadzenFormField>
+                                            <RadzenFormField Style="width:5%" AllowFloatingLabel="false">
+                                                <RadzenButton @ref=@button Icon="list" Click="@(args => popup.ToggleAsync(button.Element))" />
+                                            </RadzenFormField>
+                                        </RadzenColumn>
+                                    </RadzenRow>
+
+                                    <RadzenRow AlignItems="@alignItems">
+                                        <RadzenColumn Size="12" SizeMD="12">
+                                            <RadzenFormField Style="width:100%" Text="Reference No." AllowFloatingLabel="false">
+                                                <RadzenTextBox Name="Reference" class="@redtext" @bind-Value="@quotationsModel.ReferenceNo" Style="width: 100%;" />
+                                            </RadzenFormField>
+                                            <RadzenRequiredValidator Component="Reference" Text="'Reference No.' must be not empty." Style="position: relative" />
+                                        </RadzenColumn>
+                                    </RadzenRow>
+
+                                    <RadzenRow AlignItems="@alignItems" JustifyContent="JustifyContent.Center" Style="margin-top:1rem;">
+
+                                        <RadzenColumn Size="3">
+                                            <RadzenSwitch Style="transform: scale(0.7);" @bind-Value=quotationsModel.IsTaxInclusive Name="Active" Change="@IsTaxInclusiveChanged" />
+                                            <RadzenText class="@redtext" TextStyle="@textStyle" Style="" Text="Tax Inclusive"></RadzenText>
+                                        </RadzenColumn>
+
+                                        @if (Id is not null)
+                                        {
+                                            <RadzenColumn Size="3">
+                                                <RadzenSwitch Style="transform: scale(0.7);" @bind-Value="@quotationsModel.IsCancelled" Change=@(args => OnSwitchChanged("IsCancelled")) />
+                                                <RadzenText class="@redtext" TextStyle="@textStyle" Style="" Text="Is Cancelled"></RadzenText>
+                                            </RadzenColumn>
+
+                                            <RadzenColumn Size="3">
+                                                <RadzenSwitch Style="transform: scale(0.7);" @bind-Value="@quotationsModel.IsClosed" Change=@(args => OnSwitchChanged("IsClosed")) />
+                                                <RadzenText class="@redtext" TextStyle="@textStyle" Style="" Text="Is Closed"></RadzenText>
+                                            </RadzenColumn>
+                                        }
+
+                                    </RadzenRow>
+                                </RadzenStack>
+                            </RadzenColumn>
+                        </RadzenRow>
+                    </RadzenTabsItem>
+                    <RadzenTabsItem Text="Customer">
+                        <RadzenRow>
+
+                            <RadzenColumn Size="6" SizeMD="6">
+                                <RadzenStack Gap="0.2rem">
+                                    <RadzenRow AlignItems="@alignItems">
+                                        <RadzenColumn Size="12" SizeMD="12">
+                                            <RadzenFormField Style="width:100%" Text="Address" AllowFloatingLabel="false">
+                                                <RadzenTextBox class="@redtext" @bind-Value=@quotationsModel.Address1 Style="width: 100%;" />
+                                            </RadzenFormField>
+                                        </RadzenColumn>
+                                    </RadzenRow>
+                                    <RadzenRow AlignItems="@alignItems">
+                                        <RadzenColumn Size="12" SizeMD="12">
+                                            <RadzenFormField Style="width:100%" Text="Address2" AllowFloatingLabel="false">
+                                                <RadzenTextBox class="@redtext" @bind-Value=@quotationsModel.Address2 Style="width: 100%;" />
+                                            </RadzenFormField>
+                                        </RadzenColumn>
+                                    </RadzenRow>
+                                    <RadzenRow AlignItems="@alignItems">
+                                        <RadzenColumn Size="12" SizeMD="12">
+                                            <RadzenFormField Style="width:100%" Text="Address3" AllowFloatingLabel="false">
+                                                <RadzenTextBox class="@redtext" @bind-Value=@quotationsModel.Address3 Style="width: 100%;" />
+                                            </RadzenFormField>
+                                        </RadzenColumn>
+                                    </RadzenRow>
+                                    <RadzenRow AlignItems="@alignItems">
+                                        <RadzenColumn Size="12" SizeMD="12">
+                                            <RadzenFormField Style="width:100%" Text="Address4" AllowFloatingLabel="false">
+                                                <RadzenTextBox class="@redtext" @bind-Value=@quotationsModel.Address4 Style="width: 100%;" />
+                                            </RadzenFormField>
+                                        </RadzenColumn>
+                                    </RadzenRow>
+                                </RadzenStack>
+                            </RadzenColumn>
+
+
+                            <RadzenColumn Size="6" SizeMD="6">
+                                <RadzenStack Gap="0.2rem">
+                                    <RadzenRow AlignItems="@alignItems">
+                                        <RadzenColumn Size="12" SizeMD="12">
+                                            <RadzenFormField Style="width:100%" Text="GST Reg #" AllowFloatingLabel="false">
+                                                <RadzenTextBox Disabled="true" class="@redtext" Style="width: 100%;" />
+                                            </RadzenFormField>
+                                        </RadzenColumn>
+                                    </RadzenRow>
+
+                                    <RadzenRow AlignItems="@alignItems">
+                                        <RadzenColumn Size="12" SizeMD="12">
+                                            <RadzenFormField Style="width:100%" Text="Phone" AllowFloatingLabel="false">
+                                                <RadzenTextBox class="@redtext" @bind-Value=@quotationsModel.Phone Style="width: 100%;" />
+                                            </RadzenFormField>
+                                        </RadzenColumn>
+                                    </RadzenRow>
+
+                                    <RadzenRow AlignItems="@alignItems">
+                                        <RadzenColumn Size="12" SizeMD="12">
+                                            <RadzenFormField Style="width:100%" Text="Fax" AllowFloatingLabel="false">
+                                                <RadzenTextBox class="@redtext" @bind-Value=@quotationsModel.Fax Style="width: 100%;" />
+                                            </RadzenFormField>
+                                        </RadzenColumn>
+                                    </RadzenRow>
+                                </RadzenStack>
+                            </RadzenColumn>
+
+
+                        </RadzenRow>
+                    </RadzenTabsItem>
+                    <RadzenTabsItem Text="Do Address">
+                        <RadzenRow>
+                            <RadzenColumn Size="6" SizeMD="6">
+                                <RadzenStack Gap="0.2rem">
+                                    <RadzenRow AlignItems="@alignItems">
+                                        <RadzenColumn Size="12" SizeMD="12">
+                                            <RadzenFormField Style="width:100%" Text="Address" AllowFloatingLabel="false">
+                                                <RadzenTextBox class="@redtext" @bind-Value=@quotationsModel.DOAddress1 Style="width: 100%;" />
+                                            </RadzenFormField>
+                                        </RadzenColumn>
+                                    </RadzenRow>
+                                    <RadzenRow AlignItems="@alignItems">
+                                        <RadzenColumn Size="12" SizeMD="12">
+                                            <RadzenFormField Style="width:100%" Text="Address2" AllowFloatingLabel="false">
+                                                <RadzenTextBox class="@redtext" @bind-Value=@quotationsModel.DOAddress2 Style="width: 100%;" />
+                                            </RadzenFormField>
+                                        </RadzenColumn>
+                                    </RadzenRow>
+                                    <RadzenRow AlignItems="@alignItems">
+                                        <RadzenColumn Size="12" SizeMD="12">
+                                            <RadzenFormField Style="width:100%" Text="Address3" AllowFloatingLabel="false">
+                                                <RadzenTextBox class="@redtext" @bind-Value=@quotationsModel.DOAddress3 Style="width: 100%;" />
+                                            </RadzenFormField>
+                                        </RadzenColumn>
+                                    </RadzenRow>
+                                    <RadzenRow AlignItems="@alignItems">
+                                        <RadzenColumn Size="12" SizeMD="12">
+                                            <RadzenFormField Style="width:100%" Text="Address4" AllowFloatingLabel="false">
+                                                <RadzenTextBox class="@redtext" @bind-Value=@quotationsModel.DOAddress4 Style="width: 100%;" />
+                                            </RadzenFormField>
+                                        </RadzenColumn>
+                                    </RadzenRow>
+                                </RadzenStack>
+                            </RadzenColumn>
+
+                            <RadzenColumn Size="6" SizeMD="6">
+                                <RadzenStack Gap="0.2rem">
+                                    <RadzenRow AlignItems="@alignItems">
+                                        <RadzenColumn Size="12" SizeMD="12">
+                                            <RadzenFormField Style="width:100%" Text="Branch Code" AllowFloatingLabel="false">
+                                                <RadzenTextBox class="@redtext" @bind-Value=@quotationsModel.DOBranchCode Style="width: 100%;" />
+                                            </RadzenFormField>
+                                        </RadzenColumn>
+                                    </RadzenRow>
+
+                                    <RadzenRow AlignItems="@alignItems">
+                                        <RadzenColumn Size="12" SizeMD="12">
+                                            <RadzenFormField Style="width:100%" Text="Branch Name" AllowFloatingLabel="false">
+                                                <RadzenTextBox class="@redtext" @bind-Value=@quotationsModel.DOBranchName Style="width: 100%;" />
+                                            </RadzenFormField>
+                                        </RadzenColumn>
+                                    </RadzenRow>
+
+                                    <RadzenRow AlignItems="@alignItems">
+                                        <RadzenColumn Size="12" SizeMD="12">
+                                            <RadzenFormField Style="width:100%" Text="Contact" AllowFloatingLabel="false">
+                                                <RadzenTextBox class="@redtext" @bind-Value=@quotationsModel.DOContact Style="width: 100%;" />
+                                            </RadzenFormField>
+                                        </RadzenColumn>
+                                    </RadzenRow>
+
+                                    <RadzenRow AlignItems="@alignItems">
+                                        <RadzenColumn Size="12" SizeMD="5">
+                                            <RadzenFormField Style="width:100%" Text="Phone" AllowFloatingLabel="false">
+                                                <RadzenTextBox class="@redtext" @bind-Value=@quotationsModel.DOPhone Style="width: 100%;" />
+                                            </RadzenFormField>
+                                        </RadzenColumn>
+                                        <RadzenColumn Size="12" SizeMD="5">
+                                            <RadzenFormField Style="width:100%" Text="Fax" AllowFloatingLabel="false">
+                                                <RadzenTextBox class="@redtext" @bind-Value=@quotationsModel.DOFax Style="width: 100%;" />
+                                            </RadzenFormField>
+                                        </RadzenColumn>
+
+                                        <RadzenColumn Size="12" SizeMD="5">
+                                            <RadzenFormField Style="width:100%" Text="Registration No." AllowFloatingLabel="false">
+                                                <RadzenTextBox class="@redtext" @bind-Value=@quotationsModel.DORegistationNo Style="width: 100%;" />
+                                            </RadzenFormField>
+                                        </RadzenColumn>
+                                    </RadzenRow>
+
+                                </RadzenStack>
+                            </RadzenColumn>
+                        </RadzenRow>
+                    </RadzenTabsItem>
+                    <RadzenTabsItem Text="Others">
+                        <RadzenRow>
+                            <RadzenColumn Size="12" SizeMD="4">
+                                <RadzenStack Gap="0.2rem">
+                                    <RadzenRow AlignItems="@alignItems">
+                                        <RadzenColumn Size="12" SizeMD="12">
+                                            <RadzenFormField Style="width:100%" Text="Title" AllowFloatingLabel="false">
+                                                <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0rem;" Wrap="FlexWrap.Wrap">
+                                                    <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Style="width: 90%;" Gap="0.5rem;">
+                                                        <RadzenDropDown class="@redtext" @bind-Value=@quotationsModel.Title
+                                                                        Data=@descriptionsList
+                                                                        TextProperty="@nameof(Descriptions.Description)" SelectedItem="0"
+                                                                        ValueProperty="@nameof(Descriptions.Description)" Style="width: 100%;" />
+                                                    </RadzenStack>
+                                                    @* <RadzenButton Click="() => OpenDialog(1)" Icon="more_horiz"></RadzenButton> *@
+                                                </RadzenStack>
+                                            </RadzenFormField>
+                                        </RadzenColumn>
+                                    </RadzenRow>
+
+                                    <RadzenRow AlignItems="@alignItems">
+                                        <RadzenColumn Size="12" SizeMD="12">
+                                            <RadzenFormField Style="width:100%" Text="Transfer To" AllowFloatingLabel="false">
+                                                <RadzenTextBox Disabled=true class="@redtext" @bind-Value=@quotationsModel.TransferToInfo Style="width: 100%;" />
+                                            </RadzenFormField>
+                                        </RadzenColumn>
+                                    </RadzenRow>
+                                </RadzenStack>
+                            </RadzenColumn>
+
+                            <RadzenColumn Size="12" SizeMD="4">
+                                <RadzenStack Gap="0.2rem">
+                                    <RadzenRow AlignItems="@alignItems">
+                                        <RadzenColumn Size="12" SizeMD="12">
+                                            <RadzenFormField Style="width:100%" Text="Reference 1" AllowFloatingLabel="false">
+                                                <RadzenTextBox class="@redtext" @bind-Value=@quotationsModel.Ref1 Style="width: 100%;" />
+                                            </RadzenFormField>
+                                        </RadzenColumn>
+                                    </RadzenRow>
+
+                                    <RadzenRow AlignItems="@alignItems">
+                                        <RadzenColumn Size="12" SizeMD="12">
+                                            <RadzenFormField Style="width:100%" Text="Reference 2" AllowFloatingLabel="false">
+                                                <RadzenTextBox class="@redtext" @bind-Value=@quotationsModel.Ref2 Style="width: 100%;" />
+                                            </RadzenFormField>
+                                        </RadzenColumn>
+                                    </RadzenRow>
+                                    <RadzenRow AlignItems="@alignItems">
+                                        <RadzenColumn Size="12" SizeMD="12">
+                                            <RadzenFormField Style="width:100%" Text="Reference 3" AllowFloatingLabel="false">
+                                                <RadzenTextBox class="@redtext" @bind-Value=@quotationsModel.Ref3 Style="width: 100%;" />
+                                            </RadzenFormField>
+                                        </RadzenColumn>
+                                    </RadzenRow>
+                                    <RadzenRow AlignItems="@alignItems">
+                                        <RadzenColumn Size="12" SizeMD="12">
+                                            <RadzenFormField Style="width:100%" Text="Reference 4" AllowFloatingLabel="false">
+                                                <RadzenTextBox class="@redtext" @bind-Value=@quotationsModel.Ref4 Style="width: 100%;" />
+                                            </RadzenFormField>
+                                        </RadzenColumn>
+                                    </RadzenRow>
+                                    <RadzenRow AlignItems="@alignItems">
+                                        <RadzenColumn Size="12" SizeMD="12">
+                                            <RadzenFormField Style="width:100%" Text="Reference 5" AllowFloatingLabel="false">
+                                                <RadzenTextBox class="@redtext" @bind-Value=@quotationsModel.Ref5 Style="width: 100%;" />
+                                            </RadzenFormField>
+                                        </RadzenColumn>
+                                    </RadzenRow>
+                                </RadzenStack>
+                            </RadzenColumn>
+
+
+                            <RadzenColumn Size="12" SizeMD="4">
+                                <RadzenStack Gap="0.2rem">
+                                    <RadzenRow AlignItems="@alignItems">
+                                        <RadzenColumn Size="12" SizeMD="12">
+                                            <RadzenFormField Style="width:100%" Text="Remark 1" AllowFloatingLabel="false">
+                                                <RadzenTextBox class="@redtext" @bind-Value=@quotationsModel.Remark1 Style="width: 100%;" />
+                                            </RadzenFormField>
+                                        </RadzenColumn>
+                                    </RadzenRow>
+
+                                    <RadzenRow AlignItems="@alignItems">
+                                        <RadzenColumn Size="12" SizeMD="12">
+                                            <RadzenFormField Style="width:100%" Text="Remark 2" AllowFloatingLabel="false">
+                                                <RadzenTextBox class="@redtext" @bind-Value=@quotationsModel.Remark2 Style="width: 100%;" />
+                                            </RadzenFormField>
+                                        </RadzenColumn>
+                                    </RadzenRow>
+                                    <RadzenRow AlignItems="@alignItems">
+                                        <RadzenColumn Size="12" SizeMD="12">
+                                            <RadzenFormField Style="width:100%" Text="Remark 3" AllowFloatingLabel="false">
+                                                <RadzenTextBox class="@redtext" @bind-Value=@quotationsModel.Remark3 Style="width: 100%;" />
+                                            </RadzenFormField>
+                                        </RadzenColumn>
+                                    </RadzenRow>
+                                    <RadzenRow AlignItems="@alignItems">
+                                        <RadzenColumn Size="12" SizeMD="12">
+                                            <RadzenFormField Style="width:100%" Text="Remark 4" AllowFloatingLabel="false">
+                                                <RadzenTextBox class="@redtext" @bind-Value=@quotationsModel.Remark4 Style="width: 100%;" />
+                                            </RadzenFormField>
+                                        </RadzenColumn>
+                                    </RadzenRow>
+                                    <RadzenRow AlignItems="@alignItems">
+                                        <RadzenColumn Size="12" SizeMD="12">
+                                            <RadzenFormField Style="width:100%" Text="Remark 5" AllowFloatingLabel="false">
+                                                <RadzenTextBox class="@redtext" @bind-Value=@quotationsModel.Remark5 Style="width: 100%;" />
+                                            </RadzenFormField>
+                                        </RadzenColumn>
+                                    </RadzenRow>
+                                </RadzenStack>
+                            </RadzenColumn>
+
+                        </RadzenRow>
+                    </RadzenTabsItem>
+                    <RadzenTabsItem Text="Notes">
+                        <RadzenRow>
+                            <RadzenColumn Size="12" SizeMD="12">
+                                <RadzenStack Gap="0.2rem">
+                                    <RadzenRow AlignItems="@alignItems">
+                                        <RadzenColumn Size="12" SizeMD="12">
+                                            <RadzenTextArea @bind-Value=@quotationsModel.Notes Rows="10" Style="width:100%" class="@redtext" aria-label="TextArea" />
+                                        </RadzenColumn>
+                                    </RadzenRow>
+                                </RadzenStack>
+                            </RadzenColumn>
+                        </RadzenRow>
+                    </RadzenTabsItem>
+                 
+                </Tabs>
+            </RadzenTabs>
+
+            @* TABLE DETAILS*@
+            <br />
+
+            <RadzenDataGrid class="small-grid" EditMode="@editMode" @ref="quotationsDetailsGrid" Style="width: 100%;"
+                            Data="@quotationsDetailsList" AllowColumnResize=true RowCreate="@OnCreateRow"
+                            TItem="QuotationDetails" Density="@density" RowUpdate="@OnUpdateRow" RowRender="@RowRender">
+                @*   <HeaderTemplate>
+                        <RadzenButton ButtonStyle="ButtonStyle.Success" Icon="add" Text="Add New Order" Size="ButtonSize.ExtraSmall" Click="@InsertRow" Disabled="@(editMode == DataGridEditMode.Single && quotationsDetailsToInsert.Count() > 0)" />
+                    </HeaderTemplate> *@
+                <HeaderTemplate>
+                    <RadzenButton ButtonStyle="ButtonStyle.Success" Icon="add" Text="Add New" Size="ButtonSize.ExtraSmall"
+                                  Click="@(() => InsertAfterRow(quotationsDetailsList.LastOrDefault()))" title="Add new row after this row"
+                                  Disabled="@(quotationsDetailsToInsert.Any() || quotationsDetailsToUpdate.Any() || quotationsModel.IsCancelled is true && quotationsModel.TransferToInfo != null)" />
+                </HeaderTemplate>
+                <Columns>
+
+
+                    <RadzenDataGridColumn Width="45px" TextAlign="TextAlign.Center" Property="Action" Frozen="true" FrozenPosition="FrozenColumnPosition.Left">
+                        <Template Context="quotationdetails">
+                            <RadzenButton Icon="edit" ButtonStyle="ButtonStyle.Secondary" Variant="Variant.Text" Size="ButtonSize.ExtraSmall"
+                                          Click="@(args => EditRow(quotationdetails))" title="Edit this row"
+                                          Disabled="@(quotationsModel.IsCancelled is true || quotationsModel.IsClosed is true || !string.IsNullOrWhiteSpace(quotationsModel.TransferToInfo))" />
+                        </Template>
+                        <EditTemplate Context="quotationdetails">
+                            <RadzenButton Icon="check" ButtonStyle="ButtonStyle.Success" Variant="Variant.Text" Size="ButtonSize.ExtraSmall" Click="@((args) => SaveRow(quotationdetails))" title="Save" />
+                        </EditTemplate>
+                    </RadzenDataGridColumn>
+
+                    <RadzenDataGridColumn Visible=false Width="100px" TItem="QuotationDetails" Property="@nameof(QuotationDetails.PackingUOM1)" Title="Packing UOM 1" FormatString="{0:N2}" TextAlign="TextAlign.Center" />
+                    <RadzenDataGridColumn Visible=false Width="100px" TItem="QuotationDetails" Property="@nameof(QuotationDetails.PackingUOM2)" Title="Packing UOM 2" FormatString="{0:N2}" TextAlign="TextAlign.Center" />
+                    <RadzenDataGridColumn Visible=false Width="2rem" TItem="QuotationDetails" Property="@nameof(QuotationDetails.Id)" Title="Id" TextAlign="TextAlign.Center" />
+                    <RadzenDataGridColumn Visible=false Width="2rem" TItem="QuotationDetails" Property="@nameof(QuotationDetails.QuotationId)" Title="Quotation Id" TextAlign="TextAlign.Center" />
+                    <RadzenDataGridColumn Visible=false Width="2rem" TItem="QuotationDetails" Property="@nameof(QuotationDetails.Pos)" Title="Post" TextAlign="TextAlign.Center" />
+                    <RadzenDataGridColumn Width="160px" TItem="QuotationDetails" Property="@nameof(QuotationDetails.StockId)" Title="Stock Code" TextAlign="TextAlign.Center">
+                        <Template Context="quotationdetails">
+                            @{
+                                var stock = stockList?.FirstOrDefault(s => s.Id == quotationdetails.StockId);
+                            }
+                            @stock?.StockCode
+                        </Template>
+                        <EditTemplate Context="quotationdetails">
+
+                            <RadzenDropDownDataGrid @bind-Value="quotationdetails.StockId" Style="width: 150px; font-size:12px" PageSize="10" Data="@stockList" AllowVirtualization="true" AllowColumnResize="true"
+                                                    Change="@(args => OnStockChanged(args, quotationdetails))"
+                                                    AllowClear="true" AllowSorting="false" FilterCaseSensitivity="@filter" AllowFilteringByAllStringColumns="true"
+                                                    TextProperty="StockCode" Density="@density" ValueProperty="Id">
+                                <Columns>
+                                    <RadzenDropDownDataGridColumn Width="6%" Property="StockCode" Title="Stock #" />
+                                    <RadzenDropDownDataGridColumn Width="10%" Property="StockName" Title="StockName" />
+                                </Columns>
+                            </RadzenDropDownDataGrid>
+                        </EditTemplate>
+
+                    </RadzenDataGridColumn>
+                    <RadzenDataGridColumn Width="290px" TItem="QuotationDetails" Property="@nameof(QuotationDetails.Description)" Title="Description" TextAlign="TextAlign.Center">
+                        <EditTemplate Context="quotationdetails">
+                            <RadzenTextBox Style="width: 100%; font-size:12px" @bind-Value="quotationdetails.Description"></RadzenTextBox>
+                        </EditTemplate>
+                    </RadzenDataGridColumn>
+
+                    <RadzenDataGridColumn Width="120px" TItem="QuotationDetails" Property="@nameof(QuotationDetails.Qty)" Title="Qty" TextAlign="TextAlign.Center">
+                        <Template Context="quotationdetails">
+                            @(quotationdetails.Qty == 0 ? "" : quotationdetails.Qty.ToString("N4"))
+                        </Template>
+                        <EditTemplate Context="quotationdetails">
+                            <RadzenNumeric Disabled="@IsDisable" Change="@(args => TransactionHelper(quotationdetails))" Style="width: 100%; font-size:12px" TValue="decimal" @bind-Value="quotationdetails.Qty" Format="#.0000" />
+                        </EditTemplate>
+                    </RadzenDataGridColumn>
+                    <RadzenDataGridColumn Width="100px" TItem="QuotationDetails" Property="@nameof(QuotationDetails.UOMId)" Title="UOM" TextAlign="TextAlign.Center">
+                        <Template Context="quotationdetails">
+                            @{
+                                var uoms = uomsList?.FirstOrDefault(u => u.Id == quotationdetails.UOMId);
+                            }
+                            @uoms?.UOMCode
+                        </Template>
+                        <EditTemplate Context="quotationdetails">
+
+                            <RadzenDropDownDataGrid Disabled="@IsDisable" @bind-Value="quotationdetails.UOMId" Style="width: 100%; font-size:12px" PageSize="10"
+                                                    Data="@GetUOMsForStock(quotationdetails.StockId)" AllowVirtualization="true" AllowColumnResize="true"
+                                                    AllowClear="true" AllowSorting="false" FilterCaseSensitivity="@filter" AllowFilteringByAllStringColumns="true"
+                                                    TextProperty="UOMCode" Density="@density" ValueProperty="Id"
+                                                    Change="@(args => ConvertPackUOM(quotationdetails))">
+                                <Columns>
+                                    <RadzenDropDownDataGridColumn Width="6%" Property="UOMCode" Title="UOM #" />
+                                    <RadzenDropDownDataGridColumn Width="10%" Property="Description" Title="Description" />
+                                </Columns>
+                            </RadzenDropDownDataGrid>
+                        </EditTemplate>
+                    </RadzenDataGridColumn>
+
+                    <RadzenDataGridColumn Width="140px" TItem="QuotationDetails" Property="@nameof(QuotationDetails.UnitPrice)" Title="Unit Price" TextAlign="TextAlign.Center">
+                        <Template Context="quotationdetails">
+                            @(quotationdetails.UnitPrice == 0 ? "" : quotationdetails.UnitPrice.ToString("N4"))
+                        </Template>
+                        <EditTemplate Context="quotationdetails">
+                            <RadzenNumeric Change="@(args => TransactionHelper(quotationdetails))" Disabled="@IsDisable" Style="width: 100%; font-size:12px" TValue="decimal" @bind-Value="quotationdetails.UnitPrice" Format="#.0000" />
+                        </EditTemplate>
+                    </RadzenDataGridColumn>
+
+                    <RadzenDataGridColumn Width="100px" TItem="QuotationDetails" Property="Discount" Title="Disc" TextAlign="TextAlign.Center">
+                        <Template Context="quotationdetails">
+                            @(quotationdetails.Discount == string.Empty ? string.Empty : quotationdetails.Discount)
+                        </Template>
+                        <EditTemplate Context="quotationdetails">
+                            <RadzenTextBox Style="width: 100%; font-size:12px"
+                                           Disabled="@IsDisable"
+                                           @bind-Value="quotationdetails.Discount"
+                                           Change="@(args => OnDiscountChanged(quotationdetails))">
+                            </RadzenTextBox>
+                        </EditTemplate>
+                    </RadzenDataGridColumn>
+
+                    <RadzenDataGridColumn Width="100px" Visible=false TItem="QuotationDetails" Property="@nameof(QuotationDetails.DiscountAmount)" Title="Disc Amt" TextAlign="TextAlign.Center">
+                        <Template Context="quotationdetails">
+                            @(quotationdetails.DiscountAmount == 0 ? "" : quotationdetails.DiscountAmount.ToString("N2"))
+                        </Template>
+                    </RadzenDataGridColumn>
+                    <RadzenDataGridColumn Width="100px" Visible=false TItem="QuotationDetails" Property="@nameof(QuotationDetails.DiscountAmountLocal)" Title="Disc AmtL" TextAlign="TextAlign.Center">
+                        <Template Context="quotationdetails">
+                            @(quotationdetails.DiscountAmountLocal == 0 ? "" : quotationdetails.DiscountAmountLocal.ToString("N2"))
+                        </Template>
+                    </RadzenDataGridColumn>
+
+                    <RadzenDataGridColumn Width="100px" TItem="QuotationDetails" Property="@nameof(QuotationDetails.Amount)" Title="Amount" TextAlign="TextAlign.Center">
+                        <Template Context="quotationdetails">
+
+                            @(quotationdetails.Amount == 0 ? "" : quotationdetails.Amount.ToString("N2"))
+                        </Template>
+                    </RadzenDataGridColumn>
+
+                    <RadzenDataGridColumn Width="100px" Visible=false TItem="QuotationDetails" Property="@nameof(QuotationDetails.IsTaxInclusive)" Title="Tax Inclusive" TextAlign="TextAlign.Center">
+                        <Template Context="quotationdetails">
+                            <RadzenCheckBox @bind-Value="quotationdetails.IsTaxInclusive" TValue="bool" Change="@(args => TransactionHelper(quotationdetails))"></RadzenCheckBox>
+                        </Template>
+                    </RadzenDataGridColumn>
+
+                    <RadzenDataGridColumn Width="140px" TItem="QuotationDetails" Property="@nameof(QuotationDetails.TaxCodeId)" Title="Tax Code" TextAlign="TextAlign.Center">
+                        <Template Context="quotationdetails">
+                            @{
+                                var taxcode = taxCodesList?.FirstOrDefault(t => t.Id == quotationdetails.TaxCodeId);
+                            }
+                            @taxcode?.TaxCode
+                        </Template>
+                        <EditTemplate Context="quotationdetails">
+                            <RadzenDropDownDataGrid Change="@(args => TransactionHelper(quotationdetails))" Disabled="@IsDisable" @bind-Value="quotationdetails.TaxCodeId" AllowSorting="false" Style="font-size:12px" PageSize="10" Data="@taxCodesList"
+                                                    AllowClear="true" FilterCaseSensitivity="@filter" AllowFilteringByAllStringColumns="true"
+                                                    TextProperty="TaxCode" Density="@density" ValueProperty="Id">
+                                <Columns>
+                                    <RadzenDropDownDataGridColumn Width="100px" Property="TaxCode" Title="Vat #" />
+                                    <RadzenDropDownDataGridColumn Width="100px" Property="Rate" Title="Rate" />
+                                    <RadzenDropDownDataGridColumn Width="100px" Property="VatType" Title="VatType" />
+                                    <RadzenDropDownDataGridColumn Width="250px" Property="Description" Title="Description" />
+                                </Columns>
+                            </RadzenDropDownDataGrid>
+                        </EditTemplate>
+                    </RadzenDataGridColumn>
+
+                    <RadzenDataGridColumn Width="100px" Visible=false TItem="QuotationDetails" Property="@nameof(QuotationDetails.TaxExclusiveAmount)" FormatString="{0:N4}" Title="Tax ExcL" TextAlign="TextAlign.Center">
+                        <Template Context="quotationdetails">
+                            @(quotationdetails.TaxExclusiveAmount == 0 ? "" : quotationdetails.TaxExclusiveAmount?.ToString("N4"))
+                        </Template>
+                    </RadzenDataGridColumn>
+
+                    <RadzenDataGridColumn Width="100px" TItem="QuotationDetails" Property="@nameof(QuotationDetails.TaxAmount)" Title="Tax" TextAlign="TextAlign.Center">
+                        <Template Context="quotationdetails">
+                            @(quotationdetails.TaxAmount == 0 ? "" : quotationdetails.TaxAmount.ToString("N4"))
+                        </Template>
+                    </RadzenDataGridColumn>
+
+                    <RadzenDataGridColumn Width="140px" TItem="QuotationDetails" Property="@nameof(QuotationDetails.WTaxCode)" Title="WTax Code" TextAlign="TextAlign.Center">
+                        <Template Context="quotationdetails">
+                            @{
+                                var wtaxcode = wTaxCodesList?.FirstOrDefault(w => w.Id == quotationdetails.WTaxCode);
+                            }
+                            @wtaxcode?.Code
+                        </Template>
+
+                        @* WTAXCODE DROPDOWN *@
+                        <EditTemplate Context="quotationdetails">
+                            <RadzenDropDownDataGrid Disabled="@IsDisable" @bind-Value="quotationdetails.WTaxCode" AllowSorting="false" Style="font-size:12px" PageSize="10" Data="@FilteredWTaxCodesList"
+                                                    AllowClear="true" FilterCaseSensitivity="@filter" AllowFilteringByAllStringColumns="true"
+                                                    TextProperty="Code" Density="@density" ValueProperty="Id" Change="@(args => TransactionHelper(quotationdetails))">
+                                <Columns>
+                                    <RadzenDropDownDataGridColumn Width="100px" Property="Code" Title="Code" />
+                                    <RadzenDropDownDataGridColumn Width="100px" Property="Rate" Title="Rate">
+                                        <Template Context="wtaxcode">
+                                            @((wtaxcode.Rate * 100).ToString("0.00") + "%")
+                                        </Template>
+                                    </RadzenDropDownDataGridColumn>
+                                    <RadzenDropDownDataGridColumn Width="250px" Property="Description" Title="Description" />
+                                </Columns>
+                            </RadzenDropDownDataGrid>
+                        </EditTemplate>
+                    </RadzenDataGridColumn>
+
+                    <RadzenDataGridColumn Width="100px" TItem="QuotationDetails" Property="@nameof(QuotationDetails.WTaxAmount)" Title="WTax" TextAlign="TextAlign.Center">
+                        <Template Context="quotationdetails">
+                            @(quotationdetails.WTaxAmount == 0 ? "" : quotationdetails.WTaxAmount.ToString("N4"))
+                        </Template>
+                    </RadzenDataGridColumn>
+
+                    <RadzenDataGridColumn Width="100px" TItem="QuotationDetails" Property="@nameof(QuotationDetails.NetAmount)" Title="Net" TextAlign="TextAlign.Center">
+                        <Template Context="quotationdetails">
+                            @(quotationdetails.NetAmount == 0 ? "" : quotationdetails.NetAmount.ToString("N2"))
+                        </Template>
+                    </RadzenDataGridColumn>
+
+                    <RadzenDataGridColumn Width="100px" Visible=false TItem="QuotationDetails" Property="@nameof(QuotationDetails.SubAmount)" Title="Sub" TextAlign="TextAlign.Center">
+                        <Template Context="quotationdetails">
+                            @(quotationdetails.SubAmount == 0 ? "" : quotationdetails.SubAmount.ToString("N2"))
+                        </Template>
+                    </RadzenDataGridColumn>
+
+                    <RadzenDataGridColumn Width="140px" Visible=false TItem="QuotationDetails" Property="@nameof(QuotationDetails.StockLocationId)" Title="StockLocation" TextAlign="TextAlign.Center">
+                    </RadzenDataGridColumn>
+
+                    <RadzenDataGridColumn Width="45px" TextAlign="TextAlign.Center" Property="Action" Frozen="true" FrozenPosition="FrozenColumnPosition.Right">
+                        <Template Context="quotationdetails">
+                            <RadzenButton Icon="delete" ButtonStyle="ButtonStyle.Danger" title="Delete" Variant="Variant.Text" Size="ButtonSize.ExtraSmall" Click="@(args => DeleteRow(quotationdetails))" Disabled="@(quotationsDetailsList.Count == 1 || quotationsModel.IsClosed is true || quotationsModel.IsCancelled is true || !string.IsNullOrWhiteSpace(quotationsModel.TransferToInfo))" />
+                        </Template>
+                    </RadzenDataGridColumn>
+
+                </Columns>
+            </RadzenDataGrid>
+            @* END OF TABLE DETAILS*@
+
+
+
+        </RadzenCard>
+
+
+        <RadzenCard Style="Padding: 0.5rem">
+            <RadzenRow JustifyContent="JustifyContent.Right" AlignItems="AlignItems.Center" Gap="0.5rem">
+                <RadzenColumn Size="12" SizeSM="5">
+                    <RadzenStack AlignItems="AlignItems.Center" Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End">
+
+                        <RadzenFormField Style="width:100%" Text="Taxable" AllowFloatingLabel="false">
+                            <RadzenNumeric Disabled=true Value="@quotationsModel.TaxExclusiveTotalAmountLocal" Format="#,0.00" ShowUpDown="false" TextAlign="TextAlign.Right" Style="width: 100%;" Placeholder="" />
+                        </RadzenFormField>
+
+
+                        <RadzenFormField Style="width:100%" Text="Tax" AllowFloatingLabel="false">
+                            <RadzenNumeric Disabled=true Value="@quotationsModel.TaxTotalAmountLocal" Format="#,0.00" ShowUpDown="false" TextAlign="TextAlign.Right" Style="width: 100%;" Placeholder="" />
+                        </RadzenFormField>
+
+
+                        <RadzenFormField Style="width:100%" Text="Due Amount" AllowFloatingLabel="false">
+                            <RadzenNumeric Disabled=true Value="@DueAmount" Format="#,0.00" ShowUpDown="false" TextAlign="TextAlign.Right" Style="width: 100%;" Placeholder="" />
+                        </RadzenFormField>
+
+                    </RadzenStack>
+                </RadzenColumn>
+            </RadzenRow>
+        </RadzenCard>
+
+
+    </RadzenStack>
+    <RadzenPopup @ref=popup Lazy=true class="my-popup">
+        @*  <RadzenDropDown Change="SetQuotationNo" SelectedItemsText="" Placeholder="@quotationsModel.QuotationCode" class="@redtext" @bind-Value=@quotationsModel.QuotationCode Data=@transactionCodesList TextProperty="@nameof(TransactionsCode.Format)" SelectedItem="0" ValueProperty="@nameof(TransactionsCode.Format)" Style="width: 2rem;" /> *@
+        <RadzenDataGrid RowDoubleClick="() => SetQuotationNoPopup(selectedtransactionCodesList.FirstOrDefault().Id)"
+                        TItem="TransactionsCode"
+                        @ref=transactionsCodeGrid
+                        @bind-Value="@selectedtransactionCodesList"
+                        Data=@transactionCodesList>
+            <Columns>
+                <RadzenDataGridColumn TItem="TransactionsCode" Property="@nameof(TransactionsCode.Format)" Title="Format" TextAlign="TextAlign.Center" Width="300px">
+                    <Template Context="transactionCode">
+                        @transactionCode.Format
+                    </Template>
+                </RadzenDataGridColumn>
+            </Columns>
+        </RadzenDataGrid>
+
+    </RadzenPopup>
+</RadzenTemplateForm>
+
+
+
+
+@* //FOR POP UP DIALOG *@
+<style type="text/css">
+    .my-popup {
+        display: none;
+        position: absolute;
+        overflow: hidden;
+        height: 160px;
+        width: 300px;
+        border: var(--rz-panel-border);
+        background-color: var(--rz-panel-background-color);
+        box-shadow: var(--rz-panel-shadow);
+        border-radius: var(--rz-border-radius)
+    }
+</style>
+
+@code {
+    [Parameter]
+    public Guid? Id { get; set; }
+
+    [CascadingParameter]
+    public Task<AuthenticationState> authenticationState { get; set; }
+    bool rightSidebarExpanded = false;
+
+    AlignItems alignItems = AlignItems.Center;
+    Density density = Density.Compact;
+    TextStyle textStyle = TextStyle.Body2;
+    FilterCaseSensitivity filter = FilterCaseSensitivity.CaseInsensitive;
+    Variant btnVariantText = Variant.Text;
+    ButtonSize smallbtn = ButtonSize.Small;
+
+
+    //FOR POP UP DIALOG
+    RadzenButton button;
+    RadzenPopup popup;
+    RadzenDataGrid<TransactionsCode> transactionsCodeGrid;
+    protected IList<TransactionsCode> selectedtransactionCodesList { get; set; }
+
+    //FOR PROPERTY SET VALUE OF OBJECT
+    string btnText = "Save";
+    bool busy = false;
+    string status = string.Empty;
+    string redtext;
+
+    //for diseabled quotatuion details table
+    protected bool IsDisable = true;
+
+    //for loading data
+    bool isloading = true;
+    bool btnDiseabled = false;
+
+   
+
+    protected QuotationsModel quotationsModel { get; set; } = new QuotationsModel();
+
+    //FOR QUOTATION DETAILS GRID
+    // Add this after initializing quotationsDetailsList to ensure a first row is loaded by default
+    RadzenDataGrid<QuotationDetails> quotationsDetailsGrid;
+    DataGridEditMode editMode = DataGridEditMode.Single;
+    List<QuotationDetails> quotationsDetailsToInsert = new List<QuotationDetails>();
+    List<QuotationDetails> quotationsDetailsToUpdate = new List<QuotationDetails>();
+    protected List<QuotationDetails> quotationsDetailsList { get; set; }
+
+    //ALL LIST FOR DROPDOWN BOX INPUT
+    protected IEnumerable<Projects> projectList { get; set; }
+    protected IEnumerable<Currencies> currencyList { get; set; }
+    protected IEnumerable<Debtors> debtorsaccountList { get; set; }
+    protected IEnumerable<Terms> termList { get; set; }
+    protected IEnumerable<StockLocations> stocklocationList { get; set; }
+    protected IEnumerable<SalesPersons> salespersonList { get; set; }
+    protected IEnumerable<Stocks> stockList { get; set; }
+    protected IEnumerable<UOMs> uomsList { get; set; }
+    protected IEnumerable<WTaxCodes> wTaxCodesList { get; set; }
+    protected IEnumerable<TaxCodes> taxCodesList { get; set; }
+
+    protected IEnumerable<Descriptions> descriptionsList { get; set; }
+    protected IEnumerable<TransactionsCode> transactionCodesList { get; set; }
+
+    protected DescriptionFilter descriptionFilter { get; set; } = new DescriptionFilter();
+    protected TransactionCodesFilter transactionCodesFilter = new TransactionCodesFilter();
+    protected TaxCodeFilter taxCodeFilter = new TaxCodeFilter();
+
+    string? userId;//USER GUID
+
+
+    protected async override Task OnInitializedAsync()
+    {
+
+        var authState = (await authenticationState).User;
+        if (authState.Identity.IsAuthenticated)
+        {
+            var RoleId = authState.FindFirst("RoleId").Value;
+
+            //USER GUID
+            var userguid = authState.FindFirst(x => x.Type == System.Security.Claims.ClaimTypes.NameIdentifier);
+            userId = userguid.Value;
+
+            GetLoadMenuPermission(RoleId);
+        }
+
+    }
+
+    private SystemMenuObjectPermission? permission;
+    protected async void GetLoadMenuPermission(string RoleId)
+    {
+        permission = await permissionService.GetPermissionAsync(
+         RoleId,
+         "Quotations");
+
+        if (permission is null)
+            return;
+
+        SetTransactionCodeData();
+        InitializeQuotationDetailsRows();
+        await loadAllData();
+        if (Id is not null)
+        {
+            await loadAllDataById();
+        }
+        StateHasChanged();
+    }
+
+    protected void LoadQuotationStatus()
+    {
+        // status = quotationsModel.IsCancelled == true ? "(Cancelled)" : quotationsModel.TransferToInfo != null ? ("Tranferred") : "";
+
+        var statusList = new List<string>();
+        if (quotationsModel.IsClosed)
+            statusList.Add("Closed");
+
+        if (quotationsModel.IsCancelled)
+            statusList.Add("Cancelled");
+
+        if (statusList.Any())
+        {
+            status = $"({string.Join(", ", statusList)})";
+        }
+        else if (!string.IsNullOrWhiteSpace(quotationsModel.TransferToInfo))
+        {
+            status = "(Transferred)";
+        }
+
+        StateHasChanged();
+    }
+    protected async Task OnSubmit()
+    {
+
+        busy = true;
+        //SAVING
+        if (quotationsDetailsToInsert.Any() || quotationsDetailsToUpdate.Any())
+        {
+            NotificationHelper.ShowWarning(notificationService, "Unsaved Details", "Please click the 'Save' (checkmark) button for any active or newly added detail rows in the grid before saving.");
+            return;
+        }
+
+        var data = await quotationServices.SaveQuotationHeaderAndDetails(quotationsModel, quotationsDetailsList);
+        if (data is not null)
+        {
+            if (data.Contains("Success"))
+            {
+                var info = await documentsInfoService.SaveDocumentInfo(documentInfo);
+                await DialogService.Alert(data + info);
+                btnDiseabled = true;
+                busy = false;
+            }
+            else
+            {
+                await DialogService.Alert(data);
+            }
+
+        }
+    }
+
+    protected void SetTransactionCodeData()
+    {
+        descriptionFilter.OwnerCode = "Quotations.Title";
+        //For Generating Quotations Code Getting Format from db.TransactionCodes
+        transactionCodesFilter.TableId = 61;
+    }
+
+
+    DialogPosition position;
+    bool closeDialogOnOverlayClick;
+    bool showMask;
+    bool resizable;
+    protected DocumentInfo documentInfo { get; set; } = new DocumentInfo();
+    async Task OpenDocumentInfoDialog()
+    {
+       // await DialogService.OpenSideAsync<DocumentInfoPage>("Document Info", new Dictionary<string, object?> { "Id" , (Guid?)Id }, options: new SideDialogOptions { CloseDialogOnOverlayClick = closeDialogOnOverlayClick, Resizable = resizable, Position = position, ShowMask = showMask, MinHeight = 250.0, MinWidth = 350.0 });
+        await DialogService.OpenSideAsync<DocumentInfoPage>(
+            "Document Info",
+            new Dictionary<string, object?>
+            {
+            { "Id", (Guid?)Id }
+            },
+            options: new SideDialogOptions
+            {
+                CloseDialogOnOverlayClick = closeDialogOnOverlayClick,
+                Resizable = resizable,
+                Position = position,
+                ShowMask = showMask,
+                MinHeight = 250.0,
+                MinWidth = 350.0
+            });
+    
+    }
+    protected void SetDocumentInfo()
+    {
+        documentInfo.DocumentId = quotationsModel.Id.ToString();
+        documentInfo.FirstCreatedUserId = userId;
+        documentInfo.LastModifiedUserId = userId;
+        documentInfo.DocType = "Quotations";
+    }
+
+    protected async Task loadAllData()
+    {
+        await GetTransactionNo();
+        await GetCustomertList();
+        await GetTermList();
+        await GetCurrencyList();
+        SetDefaultCurrency();
+        await GetStockList();
+        await GetStocksPriceList();
+        await GetUOMSList();
+        await GetTaxCodesList();
+        await GetWTaxCodesList();
+        await GetLocationList();
+        await GetSalesPersonList();
+        await GetDescriptions();
+        await GetProjectList();
+        await SetQuotationNo();
+        await GetStockBundle();
+        SetDocumentInfo();
+
+        isloading = false;
+    }
+
+    protected async Task loadAllDataById()
+    {
+        //await GetDocumentInfoById();
+        await GetQuotationsById();
+        await GetQuotationsDetailById();
+        SetDocumentInfo();
+        LoadQuotationStatus();
+        isloading = false;
+    }
+
+    protected async Task GetStockList()
+    {
+        var data = await stockItemsService.GetStockList();
+        stockList = data is not null ? data : new List<Stocks>();
+
+    }
+
+    protected IEnumerable<StockUnitPrice> lastSellingPrice { get; set; }
+    protected async Task GetStocksPriceList()
+    {
+        var data = await stockItemsService.GetStocksPriceList("QT");
+        lastSellingPrice = data is not null ? data : new List<StockUnitPrice>();
+
+    }
+    //Get Currencies From db.Currencies
+    protected async Task GetCurrencyList()
+    {
+        var data = await currenciesService.GetCurrencies();
+        currencyList = data is not null ? data : new List<Currencies>();
+
+    }
+    protected void SetDefaultCurrency()
+    {
+        var selectedcurrency = currencyList.FirstOrDefault(c => c.Id == 1);
+        quotationsModel.CurrencyId = selectedcurrency.Id;
+        quotationsModel.CurrencyRate = selectedcurrency.DefaultPurchaseRate;
+    }
+
+    //GET ALL UOMLIST PER STOCK
+    protected async Task GetUOMSList()
+    {
+        var data = await stockItemsService.GetUOMsList();
+        uomsList = data is not null ? data : new List<UOMs>();
+    }
+
+    //LOAD DIFFERENT UOMS PER STOCK ON QUOTATION DETAILS
+    private IEnumerable<UOMs> GetUOMsForStock(Guid? stockId)
+    {
+        if (stockId == null || uomsList == null)
+            return Enumerable.Empty<UOMs>();
+        return uomsList
+            .Where(u => u.StockId == stockId)
+            .OrderByDescending(u => u.IsBaseUOM);
+    }
+
+    protected async Task GetCustomertList()
+    {
+        var data = await customersServices.GetCustomersList();
+        debtorsaccountList = data is not null ? data : new List<Debtors>();
+    }
+    protected async Task GetTermList()
+    {
+        var data = await termService.GetTermsLists();
+        termList = data is not null ? data : new List<Terms>();
+    }
+
+    protected async Task GetProjectList()
+    {
+        var data = await projectService.GetProjectsLists();
+        projectList = data is not null ? data : new List<Projects>();
+    }
+
+    protected async Task GetLocationList()
+    {
+        var data = await stockItemsService.GetStockLocationList();
+        stocklocationList = data is not null ? data : new List<StockLocations>();
+    }
+
+    protected async Task GetSalesPersonList()
+    {
+        var data = await salesService.GetSalesPersonsLists();
+        salespersonList = data is not null ? data : new List<SalesPersons>();
+    }
+
+    protected async Task GetDescriptions()
+    {
+        var data = await descriptionsService.GetDescriptions(descriptionFilter);
+        descriptionsList = data is not null ? data : new List<Descriptions>();
+        var selected = descriptionsList.FirstOrDefault(sa => sa.IsDefault == true);
+        quotationsModel.Title = selected.Description; // Select first item
+    }
+
+
+    private void OnStockLocationChanged(object stockLocationId)
+    {
+        Guid? selectedId = stockLocationId as Guid?;
+
+        foreach (var detail in quotationsDetailsList)
+        {
+            detail.StockLocationId = selectedId;
+        }
+
+        StateHasChanged();
+    }
+
+
+    private async void OnStockChanged(object stockId, QuotationDetails quotationDetails)
+    {
+        if (stockId != null && stockId is Guid selectedStockId)
+        {
+            var selectedStock = stockList?.FirstOrDefault(s => s.Id == selectedStockId);
+            if (selectedStock != null)
+            {
+
+                // if (selectedStock.StockName?.Split(' ')[0] is ("DISCOUNT" or "SUBTOTAL"))
+                if (selectedStock.ItemTypeCode is ("T" or "D"))
+                {
+                    ///INSERT TOTAL OF EACH COLUMN
+                    quotationDetails.Qty = 0.00000000M;
+                    quotationDetails.UOMId = null;
+                    quotationDetails.UnitPrice = 0.00000000M;
+                    quotationDetails.QuotationId = quotationsModel.Id;
+                    quotationDetails.StockId = selectedStock.Id;
+                    quotationDetails.StockLocationId = quotationsModel.StockLocationId;
+                    quotationDetails.Discount = string.Join("/", Regex.Matches(selectedStock.StockName, @"\d+%").Select(m => m.Value));
+                    quotationDetails.Description = selectedStock.StockName;
+                    quotationDetails.ItemTypeCode = selectedStock.ItemTypeCode;
+                    quotationDetails.TaxCodeId = null;
+                    quotationDetails.WTaxCode = null;
+
+                    quotationDetails.PackingUOM1 = 0.00M;
+                    quotationDetails.PackingUOM2 = 0.00M;
+                    quotationDetails.HighestUOM = null;
+
+                    quotationDetails.Amount = Amount;
+                    quotationDetails.AmountLocal = AmountLocal;
+                    quotationDetails.DiscountAmount = DiscountAmount;
+                    quotationDetails.DiscountAmountLocal = DiscountAmountLocal;
+                    quotationDetails.NetAmount = NetAmount;
+                    quotationDetails.NetAmountLocal = NetAmountLocal;
+                    quotationDetails.TaxAmount = TaxAmount;
+                    quotationDetails.TaxAmountLocal = TaxAmountLocal;
+                    quotationDetails.SubAmount = SubAmount;
+                    quotationDetails.SubAmountLocal = SubAmountLocal;
+                    quotationDetails.TaxExclusiveAmount = TaxExclusiveAmount;
+                    quotationDetails.TaxExclusiveAmountLocal = TaxExclusiveAmountLocal;
+                    quotationDetails.WTaxAmount = WTaxAmount;
+                    quotationDetails.WTaxAmountLocal = WTaxAmountLocal;
+
+                    /// TransactionNumberHelper.Compute(quotationDetails);
+                    //if (selectedStock.StockName?.Split(' ')[0] == "DISCOUNT")
+                    if (selectedStock.ItemTypeCode is ("D"))
+                    {
+                        //LoadSubtotalRow();
+                        DiscountAndSubtotalHelper.Compute(quotationDetails);
+                        ///TransactionNumberHelper.Compute(quotationDetails);
+                    }
+                }
+
+                else
+                {
+
+                    if (selectedStock.StockName is ("SALES DISCOUNT"))
+                    {
+                        quotationDetails.Qty = 1.00000000M;
+                        quotationDetails.UOMId = null;
+                        //UnitPrice = added.NetAmount,
+                        quotationDetails.UnitPrice = DiscountAmount;//SUM OF DISCOUNT AMOUNT
+                        //Discount = discountDesrciption,
+                        quotationDetails.QuotationId = quotationsModel.Id;
+                        quotationDetails.StockId = selectedStock.Id;
+                        quotationDetails.StockLocationId = quotationsModel.StockLocationId;
+                        quotationDetails.Description = selectedStock.StockName;
+                        quotationDetails.ItemTypeCode = selectedStock.ItemTypeCode;
+
+                        quotationDetails.TaxCodeId = null;
+                        quotationDetails.WTaxCode = null;
+
+                        quotationDetails.PackingUOM1 = 0.00M;
+                        quotationDetails.PackingUOM2 = 0.00M;
+                        quotationDetails.HighestUOM = null;
+
+                        quotationDetails.Amount = DiscountAmount;
+                        quotationDetails.AmountLocal = DiscountAmount;
+                        //DiscountAmount = DiscountAmount,
+                        //DiscountAmountLocal = DiscountAmountLocal,
+                        quotationDetails.NetAmount = DiscountAmount;
+                        quotationDetails.NetAmountLocal = DiscountAmount;
+                        //TaxAmount = TaxAmount,
+                        //TaxAmountLocal = TaxAmountLocal,
+                        quotationDetails.SubAmount = DiscountAmount;
+                        quotationDetails.SubAmountLocal = DiscountAmount;
+                        quotationDetails.TaxExclusiveAmount = DiscountAmount;
+                        quotationDetails.TaxExclusiveAmountLocal = DiscountAmount;
+                    }
+                    else
+                    {
+
+                        var selectedDebtor = debtorsaccountList.FirstOrDefault(c => c.Id == quotationsModel.DebtorId);
+                        IsDisable = false;
+                        // quotationDetails.StockId = selectedStock.Id;
+                        quotationDetails.QuotationId = quotationsModel.Id;
+                        quotationDetails.StockLocationId = quotationsModel.StockLocationId;
+                        // Populate Description
+                        quotationDetails.Description = selectedStock.StockName;
+                        //RESET Discount string
+                        quotationDetails.Discount = string.Empty;
+                        //Set Tax Code Id
+                        quotationDetails.TaxCodeId = selectedDebtor?.DefaultTaxCodeId;
+                        quotationDetails.WTaxCode = selectedDebtor?.DefaultWTaxCodeId;
+                        // Default Quantity
+                        quotationDetails.ItemTypeCode = selectedStock.ItemTypeCode;
+                        quotationDetails.Qty = 1.0000M;
+                        quotationDetails.PackingUOM2 = quotationDetails.Qty;
+                        // Set the base UOM
+                        var baseUOM = uomsList?.FirstOrDefault(u => u.StockId == selectedStockId && u.UOMCode == selectedStock.BaseUOM);
+                        if (baseUOM != null)
+                        {
+                            quotationDetails.UOMId = baseUOM.Id;
+                        }
+                        // Set the Highest UOM
+                        var highestUOM = uomsList?.Where(u => u.StockId == selectedStockId).OrderByDescending(u => u.Rate).FirstOrDefault();
+                        if (highestUOM != null)
+                        {
+                            quotationDetails.HighestUOM = highestUOM.UOMCode;
+                        }
+                        // Load Last Price
+                        var data = lastSellingPrice.Where(x => x.StockId == selectedStockId).FirstOrDefault();
+                        if (data != null)
+                        {
+                            quotationDetails.UnitPrice = data.UnitPrice;
+                            TransactionHelper(quotationDetails);
+                        }
+                        else
+                        {
+                            quotationDetails.UnitPrice = 0.00000000M;
+                        }
+                        ///dito is ma add ko para mag insert ng new row pag nag select ng bundled item maadd siya kasunod ng item na may bundling
+                        if (selectedStock.IsBundled)
+                        {
+                            InsertBundleRow(selectedStock, quotationDetails, selectedDebtor);
+                            //StateHasChanged();
+                        }
+                    }
+                }
+                StateHasChanged();
+            }
+        }
+        else
+        {
+            // Clear fields if no stock is selected
+            quotationDetails.UnitPrice = 0.00000000M;
+            quotationDetails.StockId = null;
+            quotationDetails.StockLocationId = null;
+            quotationDetails.Description = string.Empty;
+            quotationDetails.Qty = 0.00m;
+            quotationDetails.UOMId = null;
+            quotationDetails.Discount = null;
+            quotationDetails.TaxCodeId = null;
+            quotationDetails.WTaxCode = null;
+
+            quotationDetails.PackingUOM1 = 0.00M;
+            quotationDetails.PackingUOM2 = 0.00M;
+            quotationDetails.HighestUOM = null;
+
+            quotationDetails.Amount = 0.00M;
+            quotationDetails.AmountLocal = 0.00M;
+            quotationDetails.DiscountAmount = 0.00M;
+            quotationDetails.DiscountAmountLocal = 0.00M;
+            quotationDetails.NetAmount = 0.00M;
+            quotationDetails.NetAmountLocal = 0.00M;
+            quotationDetails.TaxAmount = 0.00M;
+            quotationDetails.TaxAmountLocal = 0.00M;
+            quotationDetails.SubAmount = 0.00M;
+            quotationDetails.SubAmountLocal = 0.00M;
+            quotationDetails.TaxExclusiveAmount = 0.00M;
+            quotationDetails.TaxExclusiveAmountLocal = 0.00M;
+            quotationDetails.WTaxAmount = 0.00M;
+            quotationDetails.WTaxAmountLocal = 0.00M;
+            LoadAllTaxTotalDiscNetAmount();
+
+            IsDisable = true;
+            StateHasChanged();
+        }
+    }
+
+    ///FOR INSERT BUNDLED ITEM <summary>
+    ///
+    /// </summary>
+    protected List<StockBundlesModel> stockbundleDetailList { get; set; } = new();
+    private async Task GetStockBundle()
+    {
+        var data = await stockItemsService.GetStockBundlesList();
+        stockbundleDetailList = data is not null ? data.ToList() : new List<StockBundlesModel>();
+    }
+    public async void InsertBundleRow(Stocks selectedStock, QuotationDetails quotationDetails, Debtors selectedDebtor)
+    {
+        if (selectedStock.IsBundled)
+        {
+            // 1. Hanapin current row index
+            var currentIndex = quotationsDetailsList.IndexOf(quotationDetails);
+
+            if (currentIndex >= 0)
+            {
+                // 2. Kunin lahat ng bundle items
+                var bundleItems = stockbundleDetailList
+                    .Where(x => x.StockId == selectedStock.Id)
+                    .ToList();
+
+                int insertIndex = currentIndex + 1;
+
+                // 3. Insert child rows kasunod ng parent
+                foreach (var item in bundleItems)
+                {
+                    var newRow = new QuotationDetails
+                    {
+                        TaxCodeId = selectedDebtor?.DefaultTaxCodeId,
+                        WTaxCode = selectedDebtor?.DefaultWTaxCodeId,
+                        StockId = item.SubItemId,
+                        QuotationId = quotationsModel.Id,
+                        Description = item.Description,
+                        Qty = item.Qty,
+                        StockLocationId = quotationsModel.StockLocationId,
+                        UOMId = item.UOMId,
+                        // optional fields
+                        Discount = string.Empty
+                    };
+
+                    quotationsDetailsList.Insert(insertIndex, newRow);
+                    insertIndex++;
+                }
+
+                // 5. Refresh UI
+                await quotationsDetailsGrid.Reload();
+                StateHasChanged();
+            }
+        }
+    }
+
+
+    //GETTING REQUISITION NUMBER FORMAT FROM db.TransactionCodes
+    protected async Task GetTransactionNo()
+    {
+        var data = await transactionCodeService.GetTransactionNo(transactionCodesFilter);
+        transactionCodesList = data is not null ? data : new List<TransactionsCode>();
+    }
+
+
+    //FOR RUNNING NUMBERS
+    protected TransactionsCode selectedTransacCode => transactionCodesList.FirstOrDefault(sa => sa.IsDefault == true);
+    protected RunningNumbers runningNumbers { get; set; } = new RunningNumbers();
+
+    protected async Task SetQuotationNoPopup(int Id)
+    {
+        await SetQuotationNo();
+    }
+    protected async Task SetQuotationNo()
+    {
+        runningNumbers.DocDate = quotationsModel.QuotationDate;
+        runningNumbers.Format = selectedTransacCode?.Format;
+        runningNumbers.ColumnName = "QuotationCode";
+        runningNumbers.TableName = "Quotations";
+
+        await GetNextQuotationCodeAsync();
+        await popup.CloseAsync();
+
+    }
+    private async Task GetNextQuotationCodeAsync()
+    {
+
+        var data = await runningNumberService.GetNextRunningNumber(runningNumbers);
+        quotationsModel.QuotationCode = data is not null ? data : string.Empty;
+
+    }
+
+    protected void SetRedText()
+    {
+        redtext = quotationsModel.IsCancelled == true || quotationsModel.IsClosed == true ? "rz-color-danger-darker" : "";
+    }
+
+
+    // protected async Task GetDocumentInfoById()
+    // {
+    //     var data = await documentsInfoService.GetDocumentInfoById(Id.ToString());
+    //     documentInfo = data is not null ? data : new DocumentInfo();
+    // }
+
+    protected async Task GetQuotationsById()
+    {
+        var data = await quotationsService.GetQuotationsById(Id.ToString());
+        quotationsModel = data is not null ? data : new QuotationsModel();
+        // redtext = quotationsModel.IsCancelled == true ? "rz-color-danger-darker" : "";
+        SetRedText();
+    }
+
+
+    protected async Task GetQuotationsDetailById()
+    {
+        var data = await quotationServices.GetQuotationsDetailById(Id.ToString());
+        quotationsDetailsList = data is not null ? data.ToList() : new List<QuotationDetails>();
+    }
+
+
+
+    //Tax Code List
+    //FOR TAXCODE DROPDOWN
+    protected async Task GetTaxCodesList()
+    {
+        taxCodeFilter.IsOutOrIn = true;// true for Output Tax Codes
+        taxCodeFilter.IsActive = true; // true for Active Tax Codes
+
+        var data = await allTaxCodeService.GetTaxCodes(taxCodeFilter);
+        taxCodesList = data is not null ? data : new List<TaxCodes>();
+    }
+
+    //FOR WTAXCODE DROPDOWN
+    //CreditableAccount != null IS REFERRING TO CREDIABLE ACCOUNT WHICH IS CREDITABLE WTAX ON GLACCOUNT
+    protected IEnumerable<WTaxCodes> FilteredWTaxCodesList => wTaxCodesList?.Where(w => w.CreditableAccount != null) ?? Enumerable.Empty<WTaxCodes>();
+    protected async Task GetWTaxCodesList()
+    {
+        // wTaxCodesList = await http.GetFromJsonAsync<List<WTaxCodes>>("api/AllTaxCodes/GetWTaxCodesList?companyCode=" + CompCode);
+        var data = await allTaxCodeService.GetWTaxCodes();
+        wTaxCodesList = data is not null ? data : new List<WTaxCodes>();
+    }
+
+
+    protected void OnDebtorChanged(object Id)
+    {
+        if (Id is not null)
+        {
+            if (debtorsaccountList.FirstOrDefault(sa => sa.Id == (Guid)Id) is var selectedcustomer && selectedcustomer != null)
+            {
+                LoadQuotationsModel(selectedcustomer);
+            }
+        }
+        else
+        {
+            ClearQuotationsModel();
+        }
+    }
+
+    protected void IsTaxInclusiveChanged()
+    {
+        foreach (var row in quotationsDetailsList)
+        {
+            row.IsTaxInclusive = quotationsModel.IsTaxInclusive;
+
+            // if (row.ItemTypeCode is not ("T" or "D"))
+            // TransactionNumberHelper.Compute(row);
+
+
+            if (row.Description?.Split(' ')[0] is not ("DISCOUNT" or "SUBTOTAL"))
+                TransactionNumberHelper.Compute(row);
+
+        }
+        LoadSubtotalRow();
+        LoadAllTaxTotalDiscNetAmount();
+    }
+
+
+    private async Task OnSwitchChanged(string switchName)
+    {
+        // bool hasTransfer = purchaseordersHeader.TransferToInfo != null;
+        // bool hasTransfer = !string.IsNullOrWhiteSpace(purchaseordersHeader.TransferToInfo);
+
+        if (Id is null)
+        {
+            quotationsModel.IsCancelled = quotationsModel.IsClosed = false;
+            NotificationHelper.ShowWarning(
+                notificationService,
+                "",
+                "Please click the 'Save' (checkmark) button for any active or newly added detail rows in the grid before saving."
+            );
+            return;
+        }
+
+        await SetSwitchValue(switchName);
+        SetRedText();
+    }
+
+    private ForCloseCancelledDocumentsModel forCloseCancelledDocumentsModel = new ForCloseCancelledDocumentsModel();
+    private async Task SetSwitchValue(string switchName)
+    {
+
+        forCloseCancelledDocumentsModel = new()
+        {
+            Id = Id,
+            TableName = "Quotations",
+            SwitchName = switchName,
+            IsClosed = quotationsModel.IsClosed,
+            IsCancelled = quotationsModel.IsCancelled
+        };
+
+        await headerSwitchServices.UpdateForCloseOrCancelled(forCloseCancelledDocumentsModel);
+    }
+
+
+
+    protected void LoadQuotationsModel(Debtors selectedcustomer)
+    {
+        quotationsModel.DebtorId = selectedcustomer.Id;
+        quotationsModel.CurrencyId = selectedcustomer.CurrencyId;
+        quotationsModel.DebtorName = selectedcustomer.CompanyName;
+        quotationsModel.TermId = selectedcustomer.TermId;
+        //set currency rate
+        quotationsModel.CurrencyRate = currencyList.FirstOrDefault(c => c.Id == selectedcustomer.CurrencyId)?.DefaultPurchaseRate ?? 0;
+
+        quotationsModel.Attention = selectedcustomer.ContactPerson;
+        quotationsModel.SalesPersonId = selectedcustomer.SalesPersonId;
+
+        quotationsModel.Address1 = selectedcustomer.Address1;
+        quotationsModel.Address2 = selectedcustomer.Address2;
+        quotationsModel.Address3 = selectedcustomer.Address3;
+        quotationsModel.Address4 = selectedcustomer.Address4;
+        quotationsModel.CustomerTIN = string.Empty;
+        quotationsModel.Phone = selectedcustomer.PhoneNo1;
+        quotationsModel.Fax = selectedcustomer.FaxNo1;
+        quotationsModel.Notes = selectedcustomer.Notes;
+        quotationsModel.DOContact = selectedcustomer.ContactPerson;
+
+        quotationsModel.DOAddress1 = selectedcustomer.Address1;
+        quotationsModel.DOAddress2 = selectedcustomer.Address2;
+        quotationsModel.DOAddress3 = selectedcustomer.Address3;
+        quotationsModel.DOAddress4 = selectedcustomer.Address4;
+        quotationsModel.DOContact = selectedcustomer.ContactPerson;
+        quotationsModel.DOPhone = selectedcustomer.PhoneNo1;
+        quotationsModel.DOPhone2 = selectedcustomer.PhoneNo2;
+        quotationsModel.DORegistationNo = selectedcustomer.RegistrationNo;
+        quotationsModel.DOEmail = selectedcustomer.Email;
+    }
+
+    protected void ClearQuotationsModel()
+    {
+        SetDefaultCurrency();
+        quotationsModel.DebtorId = null;
+        quotationsModel.DebtorName = string.Empty;
+        quotationsModel.TermId = null;
+        quotationsModel.Attention = null;
+        quotationsModel.SalesPersonId = null;
+        quotationsModel.Notes = null;
+    }
+
+
+
+    protected void Navigate()
+    {
+        navManager.NavigateTo("/QuotationsList");
+    }
+
+
+    protected void InitializeQuotationDetailsRows()
+    {// Initialize with 5 rows and set default Pos index
+        quotationsDetailsList = Enumerable.Range(1, 5)
+            .Select(i => new QuotationDetails
+            {
+                Pos = i,
+                QuotationId = Id ?? quotationsModel.Id,
+                IsTaxInclusive = quotationsModel.IsTaxInclusive
+            })
+            .ToList();
+    }
+
+
+    // Helper to reset Pos index after any add/delete
+    private void ResetPosIndexes()
+    {
+        for (int i = 0; i < quotationsDetailsList.Count; i++)
+        {
+            quotationsDetailsList[i].Pos = i + 1;
+        }
+    }
+
+
+    //insert after row
+    async Task InsertAfterRow(QuotationDetails quotationDetails)
+    {
+        // If there's an active edit, prevent adding another row until it's saved.
+
+        if (quotationsDetailsToInsert.Any() || quotationsDetailsToUpdate.Any())
+        {
+            NotificationHelper.ShowWarning(notificationService, "Unsaved Details", "Please click the 'Save' (checkmark) button for any active or newly added detail rows in the grid before saving.");
+            return;
+        }
+
+
+
+        if (!quotationsDetailsGrid.IsValid) return;
+        if (editMode == DataGridEditMode.Single)
+        {
+            Reset();
+        }
+        var quotDetails = new QuotationDetails();
+
+        //Set QuotationId to new inserted row
+        quotDetails.QuotationId = Id ?? quotationsModel.Id;
+        quotDetails.IsTaxInclusive = quotationsModel.IsTaxInclusive;
+        // Assign a sequential Pos for new rows, inserting after the current row's Pos
+        quotationsDetailsToInsert.Add(quotDetails);
+        var index = quotationsDetailsList.IndexOf(quotationDetails);
+        if (index >= 0)
+        {
+            quotationsDetailsList.Insert(index + 1, quotDetails); // Insert after selected row
+        }
+        else
+        {
+            quotationsDetailsList.Add(quotDetails);
+        }
+
+
+        ResetPosIndexes();
+
+        if (quotationDetails is not null)
+        {
+            await quotationsDetailsGrid.InsertAfterRow(quotDetails, quotationDetails);
+        }
+        else
+        {
+            await quotationsDetailsGrid.InsertRow(quotDetails);
+        }
+
+        await quotationsDetailsGrid.Reload();
+        StateHasChanged();
+    }
+
+    async Task EditRow(QuotationDetails quotationDetails)
+    {
+        if (quotationsDetailsToInsert.Any() || quotationsDetailsToUpdate.Any())
+        {
+            NotificationHelper.ShowWarning(notificationService, "Unsaved Details", "Please click the 'Save' (checkmark) button for any active or newly added detail rows in the grid before saving.");
+            return;
+        }
+
+        if (!quotationsDetailsGrid.IsValid) return;
+        if (editMode == DataGridEditMode.Single)
+        {
+            Reset();
+        }
+
+        quotationsDetailsToUpdate.Add(quotationDetails);
+        await quotationsDetailsGrid.EditRow(quotationDetails);
+        StateHasChanged(); // Ensure UI updates and list is reflected
+    }
+
+    async Task SaveRow(QuotationDetails quotationDetails)
+    {
+
+        await quotationsDetailsGrid.UpdateRow(quotationDetails);
+        await quotationsDetailsGrid.Reload();
+        StateHasChanged();
+    }
+
+    void OnUpdateRow(QuotationDetails quotationDetails)
+    {
+
+        Reset(quotationDetails);
+
+
+    }
+
+    void OnCreateRow(QuotationDetails quotationDetails)
+    {
+        quotationsDetailsToInsert.Remove(quotationDetails);
+    }
+
+
+    async Task DeleteRow(QuotationDetails quotationDetails)
+    {
+        if (quotationsDetailsToInsert.Any() || quotationsDetailsToUpdate.Any())
+        {
+            NotificationHelper.ShowWarning(notificationService, "Unsaved Details", "Please click the 'Save' (checkmark) button for any active or newly added detail rows in the grid before saving.");
+
+            return;
+        }
+
+        if (await DialogService.Confirm("You are about to delete record(s). Do you want to proceed?", "Delete") == true)
+        {
+            var data = await quotationServices.DeleteQuotationDetailRows(quotationDetails.Id.ToString());
+            Reset(quotationDetails);
+            quotationsDetailsList.Remove(quotationDetails); // Remove from main list
+            ResetPosIndexes();
+            await quotationsDetailsGrid.Reload();
+            StateHasChanged();
+        }
+
+
+    }
+
+
+    void Reset(QuotationDetails quotationDetails)
+    {
+        quotationsDetailsToInsert.Remove(quotationDetails);
+        quotationsDetailsToUpdate.Remove(quotationDetails);
+    }
+
+    void Reset()
+    {
+        quotationsDetailsToInsert.Clear();
+        quotationsDetailsToUpdate.Clear();
+    }
+
+
+    //CONTINUE ON THIS PART
+    private void OnDiscountChanged(QuotationDetails row)
+    {
+
+        // DiscountAndSubtotalHelper.Compute(row);
+
+        DiscountAndSubtotalHelper.Compute(row);
+        TransactionHelper(row);
+        LoadAllTaxTotalDiscNetAmount();
+        StateHasChanged();
+
+
+    }
+
+
+    private void TransactionHelper(QuotationDetails row)
+    {
+        row.TaxRate = taxCodesList.FirstOrDefault(tax => tax.Id == row.TaxCodeId)?.TaxRate ?? 0;
+        row.WTaxRate = wTaxCodesList.FirstOrDefault(tax => tax.Id == row.WTaxCode)?.Rate ?? 0;
+        TransactionNumberHelper.Compute(row);
+        ConvertPackUOM(row);
+    }
+
+
+    private void ConvertPackUOM(QuotationDetails row)
+    {
+        // 1. Get the full list of UOMs for this stock item
+        var uoms = GetUOMsForStock(row.StockId)?.ToList();
+
+        if (uoms == null || !uoms.Any())
+            return;
+
+        // 2. Find the rate of the UOM currently selected by the user
+        var selectedUom = uoms.FirstOrDefault(x => x.Id == row.UOMId);
+
+        if (selectedUom == null)
+            return;
+
+        // 3. Call the service to get the split values
+        var result = UomService.ComputePackingSalesUOM(
+            row.Qty,
+            selectedUom.Rate,
+            uoms
+        );
+
+        // 4. Update the UI bound properties
+        row.PackingUOM1 = result.uom1;
+        row.PackingUOM2 = result.uom2;
+
+        // Note: If you are using an EditForm, you might need to call StateHasChanged()
+        // if the update happens inside a custom event.
+    }
+
+  
+    //Has Condition Here cause IF ITEMTYPECODE IS "T" OR "D" IT WILL NOT BE INCLUDED IN TAXABLE AMOUNT
+    // public decimal Amount => quotationsDetailsList?.Where(x => x.Description?.Split(' ')[0] is not ("DISCOUNT" or "SUBTOTAL")).Sum(x => x.Amount) ?? 0.00m;
+    // public decimal AmountLocal => quotationsDetailsList?.Where(x => x.Description?.Split(' ')[0] is not ("DISCOUNT" or "SUBTOTAL")).Sum(x => x.AmountLocal) ?? 0.00m;
+    // public decimal DiscountAmount => quotationsDetailsList?.Where(x => x.Description?.Split(' ')[0] is not ("DISCOUNT" or "SUBTOTAL")).Sum(p => p.DiscountAmount) ?? 0.00m;
+    // public decimal DiscountAmountLocal => quotationsDetailsList?.Where(x => x.Description?.Split(' ')[0] is not ("DISCOUNT" or "SUBTOTAL")).Sum(p => p.DiscountAmountLocal) ?? 0.00m;
+    // public decimal NetAmount => quotationsDetailsList?.Where(x => x.Description?.Split(' ')[0] is not ("DISCOUNT" or "SUBTOTAL")).Sum(p => p.NetAmount) ?? 0.00m;
+    // public decimal NetAmountLocal => quotationsDetailsList?.Where(x => x.Description?.Split(' ')[0] is not ("DISCOUNT" or "SUBTOTAL")).Sum(p => p.NetAmountLocal) ?? 0.00m;
+    // public decimal TaxAmount => quotationsDetailsList?.Where(x => x.Description?.Split(' ')[0] is not ("DISCOUNT" or "SUBTOTAL")).Sum(p => p.TaxAmount) ?? 0.00m;
+    // public decimal TaxAmountLocal => quotationsDetailsList?.Where(x => x.Description?.Split(' ')[0] is not ("DISCOUNT" or "SUBTOTAL")).Sum(p => p.TaxAmountLocal) ?? 0.00m;
+    // public decimal SubAmount => quotationsDetailsList?.Where(x => x.Description?.Split(' ')[0] is not ("DISCOUNT" or "SUBTOTAL")).Sum(p => p.SubAmount) ?? 0.00m;
+    // public decimal SubAmountLocal => quotationsDetailsList?.Where(x => x.Description?.Split(' ')[0] is not ("DISCOUNT" or "SUBTOTAL")).Sum(p => p.SubAmountLocal) ?? 0.00m;
+    // public decimal TaxExclusiveAmount => quotationsDetailsList?.Where(x => x.Description?.Split(' ')[0] is not ("DISCOUNT" or "SUBTOTAL")).Sum(p => p.TaxExclusiveAmount) ?? 0.00m;
+    // public decimal TaxExclusiveAmountLocal => quotationsDetailsList?.Where(x => x.Description?.Split(' ')[0] is not ("DISCOUNT" or "SUBTOTAL")).Sum(p => p.TaxExclusiveAmountLocal) ?? 0.00m;
+    // public decimal WTaxAmount => quotationsDetailsList?.Where(x => x.Description?.Split(' ')[0] is not ("DISCOUNT" or "SUBTOTAL")).Sum(p => p.WTaxAmount) ?? 0.00m;
+    // public decimal WTaxAmountLocal => quotationsDetailsList?.Where(x => x.Description?.Split(' ')[0] is not ("DISCOUNT" or "SUBTOTAL")).Sum(p => p.WTaxAmountLocal) ?? 0.00m;
+
+    public decimal Amount => quotationsDetailsList?.Where(x => x.ItemTypeCode != "D" && x.ItemTypeCode != "T").Sum(x => x.Amount) ?? 0.00m;
+    public decimal AmountLocal => quotationsDetailsList?.Where(x => x.ItemTypeCode != "D" && x.ItemTypeCode != "T").Sum(x => x.AmountLocal) ?? 0.00m;
+    public decimal DiscountAmount => quotationsDetailsList?.Where(x => x.ItemTypeCode != "D" && x.ItemTypeCode != "T").Sum(p => p.DiscountAmount) ?? 0.00m;
+    public decimal DiscountAmountLocal => quotationsDetailsList?.Where(x => x.ItemTypeCode != "D" && x.ItemTypeCode != "T").Sum(p => p.DiscountAmountLocal) ?? 0.00m;
+    public decimal NetAmount => quotationsDetailsList?.Where(x => x.ItemTypeCode != "D" && x.ItemTypeCode != "T").Sum(p => p.NetAmount) ?? 0.00m;
+    public decimal NetAmountLocal => quotationsDetailsList?.Where(x => x.ItemTypeCode != "D" && x.ItemTypeCode != "T").Sum(p => p.NetAmountLocal) ?? 0.00m;
+    public decimal TaxAmount => quotationsDetailsList?.Where(x => x.ItemTypeCode != "D" && x.ItemTypeCode != "T").Sum(p => p.TaxAmount) ?? 0.00m;
+    public decimal TaxAmountLocal => quotationsDetailsList?.Where(x => x.ItemTypeCode != "D" && x.ItemTypeCode != "T").Sum(p => p.TaxAmountLocal) ?? 0.00m;
+    public decimal SubAmount => quotationsDetailsList?.Where(x => x.ItemTypeCode != "D" && x.ItemTypeCode != "T").Sum(p => p.SubAmount) ?? 0.00m;
+    public decimal SubAmountLocal => quotationsDetailsList?.Where(x => x.ItemTypeCode != "D" && x.ItemTypeCode != "T").Sum(p => p.SubAmountLocal) ?? 0.00m;
+    public decimal TaxExclusiveAmount => quotationsDetailsList?.Where(x => x.ItemTypeCode != "D" && x.ItemTypeCode != "T").Sum(p => p.TaxExclusiveAmount) ?? 0.00m;
+    public decimal TaxExclusiveAmountLocal => quotationsDetailsList?.Where(x => x.ItemTypeCode != "D" && x.ItemTypeCode != "T").Sum(p => p.TaxExclusiveAmountLocal) ?? 0.00m;
+    public decimal WTaxAmount => quotationsDetailsList?.Where(x => x.ItemTypeCode != "D" && x.ItemTypeCode != "T").Sum(p => p.WTaxAmount) ?? 0.00m;
+    public decimal WTaxAmountLocal => quotationsDetailsList?.Where(x => x.ItemTypeCode != "D" && x.ItemTypeCode != "T").Sum(p => p.WTaxAmountLocal) ?? 0.00m;
+
+    public decimal DueAmount => (quotationsModel?.NetTotalAmountLocal ?? 0m) - (quotationsModel?.WTaxTotalAmountLocal ?? 0m);
+    // protected decimal? TaxableLocal => quotationsDetailsList?.Where(p => p.ItemTypeCode != "T").Sum(p => p.TaxExclusiveAmountLocal) ?? 0.00m;
+    // protected decimal? TaxLocal => quotationsDetailsList?.Where(p => p.ItemTypeCode != "T").Sum(p => p.TaxAmountLocal) ?? 0.00m;
+    // protected decimal? DueAmountLocal => quotationsDetailsList?.Where(p => p.ItemTypeCode != "T").Sum(p => p.NetAmountLocal) ?? 0.00m;
+
+
+    private void LoadAllTaxTotalDiscNetAmount()
+    {
+        ///INCLUDE HERE THE TAX, DISCOUNT, WTAX, AMOUT, ALL QUOTATION DETAILS AMOUNT
+
+
+        var filteredList = quotationsDetailsList?.Where(x => (x.Description?.Split(' ')[0] != "SUBTOTAL"));
+
+
+        quotationsModel.TotalAmount = filteredList?.Sum(x => x.Amount) ?? 0.00m;
+        quotationsModel.TotalAmountLocal = filteredList?.Sum(x => x.AmountLocal) ?? 0.00m;
+
+        quotationsModel.DiscountAmount = filteredList?.Sum(x => x.DiscountAmount) ?? 0.00m;
+        quotationsModel.DiscountAmountLocal = filteredList?.Sum(x => x.DiscountAmountLocal) ?? 0.00m;
+
+        quotationsModel.NetTotalAmount = filteredList?.Sum(x => x.NetAmount) ?? 0.00m;
+        quotationsModel.NetTotalAmountLocal = filteredList?.Sum(x => x.NetAmountLocal) ?? 0.00m;
+
+        quotationsModel.TaxTotalAmount = filteredList?.Sum(x => x.TaxAmount) ?? 0.00m;
+        quotationsModel.TaxTotalAmountLocal = filteredList?.Sum(x => x.TaxAmountLocal) ?? 0.00m;
+
+        quotationsModel.SubtotalAmount = filteredList?.Sum(x => x.SubAmount) ?? 0.00m;
+        quotationsModel.SubtotalAmountLocal = filteredList?.Sum(x => x.SubAmountLocal) ?? 0.00m;
+
+        quotationsModel.TaxExclusiveTotalAmount = filteredList?.Sum(x => x.TaxExclusiveAmount) ?? 0.00m;
+        quotationsModel.TaxExclusiveTotalAmountLocal = filteredList?.Sum(x => x.TaxExclusiveAmountLocal) ?? 0.00m;
+
+        quotationsModel.WTaxTotalAmount = filteredList?.Sum(x => x.WTaxAmount) ?? 0.00m;
+        quotationsModel.WTaxTotalAmountLocal = filteredList?.Sum(x => x.WTaxAmountLocal) ?? 0.00m;
+    }
+
+
+
+    protected void RowRender(RowRenderEventArgs<QuotationDetails> args)
+    {
+        if (args?.Data.StockId == null)
+            return;
+        args.Attributes["style"] = $"font-weight: {(args.Data.Description?.Split(' ')[0] is ("SALES" or "DISCOUNT" or "SUBTOTAL") ? "bold" : "normal")};";
+
+        LoadAllTaxTotalDiscNetAmount();
+
+
+
+    }
+
+
+    private void LoadSubtotalRow()
+    {
+        ///
+
+        if (quotationsDetailsList == null || !quotationsDetailsList.Any())
+            return;
+
+        var subtotalRow = quotationsDetailsList
+           .FirstOrDefault(x => x.Description?.StartsWith("SUBTOTAL") == true);
+
+        if (subtotalRow == null)
+            return;
+
+        var rows = quotationsDetailsList
+            .Where(x => x.Description?.Split(' ')[0] is not ("SUBTOTAL" or "DISCOUNT" or "SALES DISCOUNT"))
+            .ToList();
+
+        subtotalRow.Amount = rows.Sum(x => x.Amount);
+        subtotalRow.AmountLocal = rows.Sum(x => x.AmountLocal);
+
+        subtotalRow.DiscountAmount = rows.Sum(x => x.DiscountAmount);
+        subtotalRow.DiscountAmountLocal = rows.Sum(x => x.DiscountAmountLocal);
+
+        subtotalRow.NetAmount = rows.Sum(x => x.NetAmount);
+        subtotalRow.NetAmountLocal = rows.Sum(x => x.NetAmountLocal);
+
+        subtotalRow.TaxAmount = rows.Sum(x => x.TaxAmount);
+        subtotalRow.TaxAmountLocal = rows.Sum(x => x.TaxAmountLocal);
+
+        subtotalRow.SubAmount = rows.Sum(x => x.SubAmount);
+        subtotalRow.SubAmountLocal = rows.Sum(x => x.SubAmountLocal);
+
+        subtotalRow.TaxExclusiveAmount = rows.Sum(x => x.TaxExclusiveAmount);
+        subtotalRow.TaxExclusiveAmountLocal = rows.Sum(x => x.TaxExclusiveAmountLocal);
+
+        subtotalRow.WTaxAmount = rows.Sum(x => x.WTaxAmount);
+        subtotalRow.WTaxAmountLocal = rows.Sum(x => x.WTaxAmountLocal);
+
+    }
+}
+
+
+
+@code {
+
+    async Task OpenSideDialog()
+    {
+        var quotationdetails = new QuotationDetails();
+        // 1. Tawagin ang OpenSideAsync
+        var result = await SidePanelService.OpenSideAsync(
+            "Item", // Title ng Side Panel
+            ds => @<RadzenStack Gap="1.5rem">
+
+                <RadzenDropDownDataGrid @bind-Value="quotationdetails.StockId" Style="width: 100%; font-size:12px" PageSize="10" Data="@stockList" AllowVirtualization="true" AllowColumnResize="true"
+                                        Change="@(args => OnStockChanged(args, quotationdetails))"
+                                        AllowClear="true" AllowSorting="false" FilterCaseSensitivity="@filter" AllowFilteringByAllStringColumns="true"
+                                        TextProperty="StockCode" Density="@density" ValueProperty="Id">
+                    <Columns>
+                        <RadzenDropDownDataGridColumn Width="6%" Property="StockCode" Title="Stock #" />
+                        <RadzenDropDownDataGridColumn Width="10%" Property="StockName" Title="StockName" />
+                    </Columns>
+                </RadzenDropDownDataGrid>
+
+
+                <!-- ACTION BUTTONS -->
+                <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.Center" AlignItems="AlignItems.Center">
+                    <RadzenButton Text="OK" Click="() => ds.Close(quotationdetails)" Style="width: 80px;" />
+                    <RadzenButton Visible=false Text="OK" Click="() => InsertAfterRow(quotationdetails)" Style="width: 80px;" />
+
+                </RadzenStack>
+
+            </RadzenStack>,
+            new SidePanelOptions { Width = "900px" }// Opsyonal: Para sa mas malawak na panel
+        );
+        // 2. I-handle ang resulta pagkatapos isara ang panel
+        //if (result is bool saveConfirmed)
+        if (result is QuotationDetails added && added.StockId != null)
+        {
+            await InsertAfterRow(added);
+        }
+        else
+        {
+
+        }
+    }
+}

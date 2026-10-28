@@ -1,0 +1,211 @@
+﻿@using System.Globalization
+@using System.Net.Http
+@using System.Text
+@using System.Text.Json
+@using Accounting_V4
+@using Accounting_V4.Model
+@using Accounting_V4.Services
+@using Accounting_V4.Services.QNEServices.InvoicesServices
+@using Accounting_V4.Services.QNEServices.UOMServices
+@using Accounting_V4.Services.SystemServices.TimeZoneServices
+@using Accounting_V4.Services.UserServices
+@using Accounting_V4.Shared
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.Authorization
+@using Microsoft.AspNetCore.Components.Forms
+@using Microsoft.AspNetCore.Components.Routing
+@using Microsoft.AspNetCore.Components.Web
+@using Microsoft.AspNetCore.Components.Web.Virtualization
+@using Microsoft.JSInterop
+@using Radzen
+@using Radzen.Blazor
+@using Radzen.Blazor.Rendering
+@using Microsoft.EntityFrameworkCore
+
+@*MODELS*@
+@using Accounting_V4.Model.UserModels
+@using Accounting_V4.Model.MenuModels
+@using Accounting_V4.Model.QNEModels.DashBoardModels
+@using Accounting_V4.Model.QNEModels.GeneralLedgerModels
+@using Accounting_V4.Model.QNEModels.CurrenciesModels
+@using Accounting_V4.Model.QNEModels.AllTaxCodeModels
+@using Accounting_V4.Model.QNEModels.CustomerModels
+@using Accounting_V4.Model.QNEModels.MiscModels
+@using Accounting_V4.Model.QNEModels.SupplierModels
+@using Accounting_V4.Model.QNEModels.InvoiceModels
+@using Accounting_V4.Model.QNEModels.PuchasesModels
+@using Accounting_V4.Model.QNEModels.SalesModels
+@using Accounting_V4.Model.QNEModels.TransactionCodesModels;
+@using Accounting_V4.Model.QNEModels.DeliveryOrderModels;
+@using Accounting_V4.Model.QNEModels.ProjectModels
+@using Accounting_V4.Model.QNEModels.StocksModels 
+@using Accounting_V4.Model.QNEModels.DescriptionModels
+@using Accounting_V4.Model.QNEModels.RunningNumberModels
+@using Accounting_V4.Model.QNEModels.ForTransferModels
+@using Accounting_V4.Model.QNEModels.MaintenanceModels
+@using Accounting_V4.Model.ABMaintenance
+
+@using Accounting_V4.Services.DialogServices
+@inject SidePanelService SidePanelService
+
+@inject ILocalStorageService localStorage
+@using ClosedXML.Excel
+
+
+@*SYSTEM / QNE SERVICES*@
+@using Accounting_V4.Services.AuthenServices
+@using Accounting_V4.Services.TokenServices
+@using Accounting_V4.Services.QNEServices
+@using Accounting_V4.Services.MenuServices
+@using Accounting_V4.Services.QNEServices.DashBoardServices
+@using Accounting_V4.Services.QNEServices.GLAccountServices
+@using Accounting_V4.Services.QNEServices.AllBasicServices
+@using Accounting_V4.Services.QNEServices.AllTaxCodeServices
+@using Accounting_V4.Services.QNEServices.CustomerServices
+@using Accounting_V4.Services.QNEServices.MiscServices
+@using Accounting_V4.Services.QNEServices.CurrenciesServices
+@using Accounting_V4.Services.QNEServices.SupplierServices
+@using Accounting_V4.Services.QNEServices.PurchasesServices
+@using Accounting_V4.Services.QNEServices.RunningNumberServices
+@using Accounting_V4.Services.QNEServices.SalesServices
+@using Accounting_V4.Services.QNEServices.StockServices
+@using Accounting_V4.Services.QNEServices.GeneralLedgerServices
+@using Accounting_V4.Services.QNEServices.ProjecsServices
+@using Accounting_V4.Services.QNEServices.DescriptionServices
+@using Accounting_V4.Services.QNEServices.TransactionCodeServices
+@using Accounting_V4.Services.QNEServices.TermServices
+@using Accounting_V4.Services.QNEServices.TransferServices
+@using Accounting_V4.Services.AppStateServices
+@using Accounting_V4.Services.QNEServices.MaintenanceServices
+@using System.Text.RegularExpressions
+
+@*SERVICES*@
+@using Accounting_V4.Services.MessageHandlerServices
+@using Accounting_V4.Services.StatusTableServices
+
+
+@*DIALOG SERVICES*@
+@using Accounting_V4.Dialog.GeneralLedger
+@using Accounting_V4.Dialog.DocumentInfo
+@using Accounting_V4.Dialog.DescriptionDialog
+@using Accounting_V4.Dialog.MaintenanceDialog
+
+@*ILALAGAY PARA MAKILALA ANG STOCKS MODAL*@
+@using Accounting_V4.Dialog.Stocks 
+
+
+@*COMPONENTS*@
+@using Accounting_V4.Pages.QNEPages.Purchases.PurchaseOrder
+
+
+@using Accounting_V4.Model.QNEModels.AllBasicModels
+@inject CheckExistServices checkExistServices
+
+
+@inject OverViewServices overViewServices
+
+
+@inject ContextMenuService ContextMenuService
+@inject ChartOfAccountsServices chartOfAccountsServices
+@inject GLAccountsServices gLAccountsServices
+@inject JournalServices journalServices
+
+
+
+@inject NotificationService NotificationService
+@inject RequestMessageHandler requestMessageHandler
+@inject TabService TabService
+
+@inject TooltipService tooltipService
+@inject IUomConversionService UomService
+
+@inject PurchaseRequisitionsService purchaseRequisitionsService
+@inject PurchaseOrdersService purchaseOrdersService
+@inject GoodsReceivedNotesService goodsReceivedNotesService
+@inject PurchaseInvoicesService purchaseInvoicesService
+
+@inject SuppliersServices suppliersServices
+@inject IJSRuntime JSRuntime
+
+@inject ContextMenuService contextMenuService
+
+@inject QuotationServices _quotation
+
+@inject SalesOrdersServices salesOrdersServices
+
+@inject PermissionService permissionService
+@inject NavigationManager navManager
+@inject DialogService DialogService
+@inject MenuService menuService
+@inject HttpClient http
+@inject QuotationServices quotationServices
+@inject StockItemsService stockItemsService
+@inject CurrenciesService currenciesService
+@inject CustomersServices customersServices
+@inject ProjectService projectService
+@inject SalesService salesService
+@inject TermService termService
+@inject DescriptionsService descriptionsService
+@inject TransactionCodeService transactionCodeService
+@inject RunningNumberService runningNumberService
+@inject DocumentsInfoServices documentsInfoService
+@inject QuotationServices quotationsService
+@inject SalesOrdersServices salesOrdersService
+@inject DeliveryOrdersServices deliveryOrdersService
+@inject SalesInvoiceServices salesInvoicesService
+@inject BillServices billServices
+@inject ReceiptServices receiptServices
+@inject BankChargesServices bankChargesServices
+@inject GLTransactionsServices glTransactionsServices
+@inject AllTaxCodeService allTaxCodeService
+@inject NotificationService notificationService
+@inject BankReconciliationServices bankReconciliationServices
+
+@inject AllTaxCodeService taxCodeService
+@inject InvoiceServices invoiceServices
+
+@inject SuppliersServices supplierServices
+@inject MiscService miscService
+
+@inject DeleteServices deleteServices
+
+
+@inject PurchaseTransferLinkServices purchaseTransferLinkServices
+@inject GoodsReceivedNotesTransferLinkServices goodsreceivednotesTransferLinkServices 
+@inject PurchaseInvoiceTransferLinkServices purchaseinvoiceTransferLinkServices 
+
+@inject SalesTransferLinkServices salesTransferLinkServices
+@inject JournalTransactionHelper journalTransactionHelper
+@inject ReceiptTransactionHelper receiptTransactionHelper
+
+@inject StocksTransferLinkServices stocksTransferLinkServices
+
+
+@inject ForCloseCancelledDocuments forCloseCancelledDocuments
+@inject HeaderSwitchServices headerSwitchServices
+
+
+
+@*SYSTEM SERVICES MAINTENANCE*@
+@inject TimeService timeService
+@inject TermsDayMonthServices termsDayMonthServices
+@inject SystemUserServices systemUserServices
+@inject ValidPostingServices validPostingServices 
+@inject SystemRoleServices systemRoleServices
+
+
+@using System.Collections.ObjectModel
+
+
+@using Accounting_V4.Services.FeatureServices
+
+
+@using Accounting_V4.ConnectionServices
+@using Blazored.LocalStorage
+@using System.Security.Claims
+@using System.Timers
+
+
+
+@*BASE MODEL FOR ALL PAGES*@
+@* @inject BaseModels baseModels { get; set; } = new BaseModels(); *@

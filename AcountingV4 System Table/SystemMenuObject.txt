@@ -1,0 +1,34 @@
+USE ACCUBOOKDB 
+GO
+
+-- Create SystemMenuObject table
+CREATE TABLE SystemMenuObject (
+    Id INT IDENTITY(1,1) NOT NULL PRIMARY KEY,-- Auto increment Menu ID
+    ParentMenuId INT NOT NULL,                -- Parent menu (0 = root)
+    PageName NVARCHAR(200) NULL,              -- Page path (nullable)
+    MenuName NVARCHAR(150) NULL,          -- Menu display name
+    IsActive BIT NOT NULL DEFAULT 1,          -- Active or inactive
+    IconNames NVARCHAR(100) NULL,              -- Icon identifier
+
+-- Permission flags
+    AllowNavigate BIT NOT NULL DEFAULT 0,
+    AllowRead BIT NOT NULL DEFAULT 0,
+    AllowWrite BIT NOT NULL DEFAULT 0,
+    AllowCreate BIT NOT NULL DEFAULT 0,
+    AllowDelete BIT NOT NULL DEFAULT 0,
+    AllowExport BIT NOT NULL DEFAULT 0,
+    AllowPrint BIT NOT NULL DEFAULT 0,
+    AllowCreditControl BIT NOT NULL DEFAULT 0,
+    AllowChangeDocNumbering BIT NOT NULL DEFAULT 0,
+    AllowChangeUnitCost BIT NOT NULL DEFAULT 0,
+    AllowNegativeStockControl BIT NOT NULL DEFAULT 0,
+    AllowStockReorderLevelControl BIT NOT NULL DEFAULT 0,
+    AllowFilter BIT NOT NULL DEFAULT 0,
+    AllowPreview BIT NOT NULL DEFAULT 0,
+    AllowInquiry BIT NOT NULL DEFAULT 0,
+    AllowDesign BIT NOT NULL DEFAULT 0,
+    AllowSelectDocNumbering BIT NOT NULL DEFAULT 0,
+    AllowChangeUnitPrice BIT NOT NULL DEFAULT 0,
+    AllowEInvoiceValidation BIT NOT NULL DEFAULT 0
+
+);

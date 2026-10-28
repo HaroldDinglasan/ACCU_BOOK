@@ -1,0 +1,200 @@
+﻿@* @page "/Accountdialog" *@
+@page "/Accountdialog/{id:guid}"
+@attribute [Authorize(Roles = "Admin,User")]
+@inject ChartOfAccountsServices chartOfAccountsServices
+@inject GLAccountsServices gLAccountsServices
+@inject HttpClient http
+@inject DialogService dialogService
+@inject NavigationManager NavManager
+@inject NotificationService notificationService
+@inject MenuService menuService
+
+<RadzenStack>
+	<EditForm Model="accounts" OnValidSubmit="@OnSubmit">
+		@*    <DataAnnotationsValidator /> *@
+		<RadzenColumn Size="12" SizeMD="6">
+			<RadzenStack>
+
+				<RadzenStack Gap="1rem">
+
+					<RadzenRow AlignItems="@alignItems">
+						<RadzenColumn Size="12" SizeMD="2">
+							<RadzenText TextStyle="@textStyle" Text="Account Code"></RadzenText>
+						</RadzenColumn>
+						<RadzenColumn Size="12" SizeMD="10">
+							<RadzenTextBox Disabled="true" @bind-Value=@accounts.AccountCode Style=" width: 100%;"></RadzenTextBox>
+						</RadzenColumn>
+					</RadzenRow>
+					<RadzenRow AlignItems="@alignItems">
+						<RadzenColumn Size="12" SizeMD="2">
+							<RadzenText TextStyle="@textStyle" Text="Description"></RadzenText>
+
+						</RadzenColumn>
+						<RadzenColumn Size="12" SizeMD="10">
+							<RadzenTextBox @bind-Value=@accounts.Description Style=" width: 100%;"></RadzenTextBox>
+						</RadzenColumn>
+					</RadzenRow>
+					<RadzenRow AlignItems="@alignItems">
+						<RadzenColumn Size="12" SizeMD="12">
+							<RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.Right">
+                                @if (btnSave)
+                                {
+                                    <RadzenButton Icon="save" BusyText="Saving ..." ButtonStyle="ButtonStyle.Primary" IsBusy="@isBusy" Text="@btnText" ButtonType="@Radzen.ButtonType.Submit" />
+                                }
+								@* <RadzenButton Icon="save" BusyText="Saving ..." ButtonStyle="ButtonStyle.Primary" IsBusy="@isBusy" Text="@btnText" ButtonType="@Radzen.ButtonType.Submit" /> *@
+								<RadzenButton Icon="cancel" ButtonStyle="ButtonStyle.Light" Click="@((args) => dialogService.Close(true))" Text="Close" />
+							</RadzenStack>
+						</RadzenColumn>
+					</RadzenRow>
+
+				</RadzenStack>
+
+
+			</RadzenStack>
+		</RadzenColumn>
+
+	</EditForm>
+
+</RadzenStack>
+
+
+
+
+
+@code {
+	[CascadingParameter]
+	public Task<AuthenticationState> authenticationState { get; set; }
+
+	[Parameter]
+	public Guid? Id { get; set; }
+
+	[Parameter]
+	public EventCallback RefreshGrid { get; set; }
+
+	//RADZEN PROPERTIES
+	string value = "Around the Horn";
+	Density density = Density.Compact;
+	AlignItems alignItems = AlignItems.Center;
+	FilterCaseSensitivity filter = FilterCaseSensitivity.CaseInsensitive;
+	TextStyle textStyle = TextStyle.Body2;
+
+	bool btnSave;
+
+	string btnText = "Save";
+	bool isBusy;
+	//form model
+	public Accounts accounts { get; set; } = new Accounts();
+
+	//Get Accounts List from db.Accounts
+	public IEnumerable<Accounts> AccountList { get; set; }
+
+	public string CompCode { get; set; }
+
+
+
+
+	protected override async Task OnInitializedAsync()
+	{
+
+		var authState = (await authenticationState).User;
+		if (authState.Identity.IsAuthenticated)
+		{
+			var RoleId = authState.FindFirst("RoleId").Value;
+			GetLoadMenuPermission(RoleId);
+		}
+
+
+
+
+	}
+
+
+	public IEnumerable<SystemMenuObjectPermission> systemMenuObjectPermissionList;
+	protected async void GetLoadMenuPermission(string RoleId)
+	{
+
+		var data = await menuService.GetSystemMenuObjectPermissionId(RoleId);
+		if (data is not null)
+			systemMenuObjectPermissionList = data;
+		StateHasChanged();
+
+		var result = systemMenuObjectPermissionList.FirstOrDefault(x => x.MenuName == "Chart of Account");
+		if (result.AllowNavigate == true)
+		{
+            btnSave = result.AllowWrite;
+
+			await loadAllAccounts();
+			if (Id is not null)
+			{
+				await loadAccountById();
+			}
+			StateHasChanged();
+		}
+		else
+		{
+			NavManager.NavigateTo("/NotAuthorized");
+			StateHasChanged();
+		}
+
+
+	}
+
+
+
+
+
+
+
+
+
+	protected async Task OnSubmit()
+	{
+		await Busy();
+		await Update();
+	}
+
+	protected async Task Busy()
+	{
+		isBusy = true;
+		await Task.Delay(100);
+	}
+
+	protected async Task Update()
+	{
+		var rowAffected = await chartOfAccountsServices.UpdateAccounts(accounts);
+
+		if (rowAffected > 0)
+		{
+			//FOR RESFRESH GIRD TABLE
+			await RefreshGrid.InvokeAsync();
+			CustomNotificationMessage.Message(notificationService, true);
+			isBusy = false;
+			dialogService.Close(true);
+
+		}
+	}
+
+	protected async Task loadAccountById()
+	{
+		await GetAccountsById();
+	}
+
+	protected async Task loadAllAccounts()
+	{
+		await GetAccounts();
+	}
+	//Get Account From db.Accounts
+	protected async Task GetAccounts()
+	{
+		var data = await gLAccountsServices.GetAccounts();
+		AccountList = data is not null ? data : new List<Accounts>();
+	}
+	protected async Task GetAccountsById()
+	{
+		var data = await gLAccountsServices.GetAccountsById(Id.ToString());
+
+		accounts = data is not null ? data : new Accounts();
+
+	}
+
+}

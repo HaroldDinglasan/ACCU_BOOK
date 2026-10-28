@@ -1,0 +1,134 @@
+﻿@layout WelcomeLayout
+@page "/WelcomeToAccountingSystem"
+@attribute [AllowAnonymous]
+@inject NavigationManager Navigation
+
+
+
+<div class="welcome">
+
+    <header class="welcome-top">
+        <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.SpaceBetween" AlignItems="AlignItems.Center">
+            <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.75rem">
+                <div class="welcome-book" role="img" aria-label="AccuBook">AB</div>
+                <RadzenText TextStyle="TextStyle.Subtitle1" Style="margin:0; font-weight:600;">AccuBook</RadzenText>
+                <RadzenBadge BadgeStyle="BadgeStyle.Light" Text="BETA" />
+            </RadzenStack>
+            <RadzenButton Text="Sign in" Icon="login" class="welcome-primary" Click="@SignIn" />
+        </RadzenStack>
+    </header>
+
+    <div class="welcome-wrap">
+
+        <section class="welcome-hero">
+            <RadzenRow Gap="3rem" AlignItems="AlignItems.Center">
+
+                <RadzenColumn Size="12" SizeMD="6">
+                    <h1 class="welcome-h1">Every entry balanced. Every report ready.</h1>
+                    <p class="welcome-lead">
+                        Post journal entries, manage customers and suppliers, track stocks and VAT,
+                        and close the month from one place.
+                    </p>
+                    <RadzenStack Orientation="Orientation.Horizontal" Gap="0.75rem" Wrap="FlexWrap.Wrap">
+                        <RadzenButton Text="Sign in" class="welcome-primary" Click="@SignIn" />
+                        <a class="welcome-ghost" href="#modules">See what's inside</a>
+                    </RadzenStack>
+                </RadzenColumn>
+
+                <RadzenColumn Size="12" SizeMD="6">
+                    <RadzenCard class="welcome-ledger">
+                        <div class="welcome-ledger-head">
+                            <RadzenStack Gap="0">
+                                <RadzenText TextStyle="TextStyle.Caption" Style="color:color-mix(in srgb, var(--rz-on-primary) 65%, transparent); margin:0;">Journal entry</RadzenText>
+                                <RadzenText TextStyle="TextStyle.H6" Style="color:var(--rz-on-primary); margin:0;">JV-0142 · Sale on account</RadzenText>
+                            </RadzenStack>
+                            <span class="welcome-balanced"><RadzenIcon Icon="check_circle" /> Balanced</span>
+                        </div>
+
+                        <div class="welcome-row welcome-cols"><span>Account</span><span>Debit</span><span>Credit</span></div>
+                        @foreach (var line in entry)
+                        {
+                            <div class="welcome-row">
+                                <span>@line.Account</span>
+                                <span class="@(line.Debit is null ? "dash" : null)">@(line.Debit?.ToString("N2") ?? "—")</span>
+                                <span class="@(line.Credit is null ? "dash" : null)">@(line.Credit?.ToString("N2") ?? "—")</span>
+                            </div>
+                        }
+                        <div class="welcome-row welcome-total">
+                            <span>Total</span>
+                            <span>@entry.Sum(e => e.Debit ?? 0).ToString("N2")</span>
+                            <span>@entry.Sum(e => e.Credit ?? 0).ToString("N2")</span>
+                        </div>
+                    </RadzenCard>
+                </RadzenColumn>
+
+            </RadzenRow>
+        </section>
+
+        <section id="modules">
+            <h2 class="welcome-section-title">Everything your books need</h2>
+            <p class="welcome-section-sub">Each module is one click away from the side menu after you sign in.</p>
+
+            <div class="welcome-grid">
+                @foreach (var m in modules)
+                {
+                    <RadzenCard class="welcome-tile">
+                        <div class="welcome-tile-icon"><RadzenIcon Icon="@m.Icon" /></div>
+                        <h3>@m.Name</h3>
+                        <p>@m.Description</p>
+                    </RadzenCard>
+                }
+            </div>
+        </section>
+
+        <footer class="welcome-foot">
+            <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.SpaceBetween" Wrap="FlexWrap.Wrap">
+                <span>AccuBook BETA · Accounting system under development</span>
+                <span>&copy; @DateTime.Now.Year</span>
+            </RadzenStack>
+        </footer>
+
+    </div>
+</div>
+
+@code {
+    [CascadingParameter]
+    private Task<AuthenticationState>? AuthState { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Kung naka-login na, hindi na kailangan ng welcome page.
+        if (AuthState is not null)
+        {
+            var user = (await AuthState).User;
+            if (user.Identity?.IsAuthenticated == true)
+                Navigation.NavigateTo("/");
+        }
+    }
+
+    private void SignIn() => Navigation.NavigateTo("/login");   // palitan ng login route mo
+
+    private record EntryLine(string Account, decimal? Debit, decimal? Credit);
+    private record ModuleInfo(string Name, string Icon, string Description);
+
+    private readonly List<EntryLine> entry = new()
+    {
+        new("Accounts Receivable", 12500.00m, null),
+        new("Sales", null, 11160.71m),
+        new("Output VAT", null, 1339.29m)
+    };
+
+    private readonly List<ModuleInfo> modules = new()
+    {
+        new("General Ledger", "menu_book", "Journal entries, chart of accounts, and trial balance."),
+        new("Customer", "groups", "Customer records, invoices, and receivables."),
+        new("Supplier", "local_shipping", "Supplier records, bills, and payables."),
+        new("Sales", "sell", "Quotes, sales orders, and sales invoices."),
+        new("Purchases", "shopping_cart", "Purchase orders and supplier bills."),
+        new("Stocks", "inventory_2", "Items, stock levels, and movements."),
+        new("VAT", "receipt_long", "Input and output VAT, ready for filing."),
+        new("Billing Approval", "fact_check", "Review and approve billings before posting."),
+        new("WTax", "percent", "Withholding tax records and certificates."),
+        new("Reports", "assessment", "Financial statements and summaries.")
+    };
+}

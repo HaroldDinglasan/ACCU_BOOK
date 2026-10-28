@@ -1,0 +1,440 @@
+﻿/* ==========================================================================
+   AccuBook shared form / document page styles   (wwwroot/css/ab-forms.css)
+
+   - Lahat ng kulay ay galing sa Radzen theme variables, kaya sumusunod
+     sa napiling theme.
+   - Gamitin: lagyan ng class="ab-form" ang pinakalabas na RadzenStack ng page,
+     tapos gamitin ang mga ab-* class sa loob.
+   - May "legacy" aliases (.sr, .sr-*) para gumana pa rin ang mga naunang page
+     (System Role, System User, Customers, GL Account) kapag inalis na ang
+     inline <style> nila.
+   ========================================================================== */
+
+/* ---------- Tokens ---------- */
+.ab-form,
+.sr {
+    --ab-line: var(--rz-base-300, rgba(128, 128, 128, 0.3));
+    --ab-muted: var(--rz-text-secondary-color);
+    --ab-surface: var(--rz-base-background-color, #fff);
+    /* legacy names */
+    --sr-line: var(--ab-line);
+    --sr-muted: var(--ab-muted);
+    --sr-surface: var(--ab-surface);
+}
+
+    /* ---------- Card ---------- */
+    .ab-form .ab-card,
+    .sr .sr-card {
+        padding: 1.25rem 1.4rem;
+        border: 1px solid var(--ab-line);
+        border-radius: 10px;
+        box-shadow: none;
+    }
+
+.ab-card-head,
+.sr-card-head {
+    display: flex;
+    align-items: center;
+    gap: 0.85rem;
+    margin-bottom: 1.1rem;
+}
+
+.ab-card-icon,
+.sr-card-icon {
+    width: 40px;
+    height: 40px;
+    flex: none;
+    display: grid;
+    place-items: center;
+    border-radius: 10px;
+    color: var(--rz-primary);
+    background: color-mix(in srgb, var(--rz-primary) 14%, transparent);
+}
+
+.ab-card-title,
+.sr-card-title {
+    flex: 1;
+    min-width: 0;
+}
+
+    .ab-card-title h3,
+    .sr-card-title h3 {
+        margin: 0;
+        font-size: 1.1rem;
+        font-weight: 700;
+    }
+
+    .ab-card-title p,
+    .sr-card-title p {
+        margin: 0.1rem 0 0;
+        color: var(--ab-muted);
+        font-size: 0.9rem;
+    }
+
+/* ---------- Sub-section heading (inside a card or tab) ---------- */
+.ab-sub,
+.sr-sub {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+    padding-bottom: 0.55rem;
+    border-bottom: 1px solid var(--ab-line);
+    font-weight: 700;
+}
+
+    .ab-sub .rzi,
+    .sr-sub .rzi {
+        color: var(--rz-primary);
+        font-size: 1.2rem;
+    }
+
+/* ---------- Small field label (for radios, etc.) ---------- */
+.ab-label,
+.sr-label {
+    font-weight: 700;
+    margin-bottom: 0.5rem;
+}
+
+/* ---------- Option tile (switch / checkbox + title + hint) ---------- */
+.ab-option,
+.sr-option {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.85rem;
+    padding: 0.9rem 1rem;
+    border: 1px solid var(--ab-line);
+    border-radius: 8px;
+    background: var(--ab-surface);
+}
+
+    .ab-option.is-on,
+    .sr-option.is-on {
+        border-color: var(--rz-primary);
+        background: color-mix(in srgb, var(--rz-primary) 6%, var(--ab-surface));
+    }
+
+    /* para sa "Cancelled" at iba pang babala */
+    .ab-option.is-danger {
+        border-color: var(--rz-danger);
+        background: color-mix(in srgb, var(--rz-danger) 7%, var(--ab-surface));
+    }
+
+.ab-option-grow,
+.sr-option-grow {
+    flex: 1;
+    min-width: 0;
+}
+
+.ab-option-title,
+.sr-option-title {
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.ab-option-hint,
+.sr-option-hint {
+    color: var(--ab-muted);
+    font-size: 0.88rem;
+}
+
+/* ---------- Empty state ---------- */
+.ab-empty,
+.sr-empty {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.6rem;
+    min-height: 140px;
+    margin-top: 0.5rem;
+    padding: 1.5rem;
+    color: var(--ab-muted);
+    border: 1px dashed var(--ab-line);
+    border-radius: 8px;
+}
+
+/* ---------- Document header (title + code + status + actions) ---------- */
+.ab-doc-head {
+    display: flex;
+    align-items: center;
+    gap: 0.85rem;
+    flex-wrap: wrap;
+}
+
+.ab-doc-title h2 {
+    margin: 0;
+    font-size: 1.35rem;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+}
+
+.ab-doc-code {
+    padding: 0.15rem 0.65rem;
+    border-radius: 6px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    color: var(--rz-primary);
+    background: color-mix(in srgb, var(--rz-primary) 12%, transparent);
+}
+
+.ab-spacer {
+    flex: 1;
+}
+
+/* ---------- Totals ---------- */
+.ab-totals-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    padding: 0.55rem 0;
+    border-bottom: 1px dashed var(--ab-line);
+    font-variant-numeric: tabular-nums;
+}
+
+    .ab-totals-row span {
+        color: var(--ab-muted);
+    }
+
+    .ab-totals-row strong {
+        font-size: 1.1rem;
+    }
+
+    .ab-totals-row.is-main {
+        margin-top: 0.35rem;
+        padding-top: 0.75rem;
+        border-bottom: 0;
+        border-top: 2px solid var(--ab-line);
+    }
+
+        .ab-totals-row.is-main span {
+            color: inherit;
+            font-weight: 700;
+        }
+
+        .ab-totals-row.is-main strong {
+            font-size: 1.6rem;
+            color: var(--rz-primary);
+        }
+
+/* ---------- Status chip (Balanced / Out of balance, etc.) ---------- */
+.ab-status-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.2rem 0.75rem;
+    border-radius: 999px;
+    font-size: 0.88rem;
+    font-weight: 600;
+}
+
+    .ab-status-chip.is-ok {
+        color: var(--rz-success);
+        background: color-mix(in srgb, var(--rz-success) 14%, transparent);
+    }
+
+    .ab-status-chip.is-bad {
+        color: var(--rz-danger);
+        background: color-mix(in srgb, var(--rz-danger) 14%, transparent);
+    }
+
+/* ---------- Popup (document number format picker) ---------- */
+.ab-popup {
+    display: none;
+    position: absolute;
+    overflow: hidden;
+    height: 160px;
+    width: 300px;
+    border: var(--rz-panel-border);
+    background-color: var(--rz-panel-background-color);
+    box-shadow: var(--rz-panel-shadow);
+    border-radius: var(--rz-border-radius);
+}
+
+/* ---------- Small screens ---------- */
+@media (max-width: 768px) {
+    .ab-form .ab-card,
+    .sr .sr-card {
+        padding: 1rem;
+    }
+}
+
+/* ==========================================================================
+   Compact document pages (Receipt Voucher, Journal Entry, at iba pang
+   transaction page).
+
+   Gamitin:
+     - root RadzenStack:  class="ab-form ab-fit"
+     - bawat card:        class="ab-card ab-tight"
+     - detail card:       class="ab-card ab-tight ab-details"
+                          -> <div class="ab-details-body"><RadzenDataGrid class="ab-grid" Style="height:100%" .../></div>
+     - footer:            ab-footer / ab-footer-notes / ab-stats / ab-stat
+
+   --ab-chrome = taas na kinakain ng layout sa paligid ng page (header + padding + footer).
+   Kung may sobrang espasyo sa ilalim o may scroll pa, palitan ang value, hal:
+       .ab-fit { --ab-chrome: 10rem; }
+   ========================================================================== */
+.ab-fit {
+    height: calc(100vh - var(--ab-chrome, 12rem));
+    min-height: 640px;
+}
+
+.ab-form .ab-card.ab-tight {
+    padding: 0.75rem 1rem;
+}
+
+.ab-card-icon.ab-sm {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+}
+
+/* title strip sa loob ng card */
+.ab-head-strip {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.65rem;
+    margin-bottom: 0.75rem;
+}
+
+.ab-head-title {
+    font-size: 1.1rem;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+}
+
+/* maliit na switch + label sa strip */
+.ab-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 0.9rem;
+}
+
+    .ab-toggle .rz-label {
+        font-weight: 600;
+        cursor: pointer;
+    }
+
+    .ab-toggle.is-danger {
+        color: var(--rz-danger);
+    }
+
+/* detail card: kinukuha ang natitirang taas, ang table ang nag-i-scroll */
+.ab-form .ab-details {
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 0;
+    min-height: 240px;
+}
+
+.ab-details .ab-head-strip {
+    margin-bottom: 0.5rem;
+}
+
+.ab-details-body {
+    flex: 1 1 auto;
+    min-height: 0;
+}
+
+    .ab-details-body > .rz-datatable {
+        height: 100%;
+    }
+
+/* ipakita ang buong laman ng cell (hindi "..."), mag-wrap kung mahaba */
+.ab-grid .rz-cell-data {
+    white-space: normal;
+    overflow: visible;
+    text-overflow: clip;
+    word-break: break-word;
+}
+
+/* footer: notes + totals sa iisang linya */
+.ab-footer {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    flex-wrap: wrap;
+}
+
+.ab-footer-notes {
+    flex: 1 1 320px;
+    min-width: 0;
+}
+
+.ab-stats {
+    display: flex;
+    align-items: center;
+    gap: 1.25rem;
+    margin-left: auto;
+    font-variant-numeric: tabular-nums;
+}
+
+.ab-stat {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    line-height: 1.2;
+}
+
+    .ab-stat span {
+        font-size: 0.8rem;
+        color: var(--ab-muted);
+    }
+
+    .ab-stat strong {
+        font-size: 1.05rem;
+    }
+
+    .ab-stat.is-main strong {
+        font-size: 1.35rem;
+        color: var(--rz-primary);
+    }
+
+/* maliit na screen: hayaang mag-scroll ang page, may fixed na taas ang table */
+@media (max-width: 991px) {
+    .ab-fit {
+        height: auto;
+        min-height: 0;
+    }
+
+    .ab-form .ab-details {
+        flex: none;
+    }
+
+    .ab-details-body {
+        height: 55vh;
+    }
+}
+
+/* ---------- Search box na may icon (para sa list/header strip) ---------- */
+.ab-search {
+    position: relative;
+    flex: 0 1 22rem;
+    min-width: 12rem;
+}
+
+    .ab-search > .rzi {
+        position: absolute;
+        left: 0.6rem;
+        top: 50%;
+        transform: translateY(-50%);
+        color: var(--ab-muted);
+        pointer-events: none;
+        z-index: 1;
+    }
+
+    .ab-search .rz-textbox {
+        width: 100%;
+        padding-left: 2.1rem;
+    }
+
+/* ---------- Maliit na bilang/pill ---------- */
+.ab-count {
+    padding: 0.1rem 0.65rem;
+    border: 1px solid var(--ab-line);
+    border-radius: 999px;
+    color: var(--ab-muted);
+    font-size: 0.85rem;
+    font-weight: 600;
+}

@@ -1,0 +1,186 @@
+﻿@page "/Purchaserslist"
+@attribute [Authorize(Roles = "Admin,User")]
+
+
+<RadzenStack Gap="0.2rem">
+    <RadzenDataGrid @ref="grid" Visible="true" @bind-Value=@selectedPurchasers
+                    IsLoading=@isLoading Sort="@ShowLoading" Page="@ShowLoading" Group="@ShowLoading" Filter="@ShowLoading"
+                    Data="@GetPurchasers()"
+                    TItem="Purchasers"
+                    RowDoubleClick="() => Edit(selectedPurchasers.FirstOrDefault().Id)"
+                    AllowVirtualization="true"
+                    ColumnWidth="200px"
+                    AllowSorting="true"
+                    AllowFiltering="true"
+                    ShowPagingSummary="true"
+                    ShowMultiColumnSortingIndex="true"
+                    FilterMode="FilterMode.CheckBoxList"
+                    Style="height: 84vh"
+                    AllowColumnPicking="true"
+                    AllowColumnResize="true"
+                    FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive">
+        <HeaderTemplate>
+            <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.Center"
+                         Style="width: 100%;">
+                <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem;">
+                    <RadzenButton Size="ButtonSize.Small" Text="New"
+                                  ButtonStyle="ButtonStyle.Primary"
+                                  Icon="add"
+                                  Click="@AddSalesPerson" />
+
+                    <!-- DIVIDER -->
+                    <div style="border-left: 2px solid #ccc; height: 2rem; margin: 0 0.5rem;"></div>
+
+                    <RadzenTextBox InputSize="InputSize.Medium" @bind-Value="@searchText"
+                                   @ref="textBox"
+                                   @oninput="@(args => OnInput(args))"
+                                   Placeholder="Search..."
+                                   Style="width:30rem;" />
+
+                    <RadzenButton Size="ButtonSize.Small" Icon="delete"
+                                  Click="@ClearFilter"
+                                  Text="Clear" />
+                </RadzenStack>
+            </RadzenStack>
+        </HeaderTemplate>
+        <Columns>
+            <RadzenDataGridColumn Width="70px" TItem="Purchasers" Property="@nameof(Purchasers.StaffCode)" Title="Agent #" />
+            <RadzenDataGridColumn Width="200px" TItem="Purchasers" Property="@nameof(Purchasers.Name)" Title="Name" />
+            <RadzenDataGridColumn Width="70px" TItem="Purchasers" Title="Gender" TextAlign="TextAlign.Center">
+                <Template Context="data">
+                    @{
+                        var genderDescription = gendersList.FirstOrDefault(g => g.Code == data.Gender).Description;
+                    }
+                    @genderDescription
+                </Template>
+            </RadzenDataGridColumn>
+            <RadzenDataGridColumn Width="110px" TItem="Purchasers" Property="@nameof(Purchasers.MobileNo)" Title="Mobile No" />
+            <RadzenDataGridColumn Width="110px" TItem="Purchasers" Property="@nameof(Purchasers.Email)" Title="Email" />
+            <RadzenDataGridColumn Visible="false" TItem="Purchasers" Property="@nameof(Purchasers.IsManager)" Title="Is Manager">
+                <Template Context="data">
+                    @if (data.IsManager)
+                    {
+                        <RadzenBadge IsPill="true" BadgeStyle="BadgeStyle.Success" Text="Yes" />
+                    }
+                    else
+                    {
+                        <RadzenBadge IsPill="true" Variant="Variant.Outlined" BadgeStyle="BadgeStyle.Secondary" Text="No" />
+                    }
+
+                </Template>
+            </RadzenDataGridColumn>
+
+            <RadzenDataGridColumn Visible="false" TItem="Purchasers" Property="@nameof(Purchasers.IsDefault)" Title="Is Default">
+                <Template Context="data">
+                    @if (data.IsDefault)
+                    {
+                        <RadzenBadge IsPill="true" BadgeStyle="BadgeStyle.Success" Text="Yes" />
+                    }
+                    else
+                    {
+                        <RadzenBadge IsPill="true" Variant="Variant.Outlined" BadgeStyle="BadgeStyle.Secondary" Text="No" />
+                    }
+
+                </Template>
+            </RadzenDataGridColumn>
+        </Columns>
+    </RadzenDataGrid>
+</RadzenStack>
+
+
+@code {
+    [CascadingParameter]
+    public Task<AuthenticationState> authenticationState { get; set; }
+
+    RadzenTextBox textBox;
+    RadzenDataGrid<Purchasers> grid;
+    protected IList<Purchasers> selectedPurchasers { get; set; }
+
+    bool isLoading;
+    protected async override Task OnInitializedAsync()
+    {
+
+        var authState = (await authenticationState).User;
+        if (authState.Identity.IsAuthenticated)
+        {
+            var RoleId = authState.FindFirst("RoleId").Value;
+            GetLoadMenuPermission(RoleId);
+        }
+
+    }
+
+    private SystemMenuObjectPermission? permission;
+    protected async void GetLoadMenuPermission(string RoleId)
+    {
+        isLoading = true;
+        permission = await permissionService.GetPermissionAsync(
+         RoleId,
+         "Purchasers");
+
+        if (permission is null)
+            return;
+
+        await ShowLoading();
+        await GetSalesPersonList();
+        StateHasChanged();
+    }
+
+    int totalPurchasers = 0;
+    protected IEnumerable<Purchasers> salesPurchasersList;
+    protected async Task GetSalesPersonList()
+    {
+        //var data = await salesService.GetSalesPersonsLists();
+        var data = await supplierServices.GetPurchasersLists();
+        salesPurchasersList = data is not null ? data : new List<Purchasers>();
+        totalPurchasers = salesPurchasersList.Count();
+    }
+
+    private string searchText = "";
+    private IEnumerable<Purchasers> GetPurchasers()
+    {
+        if (salesPurchasersList == null)
+            return Enumerable.Empty<Purchasers>();
+        return salesPurchasersList
+        .Where(x => string.IsNullOrEmpty(searchText) ||
+                (x.StaffCode?.Contains(searchText, StringComparison.OrdinalIgnoreCase) ?? false) ||
+                (x.Name?.Contains(searchText, StringComparison.OrdinalIgnoreCase) ?? false))
+                .OrderBy(x => x.StaffCode);
+
+    }
+
+    async Task OnInput(ChangeEventArgs args)
+    {
+        searchText = args.Value?.ToString() ?? string.Empty;
+        await grid.Reload();
+    }
+
+    private async Task ClearFilter()
+    {
+        searchText = string.Empty;
+        await grid.Reload();
+        StateHasChanged();
+    }
+
+    async Task ShowLoading()
+    {
+        await Task.Yield();
+
+        isLoading = false;
+    }
+
+    private void AddSalesPerson()
+    {
+        navManager.NavigateTo("/Purchasers");
+    }
+
+    protected void Edit(int Id)
+    {
+        navManager.NavigateTo($"/Purchasers/Edit/{Id}");
+    }
+
+    protected List<Gender> gendersList = new() { new Gender
+        { Code = "M", Description = "Male" }, new Gender { Code = "F", Description = "Female" },
+     new Gender { Code = "N", Description = "Undefined" }};
+
+
+}

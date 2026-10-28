@@ -1,0 +1,175 @@
+﻿@page "/ReceiptVoucherList"
+
+
+<RadzenStack Gap="0.2rem">
+    <RadzenDataGrid @ref="grid" Visible="true" @bind-Value=@selectedvwReceipt
+                    IsLoading=@isLoading Sort="@ShowLoading" Page="@ShowLoading" Group="@ShowLoading" Filter="@ShowLoading"
+                    Data="@GetData()"
+                    TItem="VW_Receipt"
+                    RowDoubleClick="() => Edit(selectedvwReceipt.FirstOrDefault().Id)"
+                    AllowVirtualization="true"
+                    ColumnWidth="200px"
+                    AllowSorting="true"
+                    AllowFiltering="true"
+                    ShowPagingSummary="true"
+                    ShowMultiColumnSortingIndex="true"
+                    FilterMode="FilterMode.CheckBoxList"
+                    Style="height: 84vh"
+                    AllowColumnPicking="true"
+                    FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive">
+        <HeaderTemplate>
+
+            <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.Center"
+                         Style="width: 100%;">
+                <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem;">
+                    <RadzenButton Size="ButtonSize.Small" Text="New"
+                                  ButtonStyle="ButtonStyle.Primary"
+                                  Icon="add"
+                                  Click="@Add" />
+
+                    <!-- DIVIDER -->
+                    <div style="border-left: 2px solid #ccc; height: 2rem; margin: 0 0.5rem;"></div>
+
+                    <RadzenTextBox InputSize="InputSize.Medium" @bind-Value="@searchText"
+                                   @ref="textBox"
+                                   @oninput="@(args => OnInput(args))"
+                                   Placeholder="Search..."
+                                   Style="width:30rem;" />
+
+                    <RadzenButton Size="ButtonSize.Small" Icon="delete"
+                                  Click="@ClearFilter"
+                                  Text="Clear" />
+                </RadzenStack>
+            </RadzenStack>
+        </HeaderTemplate>
+        <Columns>
+
+            <RadzenDataGridColumn Filterable="false" Width="120px" Visible=true Title="Status">
+
+                <Template Context="data">
+                    @if (data.IsCancelled)
+                    {
+                        <RadzenBadge Text="Cancelled" BadgeStyle="BadgeStyle.Danger" />
+                    }
+
+                </Template>
+            </RadzenDataGridColumn>
+            <RadzenDataGridColumn Visible=false TItem="VW_Receipt" Property="@nameof(VW_Receipt.Id)" Title="Id" />
+            <RadzenDataGridColumn Width="110px" TItem="VW_Receipt" Property="@nameof(VW_Receipt.ReceiptDate)" FormatString="{0:MM/dd/yyyy}" Title="Date" />
+            <RadzenDataGridColumn Width="350px" TItem="VW_Receipt" Title="Receipt">
+                <Template Context="data">
+                    <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem" AlignItems="AlignItems.Center">
+                        <RadzenStack Gap="0">
+
+                            <RadzenText TextStyle="TextStyle.Subtitle2" Text="@($"{data.ReceiptCode} {data.DebtorName}")" class="rz-mb-0 rz-text-wrap"></RadzenText>
+                            <RadzenText Text="@data.Notes" TextStyle="TextStyle.Caption" class="rz-mb-0 rz-text-wrap"></RadzenText>
+                        </RadzenStack>
+                    </RadzenStack>
+                </Template>
+                <FooterTemplate>
+                    Total: <b>@totalData</b>
+                </FooterTemplate>
+            </RadzenDataGridColumn>
+            <RadzenDataGridColumn TItem="VW_Receipt" Property="@nameof(VW_Receipt.Description)" Title="Deposit To" />
+            <RadzenDataGridColumn TItem="VW_Receipt" Property="@nameof(VW_Receipt.MethodCode)" Title="Payment Method" />
+            <RadzenDataGridColumn Width="120px" TItem="VW_Receipt" Property="@nameof(VW_Receipt.CurrencyCode)" Title="Currency" />
+            <RadzenDataGridColumn TItem="VW_Receipt" Property="@nameof(VW_Receipt.TotalAmount)" Title="Amount" FormatString="{0:N2}" />
+            <RadzenDataGridColumn TItem="VW_Receipt" Property="@nameof(VW_Receipt.NetTotalAmount)" Title="Net Total" FormatString="{0:N2}" />
+            <RadzenDataGridColumn Visible=false TItem="VW_Receipt" Property="@nameof(VW_Receipt.IsCancelled)" Title="IsCancelled" />
+
+        </Columns>
+    </RadzenDataGrid>
+</RadzenStack>
+
+@code {
+    [CascadingParameter]
+    public Task<AuthenticationState> authenticationState { get; set; }
+
+    RadzenTextBox textBox;
+    RadzenDataGrid<VW_Receipt> grid;
+    IEnumerable<VW_Receipt> vwReceiptList;
+    protected IList<VW_Receipt> selectedvwReceipt { get; set; }
+
+    int totalData = 0;
+    bool isLoading;
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = (await authenticationState).User;
+        if (authState.Identity.IsAuthenticated)
+        {
+            var RoleId = authState.FindFirst("RoleId").Value;
+            GetLoadMenuPermission(RoleId);
+        }
+    }
+    private SystemMenuObjectPermission? permission;
+    protected async void GetLoadMenuPermission(string RoleId)
+    {
+        isLoading = true;
+        permission = await permissionService.GetPermissionAsync(
+            RoleId,
+            "Receipt Vouchers");
+
+        if (permission is null)
+            return;
+        await ShowLoading();
+        await GetListing();
+        StateHasChanged();
+    }
+
+  
+    private async Task GetListing()
+    {
+        var data = await receiptServices.GetVWReceiptList(7);
+        vwReceiptList = data is not null ? data : new List<VW_Receipt>();
+        totalData = vwReceiptList.Count();
+    }
+    private string searchText = "";
+    private IEnumerable<VW_Receipt> GetData()
+    {
+        if (vwReceiptList == null)
+            return Enumerable.Empty<VW_Receipt>();
+
+
+        return vwReceiptList
+     .Where(x => string.IsNullOrEmpty(searchText) ||
+             (x.ReceiptCode?.Contains(searchText, StringComparison.OrdinalIgnoreCase) ?? false) ||
+             (x.ReferenceNo?.Contains(searchText, StringComparison.OrdinalIgnoreCase) ?? false) ||
+             (x.DebtorName?.Contains(searchText, StringComparison.OrdinalIgnoreCase) ?? false) ||
+             (x.Description?.Contains(searchText, StringComparison.OrdinalIgnoreCase) ?? false) ||
+             (x.ReceiptDate.ToString("MM/dd/yyyy")?.Contains(searchText, StringComparison.OrdinalIgnoreCase) ?? false));
+    }
+
+    async Task OnInput(ChangeEventArgs args)
+    {
+        searchText = args.Value?.ToString() ?? string.Empty;
+        await grid.Reload();
+    }
+
+    private async Task ClearFilter()
+    {
+        searchText = string.Empty;
+        await grid.Reload();
+        StateHasChanged();
+    }
+
+    // public BaseModels baseModels { get; set; } = new BaseModels();
+    protected void Edit(Guid Id)
+    {
+        //baseModels.Id = Id;
+        navManager.NavigateTo($"/ReceiptVouchers/Edit/{Id}");
+    }
+
+    private void Add()
+    {
+        navManager.NavigateTo("/ReceiptVouchers");
+    }
+
+
+    async Task ShowLoading()
+    {
+        await Task.Yield();
+
+        isLoading = false;
+    }
+
+}

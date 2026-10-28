@@ -1,0 +1,53 @@
+-- Create SystemMenuObjectPermission table
+CREATE TABLE SystemMenuObjectPermission (
+    Oid UNIQUEIDENTIFIER NOT NULL DEFAULT NEWID(),  -- Primary Key
+    MenuId INT NOT NULL,                            -- Links to SystemMenuObject.Id
+    ParentMenuId INT NOT NULL,                      -- Parent menu reference
+    PageName NVARCHAR(200) NULL,                    -- Page path
+    MenuName NVARCHAR(150) NOT NULL,                -- Menu display name
+    IconNames NVARCHAR(100) NULL,                   -- Icon identifier
+
+    -- Permission flags
+    AllowNavigate BIT NOT NULL DEFAULT 0,
+    AllowRead BIT NOT NULL DEFAULT 0,
+    AllowWrite BIT NOT NULL DEFAULT 0,
+    AllowCreate BIT NOT NULL DEFAULT 0,
+    AllowDelete BIT NOT NULL DEFAULT 0,
+    AllowExport BIT NOT NULL DEFAULT 0,
+    Owner UNIQUEIDENTIFIER NULL,                    -- FK to SystemRole.Oid
+    AllowPrint BIT NOT NULL DEFAULT 0,
+    AllowCreditControl BIT NOT NULL DEFAULT 0,
+    AllowChangeDocNumbering BIT NOT NULL DEFAULT 0,
+    AllowChangeUnitCost BIT NOT NULL DEFAULT 0,
+    AllowNegativeStockControl BIT NOT NULL DEFAULT 0,
+    AllowStockReorderLevelControl BIT NOT NULL DEFAULT 0,
+    AllowFilter BIT NOT NULL DEFAULT 0,
+    AllowPreview BIT NOT NULL DEFAULT 0,
+    AllowInquiry BIT NOT NULL DEFAULT 0,
+    AllowDesign BIT NOT NULL DEFAULT 0,
+    AllowSelectDocNumbering BIT NOT NULL DEFAULT 0,
+    AllowChangeUnitPrice BIT NOT NULL DEFAULT 0,
+    AllowEInvoiceValidation BIT NOT NULL DEFAULT 0
+);
+
+-- Insert sample permission data
+INSERT INTO SystemMenuObjectPermission (
+    MenuId, ParentMenuId, PageName, MenuName, IconNames,
+    AllowNavigate, AllowRead, AllowWrite, AllowCreate, AllowDelete, AllowExport,
+    Owner, AllowPrint, AllowCreditControl, AllowChangeDocNumbering,
+    AllowChangeUnitCost, AllowNegativeStockControl, AllowStockReorderLevelControl,
+    AllowFilter, AllowPreview, AllowInquiry, AllowDesign, AllowSelectDocNumbering,
+    AllowChangeUnitPrice, AllowEInvoiceValidation
+)
+VALUES
+(2, 0, NULL, 'General Ledger', 'chrome_reader_mode',
+ 1, 1, 1, 1, 1, 1,
+ NULL, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1),
+
+(14, 2, '/GLAccount', 'GL Account', 'assignment',
+ 1, 1, 1, 1, 1, 1,
+ NULL, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1),
+
+(15, 2, '/ChartofAccount', 'Chart of Account', 'assignment',
+ 1, 1, 1, 1, 1, 1,
+ NULL, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1);

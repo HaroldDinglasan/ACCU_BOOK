@@ -1,0 +1,155 @@
+﻿@page "/SupplierCategoriesList"
+@attribute [Authorize(Roles = "Admin,User")]
+
+
+<RadzenStack Gap="0.2rem">
+
+   
+    <RadzenDataGrid @ref="grid" Visible="true" @bind-Value=@selectedCreditorCategory
+                    IsLoading=@isLoading Sort="@ShowLoading" Page="@ShowLoading" Group="@ShowLoading" Filter="@ShowLoading"
+                    Data="@GetCreditorCategory()"
+                    TItem="CreditorCategory"
+                    RowDoubleClick="() => Edit(selectedCreditorCategory.FirstOrDefault().Id)"
+                    AllowVirtualization="true"
+                    ColumnWidth="200px"
+                    AllowSorting="true"
+                    AllowFiltering="true"
+                    ShowPagingSummary="true"
+                    ShowMultiColumnSortingIndex="true"
+                    FilterMode="FilterMode.CheckBoxList"
+                    Style="height: 84vh"
+                    AllowColumnPicking="true"
+                    FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive">
+        <HeaderTemplate>
+            <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.Center"
+                         Style="width: 100%;">
+                <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem;">
+                    <RadzenButton Size="ButtonSize.Small" Text="New"
+                                  ButtonStyle="ButtonStyle.Primary"
+                                  Icon="add"
+                                  Click="@AddCategory" />
+
+                    <!-- DIVIDER -->
+                    <div style="border-left: 2px solid #ccc; height: 2rem; margin: 0 0.5rem;"></div>
+
+                    <RadzenTextBox InputSize="InputSize.Medium" @bind-Value="@searchText"
+                                   @ref="textBox"
+                                   @oninput="@(args => OnInput(args))"
+                                   Placeholder="Search..."
+                                   Style="width:30rem;" />
+
+                    <RadzenButton Size="ButtonSize.Small" Icon="delete"
+                                  Click="@ClearFilter"
+                                  Text="Clear" />
+                </RadzenStack>
+            </RadzenStack>
+        </HeaderTemplate>
+        <Columns>
+            <RadzenDataGridColumn Width="110px" TItem="CreditorCategory" Property="@nameof(CreditorCategory.CategoryCode)" Title="Category Code" />
+            <RadzenDataGridColumn Width="110px" TItem="CreditorCategory" Property="@nameof(CreditorCategory.Description)" Title="Description" />
+            <RadzenDataGridColumn TItem="CreditorCategory" Property="@nameof(CreditorCategory.IsDefault)" Title="Is Default">
+                <Template Context="data">
+                    @if (data.IsDefault)
+                    {
+                        <RadzenBadge IsPill="true" BadgeStyle="BadgeStyle.Success" Text="Yes" />
+                    }
+                    else
+                    {
+                        <RadzenBadge IsPill="true" Variant="Variant.Outlined" BadgeStyle="BadgeStyle.Secondary" Text="No" />
+                    }
+
+                </Template>
+            </RadzenDataGridColumn>
+        </Columns>
+    </RadzenDataGrid>
+</RadzenStack>
+
+@code {
+    [CascadingParameter]
+    public Task<AuthenticationState> authenticationState { get; set; }
+
+    bool isLoading;
+    RadzenTextBox textBox;
+    RadzenDataGrid<CreditorCategory> grid;
+    protected IList<CreditorCategory> selectedCreditorCategory { get; set; }
+
+    
+    private string searchText = "";
+    //private IEnumerable<CreditorCategory> filteredDebtorCategoriesList;
+    protected override async Task OnInitializedAsync()
+    {
+
+        var authState = (await authenticationState).User;
+        if (authState.Identity.IsAuthenticated)
+        {
+            var RoleId = authState.FindFirst("RoleId").Value;
+            GetLoadMenuPermission(RoleId);
+        }
+    }
+
+    private SystemMenuObjectPermission? permission;
+    protected async void GetLoadMenuPermission(string RoleId)
+    {
+        isLoading = true;
+        permission = await permissionService.GetPermissionAsync(
+            RoleId,
+            "Customer Categories");
+
+        if (permission is null)
+            return;
+        await ShowLoading();
+        await GetCreditorCategoryLists();
+        StateHasChanged();
+    }
+
+    int totalCreditorCategoryList = 0;
+    protected IEnumerable<CreditorCategory> creditorCategoryList;
+    private async Task GetCreditorCategoryLists()
+    {
+        var data = await supplierServices.GetCreditorCategoryLists();
+        creditorCategoryList = data is not null ? data : new List<CreditorCategory>();
+        totalCreditorCategoryList = creditorCategoryList.Count();
+    }
+
+    private IEnumerable<CreditorCategory> GetCreditorCategory()
+    {
+        if (creditorCategoryList == null)
+            return Enumerable.Empty<CreditorCategory>();
+        return creditorCategoryList
+        .Where(x => string.IsNullOrEmpty(searchText) ||
+                (x.CategoryCode?.Contains(searchText, StringComparison.OrdinalIgnoreCase) ?? false) ||
+                (x.Description?.Contains(searchText, StringComparison.OrdinalIgnoreCase) ?? false))
+                .OrderByDescending(x => x.CategoryCode);
+
+    }
+
+    async Task OnInput(ChangeEventArgs args)
+    {
+        searchText = args.Value?.ToString() ?? string.Empty;
+        await grid.Reload();
+    }
+
+    private async Task ClearFilter()
+    {
+        searchText = string.Empty;
+        await grid.Reload();
+        StateHasChanged();
+    }
+
+    async Task ShowLoading()
+    {
+        await Task.Yield();
+
+        isLoading = false;
+    }
+    private void AddCategory()
+    {
+        navManager.NavigateTo("/SupplierCategories");
+    }
+
+    protected void Edit(int Id)
+    {
+        navManager.NavigateTo($"/SupplierCategories/Edit/{Id}");
+    }
+
+}

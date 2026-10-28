@@ -1,0 +1,26 @@
+﻿@inject ThemeService ThemeService
+
+<RadzenStack Orientation="Orientation.Vertical" Gap="0.5rem" class="rz-p-sm-2">
+    <RadzenText Text="Change the current theme" />
+    <RadzenDropDown Name="ThemeDropDown" TValue="string" Value="@ThemeService.Theme" ValueChanged="@ChangeTheme" Data="@Themes.Free" TextProperty=@nameof(Theme.Text) ValueProperty=@nameof(Theme.Value)>
+    </RadzenDropDown>
+</RadzenStack>
+
+
+<RadzenStack Orientation="Orientation.Vertical" Gap="0.5rem" class="rz-p-sm-2">
+    <RadzenLabel Text="WCAG compliant colors" />
+    <RadzenSwitch Value="@(ThemeService.Wcag == true)" Name="WCAG" ValueChanged=@ChangeWcag />
+</RadzenStack>
+
+@code {
+    void ChangeTheme(string value)
+    {
+        ThemeService.SetTheme(value);
+    }
+
+    
+    void ChangeWcag(bool value)
+    {
+        ThemeService.SetWcag(value);
+    }
+}

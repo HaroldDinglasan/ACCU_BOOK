@@ -1,0 +1,44 @@
+﻿@inject IAuthenticationService authService
+
+
+<RadzenMenu>
+    <RadzenMenuItem Text="@FullName" Icon="account_circle">
+        <RadzenMenuItem Text="Profile" Icon="account_circle" Click=@( () => navManager.NavigateTo("/ABSystemMyDetails"))></RadzenMenuItem>
+        <RadzenMenuItem Text="LogOut" Icon="exit_to_app" Click="@LogOut"></RadzenMenuItem>
+    </RadzenMenuItem>
+</RadzenMenu>
+
+@code {
+    [CascadingParameter]
+    private Task<AuthenticationState> authenticationState { get; set; }
+
+    private string FullName = "Unknow User";
+
+    protected override async Task OnParametersSetAsync()
+    {
+        var user = (await authenticationState).User;
+        if (user.Identity.IsAuthenticated)
+        {
+
+
+            FullName = user.FindFirst(x => x.Type == System.Security.Claims.ClaimTypes.GivenName).Value;
+            //var claim2 = user.FindFirst();
+
+            //Add event here
+            //load menu by user ID and Role Access
+            //load changepassword if user password set default
+        }
+    }
+
+
+    async void LogOut()
+    {
+
+        if (await DialogService.Confirm(" You are about to log off. Do you want to Continue?", "Confirm") == true)
+        {
+            navManager.NavigateTo("/logout");
+        }
+
+
+    }
+}

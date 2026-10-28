@@ -1,0 +1,248 @@
+﻿@page "/SalesOrderList"
+@attribute [Authorize(Roles = "Admin,User")]
+
+
+<RadzenStack Gap="0.2rem">
+
+    <RadzenDataGrid @ref="grids" @bind-Value=@selectedsalesOrders
+                    RowDoubleClick="() => Edit(selectedsalesOrders.FirstOrDefault().Id)"
+                    TItem="VW_SalesOrders"
+                    IsLoading=@isLoading Sort="@ShowLoading" Page="@ShowLoading" Group="@ShowLoading" Filter="@ShowLoading"
+                    Data="@filteredsalesOrderList"
+                    AllowVirtualization="true"
+                    ColumnWidth="200px"
+                    AllowSorting="true"
+                    AllowFiltering="true"
+                    ShowPagingSummary="true"
+                    ShowMultiColumnSortingIndex="true"
+                    FilterMode="FilterMode.CheckBoxList"
+                    Style="height: 84vh"
+                    AllowColumnPicking="true"
+                    FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive">
+
+        <HeaderTemplate>
+            <RadzenStack Orientation="Orientation.Horizontal"
+                         AlignItems="AlignItems.Center"
+                         Style="width: 100%;">
+                <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem;">
+                    <RadzenButton Text="New"
+                                  Click="@AddAccount"
+                                  ButtonStyle="ButtonStyle.Primary"
+                                  Icon="add" />
+
+                    <!-- DIVIDER -->
+                    <div style="border-left: 2px solid #ccc; height: 2rem; margin: 0 0.5rem;"></div>
+
+                    <RadzenTextBox Disabled=@(filteredsalesOrderList == null)
+                                   @bind-Value="@searchText"
+                                   Placeholder="Search..."
+                                   Style="width:30rem;"
+                                   Change="@(args => ApplyFilter())" />
+
+                    <RadzenButton Disabled=@(filteredsalesOrderList == null)
+                                  Icon="search"
+                                  Click="@ApplyFilter"
+                                  Text="Find" />
+
+                    <RadzenButton Disabled=@(filteredsalesOrderList == null)
+                                  Icon="delete"
+                                  Click="@ClearFilter"
+                                  Text="Clear" />
+
+
+
+                </RadzenStack>
+            </RadzenStack>
+
+        </HeaderTemplate>
+
+        <Columns>
+            <RadzenDataGridColumn Filterable="false" Width="150px" Visible=true Title="Status">
+
+                <Template Context="data">
+                    @{
+                        var (text, style) = StatusHelper.Get(
+                        data.IsClosed,
+                        data.IsCancelled,
+                        data.TransferToInfo);
+                    }
+
+                    <RadzenBadge IsPill="true" Text="@text" BadgeStyle="@style" />
+                </Template>
+            </RadzenDataGridColumn>
+            <RadzenDataGridColumn Visible=true TItem="VW_SalesOrders" Width="110px" Property="@nameof(VW_SalesOrders.SalesOrderDate)" FormatString="{0:d}" Title="Date"></RadzenDataGridColumn>
+            <RadzenDataGridColumn Visible=true TItem="VW_SalesOrders" Width="130px" Property="@nameof(VW_SalesOrders.SalesOrderCode)" Title="S. Order #" />
+            <RadzenDataGridColumn Width="350px" TItem="VW_SalesOrders" Title="Customer" Property="@nameof(VW_SalesOrders.CustomerName)">
+                <Template Context="data">
+                    <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem" AlignItems="AlignItems.Center">
+                        <RadzenStack Gap="0">
+                            <RadzenText TextStyle="TextStyle.Subtitle2" class="rz-mb-0">@data.CustomerCode - @data.CustomerName</RadzenText>
+                            <RadzenText TextStyle="TextStyle.Caption" class="rz-mb-0 rz-text-wrap">@data.Address1</RadzenText>
+                        </RadzenStack>
+                    </RadzenStack>
+                </Template>
+                <FooterTemplate>
+                    Total: <b>@totalSalesOrder</b>
+                </FooterTemplate>
+            </RadzenDataGridColumn>
+            <RadzenDataGridColumn TItem="VW_SalesOrders" Property="@nameof(VW_SalesOrders.TransferToInfo)" Title="Transfer To Info" />
+            <RadzenDataGridColumn TItem="VW_SalesOrders" Property="@nameof(VW_SalesOrders.ReferenceNo)" Title="Reference No" />
+            <RadzenDataGridColumn Visible=true TItem="VW_SalesOrders" Property="@nameof(VW_SalesOrders.StaffCode)" Title="Agent"></RadzenDataGridColumn>
+            <RadzenDataGridColumn Visible=true TItem="VW_SalesOrders" Property="@nameof(VW_SalesOrders.CurrencyCode)" Title="Currency"></RadzenDataGridColumn>
+            <RadzenDataGridColumn Visible=true TItem="VW_SalesOrders" TextAlign="TextAlign.Right" Property="@nameof(VW_SalesOrders.TaxTotalAmountLocal)" Title="Tax">
+                <Template Context="data">
+                    <span>@(data.TaxTotalAmount == 0 ? "" : data.TaxTotalAmount.ToString("#,0.00"))</span>
+                </Template>
+                <FooterTemplate>
+                    <b>@totalTax.ToString("#,0.00")</b>
+                </FooterTemplate>
+            </RadzenDataGridColumn>
+
+            <RadzenDataGridColumn Visible=true TItem="VW_SalesOrders" TextAlign="TextAlign.Right" Property="@nameof(VW_SalesOrders.NetTotalAmountLocal)" Title="Net Total">
+                <Template Context="data">
+                    <span>@(data.NetTotalAmount == 0 ? "" : data.NetTotalAmount.ToString("#,0.00"))</span>
+                </Template>
+				
+                <FooterTemplate>
+                    <b>@totalNetTotal.ToString("#,0.00")</b>
+                </FooterTemplate>
+            </RadzenDataGridColumn>
+            <RadzenDataGridColumn Visible=true TItem="VW_SalesOrders" TextAlign="TextAlign.Right" Property="@nameof(VW_SalesOrders.WTaxTotalAmountLocal)" Title="WTax Total Amount">
+                <Template Context="data">
+                    <span>@(data.WTaxTotalAmountLocal == 0 ? "" : data.WTaxTotalAmountLocal.ToString("#,0.00"))</span>
+                </Template>
+			
+                <FooterTemplate>
+                    <b>@totalWTaxTotalAmount.ToString("#,0.00")</b>
+                </FooterTemplate>
+            </RadzenDataGridColumn>
+
+            <RadzenDataGridColumn Visible=false TItem="VW_SalesOrders" Property="@nameof(VW_SalesOrders.IsCancelled)" Title="Is Cancelled">
+                <Template Context="data">
+                    <RadzenCheckBox Disabled="true" TValue="bool" @bind-Value="@data.IsCancelled"></RadzenCheckBox>
+                </Template>
+				
+            </RadzenDataGridColumn>
+
+        </Columns>
+    </RadzenDataGrid>
+</RadzenStack>
+
+
+@code {
+    [CascadingParameter]
+    public Task<AuthenticationState> authenticationState { get; set; }
+
+    private RadzenDataGrid<VW_SalesOrders> grids;
+    private IList<VW_SalesOrders> selectedsalesOrders { get; set; }
+    private IEnumerable<VW_SalesOrders> salesOrderList { get; set; }
+
+    string status = string.Empty;
+
+    FilterCaseSensitivity filter = FilterCaseSensitivity.CaseInsensitive;
+    Density density = Density.Compact;
+    AlignItems alignItems = AlignItems.Center;
+    Variant variant = Variant.Flat;
+
+    bool isLoading;
+    int totalSalesOrder = 0;
+    decimal totalTax = 0;
+    decimal totalNetTotal = 0;
+    decimal totalWTaxTotalAmount = 0;
+
+    protected async override Task OnInitializedAsync()
+    {
+        var authState = (await authenticationState).User;
+        if (authState.Identity.IsAuthenticated)
+        {
+            var RoleId = authState.FindFirst("RoleId").Value;
+            GetLoadMenuPermission(RoleId);
+        }
+
+    }
+
+	
+    private SystemMenuObjectPermission? permission;
+    protected async void GetLoadMenuPermission(string RoleId)
+    {
+        isLoading = true;
+        permission = await permissionService.GetPermissionAsync(
+         RoleId,
+         "Sales Orders");
+
+        if (permission is null)
+            return;
+        await ShowLoading();
+        await loadAllData();
+        filteredsalesOrderList = salesOrderList;
+        StateHasChanged();
+    }
+
+    private async Task loadAllData()
+    {
+        await GetSalesOrderLists();
+    }
+
+
+    private string searchText = string.Empty;
+    private IEnumerable<VW_SalesOrders> filteredsalesOrderList;
+    private void ApplyFilter()
+    {
+        if (string.IsNullOrWhiteSpace(searchText))
+        {
+            filteredsalesOrderList = salesOrderList;
+        }
+        else
+        {
+            filteredsalesOrderList = salesOrderList.Where(x =>
+                (!string.IsNullOrEmpty(x.SalesOrderCode) && x.SalesOrderCode.Contains(searchText, StringComparison.OrdinalIgnoreCase)) ||
+                (!string.IsNullOrEmpty(x.CustomerCode) && x.CustomerCode.Contains(searchText, StringComparison.OrdinalIgnoreCase)) ||
+                (!string.IsNullOrEmpty(x.CustomerName) && x.CustomerName.Contains(searchText, StringComparison.OrdinalIgnoreCase)) ||
+                (!string.IsNullOrEmpty(x.CustomerName2) && x.CustomerName2.Contains(searchText, StringComparison.OrdinalIgnoreCase)) ||
+                (!string.IsNullOrEmpty(x.TransferToInfo) && x.TransferToInfo.Contains(searchText, StringComparison.OrdinalIgnoreCase)) ||
+                (!string.IsNullOrEmpty(x.TransferFromInfo) && x.TransferFromInfo.Contains(searchText, StringComparison.OrdinalIgnoreCase)) ||
+                (!string.IsNullOrEmpty(x.SIRef1) && x.SIRef1.Contains(searchText, StringComparison.OrdinalIgnoreCase)) ||
+                (!string.IsNullOrEmpty(x.SIRef2) && x.SIRef2.Contains(searchText, StringComparison.OrdinalIgnoreCase)) ||
+                (!string.IsNullOrEmpty(x.ReferenceNo) && x.ReferenceNo.Contains(searchText, StringComparison.OrdinalIgnoreCase)) ||
+                (!string.IsNullOrEmpty(x.ControlAccountCode) && x.ControlAccountCode.Contains(searchText, StringComparison.OrdinalIgnoreCase))
+            );
+        }
+        StateHasChanged();
+    }
+    private void ClearFilter()
+    {
+        searchText = string.Empty;
+        filteredsalesOrderList = salesOrderList;
+        StateHasChanged();
+    }
+
+
+
+
+    async Task ShowLoading()
+    {
+        await Task.Yield();
+
+        isLoading = false;
+    }
+
+    private async Task GetSalesOrderLists()
+    {
+        var data = await salesOrdersServices.GetSalesOrdersLists();
+        salesOrderList = data is not null ? data.ToList() : new List<VW_SalesOrders>();
+        totalSalesOrder = salesOrderList.Count();
+        totalTax = (decimal)salesOrderList.Sum(x => x.TaxTotalAmount);
+        totalNetTotal = (decimal)salesOrderList.Sum(x => x.NetTotalAmount);
+        totalWTaxTotalAmount = (decimal)salesOrderList.Sum(x => x.WTaxTotalAmount);
+    }
+
+    protected void Edit(Guid Id)
+    {
+        navManager.NavigateTo($"/SalesOrders/Edit/{Id}");
+    }
+
+    private void AddAccount()
+    {
+        navManager.NavigateTo("/SalesOrders");
+    }
+}

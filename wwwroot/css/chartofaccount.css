@@ -1,0 +1,130 @@
+﻿.coa {
+    --coa-line: var(--rz-base-300, rgba(128, 128, 128, 0.3));
+    --coa-muted: var(--rz-text-secondary-color);
+    --coa-surface: var(--rz-base-background-color, #fff);
+    color: var(--rz-text-color);
+}
+
+.coa-head {
+    display: flex;
+    align-items: center;
+    gap: 0.9rem;
+    margin-bottom: 1rem;
+}
+
+.coa-icon {
+    width: 46px;
+    height: 46px;
+    flex: none;
+    display: grid;
+    place-items: center;
+    border-radius: 10px;
+    color: var(--rz-primary);
+    background: color-mix(in srgb, var(--rz-primary) 14%, transparent);
+}
+
+.coa-head h1 {
+    margin: 0;
+    font-size: 1.6rem;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    line-height: 1.2;
+}
+
+.coa-head p {
+    margin: 0.15rem 0 0;
+    color: var(--coa-muted);
+}
+
+.coa-panel {
+    background: var(--coa-surface);
+    border: 1px solid var(--coa-line);
+    border-radius: 10px;
+    padding: 1rem;
+}
+
+.coa-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+    margin-bottom: 0.85rem;
+}
+
+.coa-search {
+    position: relative;
+    flex: 0 1 380px;
+    min-width: 240px;
+}
+
+    .coa-search > .rzi {
+        position: absolute;
+        left: 0.6rem;
+        top: 50%;
+        transform: translateY(-50%);
+        color: var(--coa-muted);
+        pointer-events: none;
+        z-index: 1;
+    }
+
+    .coa-search .rz-textbox {
+        width: 100%;
+        padding-left: 2.2rem;
+    }
+
+.coa-count {
+    color: var(--coa-muted);
+    font-weight: 600;
+    font-size: 0.92rem;
+}
+
+.coa-legend {
+    margin-left: auto;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    color: var(--coa-muted);
+    font-size: 0.88rem;
+}
+
+.coa-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: var(--rz-primary);
+}
+
+.coa-special {
+    color: var(--rz-primary);
+    font-weight: 600;
+}
+
+.coa-code {
+    font-variant-numeric: tabular-nums;
+}
+
+.coa-parent {
+    color: var(--coa-muted);
+}
+
+.coa mark {
+    background: color-mix(in srgb, var(--rz-warning) 40%, transparent);
+    color: inherit;
+    border-radius: 3px;
+    padding: 0 2px;
+}
+
+.coa-empty {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.6rem;
+    padding: 3rem 1rem;
+    color: var(--coa-muted);
+}
+
+@media (max-width: 768px) {
+    .coa-legend {
+        margin-left: 0;
+    }
+}

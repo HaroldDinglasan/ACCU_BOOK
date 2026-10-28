@@ -1,0 +1,187 @@
+﻿@page "/ChangePassword"
+@layout LoginLayout
+
+<div class="abl">
+    <RadzenRow Gap="0" class="abl-shell">
+
+        <!-- LEFT: brand (kapareho ng Login) -->
+        <RadzenColumn Size="12" SizeMD="5">
+            <RadzenCard class="abl-brand">
+                <div>
+                    <div class="abl-logo-wrap">
+                        <div class="ab-book" role="img" aria-label="AccuBook">AB</div>
+                    </div>
+                    <h2>AccuBook</h2>
+                    <p>Accounting System Software <RadzenBadge BadgeStyle="BadgeStyle.Light" Text="BETA" /></p>
+                </div>
+                <div class="abl-note">
+                    <RadzenIcon Icon="menu_book" />
+                    <span>Your books, balanced and ready.</span>
+                </div>
+            </RadzenCard>
+        </RadzenColumn>
+
+        <!-- RIGHT: form / success -->
+        <RadzenColumn Size="12" SizeMD="7">
+            <RadzenCard class="abl-form">
+
+                @if (isShow)
+                {
+                    <h1>Change password</h1>
+                    <p class="abl-sub">
+                        Hi <strong>@FullName</strong>, set a new password before continuing.
+                    </p>
+
+                    <RadzenTemplateForm TItem="SystemUser" Data="@systemUser" Submit="@SaveNewPassword">
+                        <RadzenStack Gap="1rem">
+
+                            <RadzenFormField Text="Old password" Variant="Variant.Filled">
+                                <ChildContent>
+                                    <RadzenPassword Name="OldPassword" @bind-Value="systemUser.OldStoredPassword" AutoComplete="false" />
+                                </ChildContent>
+                                <Helper>
+                                    <RadzenRequiredValidator Component="OldPassword" Text="Old password is required." />
+                                </Helper>
+                            </RadzenFormField>
+
+                            <RadzenFormField Text="New password" Variant="Variant.Filled">
+                                <ChildContent>
+                                    <RadzenPassword Name="NewPassword" @bind-Value="newPassword" AutoComplete="false" />
+                                </ChildContent>
+                                <Helper>
+                                    <RadzenRequiredValidator Component="NewPassword" Text="New password is required." />
+                                    <RadzenLengthValidator Component="NewPassword" Min="8" Text="Use at least 8 characters." />
+                                </Helper>
+                            </RadzenFormField>
+
+                            <RadzenFormField Text="Confirm new password" Variant="Variant.Filled">
+                                <ChildContent>
+                                    <RadzenPassword Name="ConfirmPassword" @bind-Value="confirmPassword" AutoComplete="false" />
+                                </ChildContent>
+                                <Helper>
+                                    <RadzenRequiredValidator Component="ConfirmPassword" Text="Please confirm your new password." />
+                                    <RadzenCompareValidator Component="ConfirmPassword" Value="@newPassword" Text="Passwords do not match." />
+                                </Helper>
+                            </RadzenFormField>
+
+                            @if (!string.IsNullOrEmpty(Message))
+                            {
+                                <RadzenAlert AlertStyle="AlertStyle.Danger" Variant="Variant.Flat" Shade="Shade.Lighter"
+                                             AllowClose="false" Size="AlertSize.Small">
+                                    @Message
+                                </RadzenAlert>
+                            }
+
+                            <RadzenButton ButtonType="ButtonType.Submit" Text="Save new password" class="abl-submit"
+                                          IsBusy="@busy" BusyText="Saving..." />
+                        </RadzenStack>
+                    </RadzenTemplateForm>
+
+                    <a class="abl-back" href="/logout">Log out</a>
+                }
+                else
+                {
+                    <div class="abl-done">
+                        <div class="abl-done-icon"><RadzenIcon Icon="check_circle" /></div>
+                        <h1>Password changed!</h1>
+                        <p class="abl-sub">Please log in with your new password.</p>
+                        <RadzenButton Text="Go to log in" class="abl-submit" Click="@LogOut" />
+                    </div>
+                }
+
+            </RadzenCard>
+        </RadzenColumn>
+
+    </RadzenRow>
+</div>
+
+@code {
+
+    [CascadingParameter]
+    public Task<AuthenticationState> authenticationState { get; set; }
+    protected SystemUser systemUser { get; set; } = new SystemUser();
+
+    string? FullName = "UnknownUser";
+    string Oid;
+    string Message = string.Empty;
+    bool isShow = true;
+    bool busy = false;
+
+    // Hiwalay na field para hindi madala ang default "NTBIDEFAULT123" sa textbox
+    string newPassword = string.Empty;
+    string confirmPassword = string.Empty;
+
+    protected SystemUser checkDefaulParphase { get; set; } = new SystemUser();
+
+    protected override async Task OnInitializedAsync()
+    {
+
+        var authState = (await authenticationState).User;
+
+        if (authState.Identity.IsAuthenticated)
+        {
+            var claim = authState.FindFirst(x => x.Type == System.Security.Claims.ClaimTypes.GivenName);
+            FullName = claim.Value;
+
+            var guids = authState.FindFirst(x => x.Type == System.Security.Claims.ClaimTypes.NameIdentifier);
+            Oid = guids.Value;
+            systemUser.Oid = Guid.Parse(Oid); // Convert string to Guid
+
+            await GetSecuritySystemUserById();
+        }
+
+        if (authState.Identity.Name == null)
+        {
+            LogOut();
+        }
+    }
+
+    protected async Task GetSecuritySystemUserById()
+    {
+        var data = await systemUserServices.GetSystemUserById(Oid);
+        systemUser = data is not null ? data : new SystemUser();
+        if (systemUser.ChangePasswordOnFirstLogon == false)
+        {
+            navManager.NavigateTo("/");
+        }
+    }
+
+    protected void LogOut()
+    {
+        navManager.NavigateTo("/logout");
+    }
+
+    protected async Task SaveNewPassword()
+    {
+        Message = string.Empty;
+
+        if (newPassword != confirmPassword)
+        {
+            Message = "New password and confirmation do not match.";
+            return;
+        }
+
+        busy = true;
+        try
+        {
+            systemUser.StoredPassword = newPassword;
+            var data = await systemUserServices.UpdateUserPassword(systemUser);
+            if (data != "0")
+            {
+                isShow = false;
+                await DialogService.Alert("Please log in with your new password.", "Password changed!", new ConfirmOptions() { OkButtonText = "Ok" });
+            }
+            else
+            {
+                Message = "Old password does not match. Please try again.";
+            }
+        }
+        finally
+        {
+            busy = false;
+            StateHasChanged();
+        }
+    }
+
+
+}

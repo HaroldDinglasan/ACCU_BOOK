@@ -1,0 +1,132 @@
+﻿@page "/"
+@attribute [Authorize]
+@inject HttpClient _http
+
+<PageTitle>Home · AccuBook</PageTitle>
+
+
+<section class="ix-hero">
+    <h1>@Greeting, @FullName</h1>
+    <p class="ix-date">@DateTime.Now.ToString("dddd, MMMM d, yyyy")</p>
+    <RadzenStack Orientation="Orientation.Horizontal" Gap="0.6rem" Wrap="FlexWrap.Wrap">
+        <span class="ix-chip">
+            @if(AccessName == string.Empty)
+            {
+                <RadzenIcon Icon="gpp_bad" />
+            }
+            else
+            {
+                <RadzenIcon Icon="verified_user" />
+
+            }
+          
+            
+            @(AccessName != string.Empty ? AccessName : "No role")</span>
+        <span class="ix-chip"><RadzenIcon Icon="business" />@CompanyLabel</span>
+    </RadzenStack>
+</section>
+
+<div class="ix-info">
+    <div class="ix-item">
+        <div class="ix-icon"><RadzenIcon Icon="person" /></div>
+        <div>
+            <div class="ix-label">Signed in as</div>
+            <div class="ix-value">@FullName</div>
+        </div>
+    </div>
+    <div class="ix-item">
+        <div class="ix-icon"><RadzenIcon Icon="badge" /></div>
+        <div>
+            <div class="ix-label">Role</div>
+            <div class="ix-value">@(AccessName != string.Empty ? AccessName : "No role")</div>
+        </div>
+    </div>
+    <div class="ix-item">
+        <div class="ix-icon"><RadzenIcon Icon="business" /></div>
+        <div>
+            <div class="ix-label">Company</div>
+            <div class="ix-value">@CompanyLabel</div>
+        </div>
+    </div>
+</div>
+
+<p class="ix-hint">Open a module from the menu on the left to get started.</p>
+
+@code {
+    [CascadingParameter]
+    public Task<AuthenticationState> authenticationState { get; set; }
+    string? con;
+    string? companyName = "ERROR 404";
+    string? FullName = "Unknown User";
+    string? AccessName;
+
+    string? guid;
+
+    string CompanyLabel =>
+        string.IsNullOrEmpty(companyName) || companyName == "ERROR 404" ? "No company selected" : companyName;
+
+    string Greeting => DateTime.Now.Hour switch
+    {
+        < 12 => "Good morning",
+        < 18 => "Good afternoon",
+        _ => "Good evening"
+    };
+
+    protected override async Task OnInitializedAsync()
+    {
+        await GetUserName();
+        companyName = await localStorage.GetItemAsync<string>("selectedCompanyName");
+        await CheckPasswordAndAccountAuthentication();
+        //con = companyCode;
+    }
+
+    protected async Task GetUserName()
+    {
+        var authState = (await authenticationState).User;
+
+        if (authState.Identity.IsAuthenticated)
+        {
+            //USER FULL NAME
+            var claim = authState.FindFirst(x => x.Type == System.Security.Claims.ClaimTypes.GivenName);
+            FullName = claim.Value;
+
+            //USER GUID
+            var guids = authState.FindFirst(x => x.Type == System.Security.Claims.ClaimTypes.NameIdentifier);
+            guid = guids.Value;
+
+            //USER ACCESS NAME
+            AccessName = authState.FindFirst("AccessName").Value;
+
+          await  GetSecuritySystemUserById();
+        }
+
+    }
+
+
+    protected SystemUser systemUser { get; set; } = new SystemUser();
+
+    protected async Task GetSecuritySystemUserById()
+    {
+        var data = await systemUserServices.GetSystemUserById(guid);
+        systemUser = data is not null ? data : new SystemUser();
+        // redtext = quotationsModel.IsCancelled == true ? "rz-color-danger-darker" : "";
+        
+    }
+
+
+
+    protected async Task CheckPasswordAndAccountAuthentication()
+    {
+        var authState = (await authenticationState).User;
+        var changePassword = authState.FindFirst(c => c.Type == "ChangePasswordOnFirstLogon")?.Value;
+        var defaultPhase = authState.FindFirst(c => c.Type == "DefaultParphase")?.Value;
+
+        if (changePassword == "1" || changePassword?.ToLower() == "true")
+        {
+            navManager.NavigateTo("/ChangePassword");
+            return;
+        }
+
+        navManager.NavigateTo("/");
+    }
+}

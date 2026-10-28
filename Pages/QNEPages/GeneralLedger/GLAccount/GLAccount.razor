@@ -1,0 +1,257 @@
+﻿@page "/GLAccount"
+@attribute [Authorize(Roles = "Admin,User")]
+
+<RadzenStack Gap="0.2rem">
+    <RadzenDataGrid @ref="grid" Visible="true" @bind-Value=@selectedGLAccount Style="height: 84vh" Data="@GetGeneralLedgerAccount()"
+                    RowDoubleClick="() => OnCellDoubleClick(selectedGLAccount.FirstOrDefault()?.Id)" AllowColumnPicking="true"
+                    TItem="GeneralLedgerAccount" AllowColumnResize="true" AllowVirtualization="true"
+                    IsLoading=@isLoading Sort="@ShowLoading" Page="@ShowLoading" Group="@ShowLoading" Filter="@ShowLoading"
+                    ShowMultiColumnSortingIndex="true" ColumnWidth="200px"
+                    AllowSorting="true" ShowPagingSummary="true" AllowFiltering="true" FilterPopupRenderMode="PopupRenderMode.OnDemand"
+                    FilterMode="FilterMode.CheckBoxList" FilterCaseSensitivity="@filter" LogicalFilterOperator="LogicalFilterOperator.Or">
+        <HeaderTemplate>
+            <RadzenStack Orientation="Orientation.Horizontal"
+                         AlignItems="AlignItems.Center"
+                         Style="width: 100%;">
+                <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem;">
+                    <RadzenButton Text="New"
+                                  Click="@AddAccount"
+                                  ButtonStyle="ButtonStyle.Primary"
+                                  Icon="add" />
+
+                    <!-- DIVIDER -->
+                    <div style="border-left: 2px solid #ccc; height: 2rem; margin: 0 0.5rem;"></div>
+                    <RadzenTextBox InputSize="InputSize.Medium" @bind-Value="@searchText"
+                                   @ref="textBox"
+                                   @oninput="@(args => OnInput(args))"
+                                   Placeholder="Search..."
+                                   Style="width:30rem;" />
+
+                    <RadzenButton Size="ButtonSize.Small" Icon="delete"
+                                  Click="@ClearFilter"
+                                  Text="Clear" />
+                </RadzenStack>
+            </RadzenStack>
+        </HeaderTemplate>
+        <Columns>
+            <RadzenDataGridColumn Width="100px" Visible=false Property="@nameof(GeneralLedgerAccount.Id)" Title="Id"></RadzenDataGridColumn>
+            <RadzenDataGridColumn Width="100px" Visible=false Property="@nameof(GeneralLedgerAccount.RowIndex)" Title="RowIndex"></RadzenDataGridColumn>
+            <RadzenDataGridColumn Width="100px" Property="@nameof(GeneralLedgerAccount.AccountNumber)" Title="Account#"></RadzenDataGridColumn>
+            <RadzenDataGridColumn Width="250px" Property="@nameof(GeneralLedgerAccount.AccountName)" Title="AccountName">
+                <Template Context="data">
+                    <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem" AlignItems="AlignItems.Center">
+                        <RadzenStack Gap="0">
+                            <RadzenText TextStyle="TextStyle.Subtitle2" class="rz-mb-0">@data.AccountNumber</RadzenText>
+                            <RadzenText TextStyle="TextStyle.Subtitle2" class="rz-mb-0">@data.AccountName</RadzenText>
+                        </RadzenStack>
+                    </RadzenStack>
+                </Template>
+                <FooterTemplate>
+                    Total: <b>@totalGLAccount</b>
+                </FooterTemplate>
+            </RadzenDataGridColumn>
+            <RadzenDataGridColumn Width="100px" Property="AccountType" Title="Acc.Type"></RadzenDataGridColumn>
+            <RadzenDataGridColumn Width="100px" Property="SpecialAccount" Title="Special Acc"></RadzenDataGridColumn>
+            <RadzenDataGridColumn Width="100px" Visible=false Property="BankAccountNumber" Title="BankAccountNo"></RadzenDataGridColumn>
+            <RadzenDataGridColumn Width="100px" Property="Currency" Title="Currency"></RadzenDataGridColumn>
+            <RadzenDataGridColumn Width="100px" Visible=false Property="Description2" Title="Description2"></RadzenDataGridColumn>
+            <RadzenDataGridColumn Width="100px" Property="DRCR" Title="DRCR"> </RadzenDataGridColumn>
+            <RadzenDataGridColumn Width="100px" Property="IsActive" Title="IsActive">
+                <Template Context="data">
+                    @if (data.IsActive)
+                    {
+                        <RadzenBadge IsPill="true" BadgeStyle="BadgeStyle.Success" Text="Yes" />
+                    }
+                    else
+                    {
+                        <RadzenBadge IsPill="true" Variant="Variant.Outlined" BadgeStyle="BadgeStyle.Secondary" Text="No" />
+                    }
+                </Template>
+            </RadzenDataGridColumn>
+            <RadzenDataGridColumn Width="100px" Visible=true Property="DefaultInputTaxCode" Title="Default Input TaxCode"></RadzenDataGridColumn>
+            <RadzenDataGridColumn Width="100px" Visible=true Property="DefaultOutputTaxCode" Title="Default Output TaxCode"></RadzenDataGridColumn>
+            <RadzenDataGridColumn Width="100px" Property="Notes" Title="Notes"></RadzenDataGridColumn>
+            <RadzenDataGridColumn Width="100px" Visible=false Property="ParentId" Title="ParentId"></RadzenDataGridColumn>
+            <RadzenDataGridColumn Width="100px" Visible=false Property="SACode" Title="SACode"></RadzenDataGridColumn>
+            <RadzenDataGridColumn Width="100px" Visible=false Property="IsSubAccount" Title="IsSubAccount">
+                <Template><RadzenCheckBox TValue="bool" Value="context.IsSubAccount"></RadzenCheckBox></Template>
+            </RadzenDataGridColumn>
+            <RadzenDataGridColumn Width="100px" Visible=false Property="AccountCode" Title="AccountCode"></RadzenDataGridColumn>
+            <RadzenDataGridColumn Width="100px" Visible=false Property="AccountId" Title="AccountId"></RadzenDataGridColumn>
+
+
+
+
+
+        </Columns>
+    </RadzenDataGrid>
+
+</RadzenStack>
+
+
+@code {
+    [CascadingParameter]
+    public Task<AuthenticationState> authenticationState { get; set; }
+
+    RadzenTextBox textBox;
+    FilterCaseSensitivity filter = FilterCaseSensitivity.CaseInsensitive;
+    Density density = Density.Compact;
+    AlignItems alignItems = AlignItems.Center;
+    Variant variant = Variant.Flat;
+    IEnumerable<string> companyNames;
+    RadzenDataGrid<GeneralLedgerAccount> grid;
+    //SAMPLE DATA
+
+
+
+    IList<IDictionary<string, object>> selectedItems;
+    public IEnumerable<IDictionary<string, object>> data { get; set; }
+    public IDictionary<string, Type> columns { get; set; }
+
+
+    //GLACCOUNTS LIST
+
+    IList<GeneralLedgerAccount> selectedGLAccount;
+    public IEnumerable<GeneralLedgerAccount> GLAccountList;
+
+
+    Accounts accountModel = new Accounts();
+
+    bool isLoading = false;
+    int totalGLAccount;
+
+    protected override async Task OnInitializedAsync()
+    {
+
+        var authState = (await authenticationState).User;
+        if (authState.Identity.IsAuthenticated)
+        {
+            var RoleId = authState.FindFirst("RoleId").Value;
+            GetLoadMenuPermission(RoleId);
+        }
+
+
+
+    }
+
+
+    private SystemMenuObjectPermission? permission;
+    protected async void GetLoadMenuPermission(string RoleId)
+    {
+
+        // var data = await menuService.GetSystemMenuObjectPermissionId(RoleId);
+        // if (data is not null)
+        // 	systemMenuObjectPermissionList = data;
+        // StateHasChanged();
+
+        // var result = systemMenuObjectPermissionList.FirstOrDefault(x => x.MenuName == "GL Account");
+        // if (result.AllowNavigate == true)
+        // {
+        // 	await ShowLoading();
+        // 	await LoadAccounts();
+        // 	filteredGLAccountList = GLAccountList;
+        // 	StateHasChanged();
+        // }
+        // else
+        // {
+        // 	//NavManager.NavigateTo("/NotAuthorized");
+        // 	TabService.OpenPage("NotAuthorized", "Not Authorized", "warning");
+        // 	StateHasChanged();
+        // }
+
+
+
+        isLoading = true;
+        permission = await permissionService.GetPermissionAsync(
+            RoleId,
+            "GL Account");
+
+        if (permission is null)
+            return;
+        await ShowLoading();
+        await LoadAccounts();
+        filteredGLAccountList = GLAccountList;
+        StateHasChanged();
+    }
+
+    async Task OnInput(ChangeEventArgs args)
+    {
+        searchText = args.Value?.ToString() ?? string.Empty;
+        await grid.Reload();
+    }
+
+
+    private string searchText = string.Empty;
+    private IEnumerable<GeneralLedgerAccount> filteredGLAccountList;
+    private IEnumerable<GeneralLedgerAccount> GetGeneralLedgerAccount()
+    {
+        if (GLAccountList == null)
+            return Enumerable.Empty<GeneralLedgerAccount>();
+
+
+        return GLAccountList
+       .Where(x => string.IsNullOrEmpty(searchText) ||
+               (x.AccountNumber?.Contains(searchText, StringComparison.OrdinalIgnoreCase) ?? false) ||
+               (x.AccountName?.Contains(searchText, StringComparison.OrdinalIgnoreCase) ?? false) ||
+               (x.AccountCode?.Contains(searchText, StringComparison.OrdinalIgnoreCase) ?? false) ||
+               (x.BankAccountNumber?.Contains(searchText, StringComparison.OrdinalIgnoreCase) ?? false))
+               .OrderBy(x => x.AccountCode);
+    }
+
+    private void ClearFilter()
+    {
+        searchText = string.Empty;
+        filteredGLAccountList = GLAccountList;
+        StateHasChanged();
+    }
+
+
+
+    async Task ShowLoading()
+    {
+        await Task.Yield();
+
+        isLoading = false;
+    }
+
+    //LOAD DATA GL ACCOUNT\
+    protected async Task LoadAccounts()
+    {
+        var data = await gLAccountsServices.GetGLAccountListView();
+
+        if (data is not null)
+        {
+            GLAccountList = data is not null ? data : new List<GeneralLedgerAccount>();
+            totalGLAccount = GLAccountList.Count();
+        }
+    }
+
+
+    private async Task RefreshGrid()
+    {
+        // Reload the data
+        await LoadAccounts();
+
+        // Refresh the grid
+        await grid.Reload();
+    }
+
+    void OnCellDoubleClick(Guid? Id)
+    {
+        navManager.NavigateTo($"/GLAccount/Edit/{Id}");
+    }
+
+    void Edit(Guid Id)
+    {
+        navManager.NavigateTo($"/GLAccount/Edit/{Id}");
+        //TabService.OpenPage("GLAccountEdit", "Edit Account", "edit", new Dictionary<string, object> {{ "Id", Id }});
+    }
+
+    private void AddAccount()
+    {
+        navManager.NavigateTo("/GLAccount/New");
+        //TabService.OpenPage("GLAccountNew", "New GL Account", "add");
+    }
+
+
+}

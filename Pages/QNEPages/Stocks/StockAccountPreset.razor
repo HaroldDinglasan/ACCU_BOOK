@@ -1,0 +1,184 @@
+﻿@page "/AccountPreset"
+@attribute [Authorize(Roles = "Admin,User")]
+
+<RadzenStack Gap="0.2rem">
+
+    <RadzenRow JustifyContent="JustifyContent.Start" AlignItems="AlignItems.Center" Gap="0.5rem">
+        <RadzenColumn Size="12" SizeSM="7">
+            <RadzenStack AlignItems="AlignItems.Center" Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.Normal">
+                <RadzenTextBox Disabled=@(filteredStockItemsList == null) @bind-Value="@searchText"
+                               Placeholder="Search..."
+                               Style="font-size:smaller; width:30rem;"
+                               Change="@(args => ApplyFilter())" />
+                <RadzenButton Disabled=@(filteredStockItemsList == null) Icon="search" Click="@ApplyFilter" Text="Find" />
+                <RadzenButton Disabled=@(filteredStockItemsList == null) Icon="delete" Click="@ClearFilter" Text="Clear" />
+            </RadzenStack>
+        </RadzenColumn>
+        <RadzenColumn Size="12" SizeSM="5">
+            <RadzenStack AlignItems="AlignItems.Center" Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End">
+                <RadzenButton Text="New" Click="@navigate" Size="ButtonSize.Small" ButtonStyle="ButtonStyle.Primary" Icon="add"></RadzenButton>
+            </RadzenStack>
+        </RadzenColumn>
+    </RadzenRow>
+
+    <RadzenDataGrid @ref="grids" @bind-Value=@selectedStockAccountPreset RowDoubleClick="() => Edit(selectedStockAccountPreset.FirstOrDefault().Id)" TItem="VW_StockAccountPresetListing" AllowPaging="true" PageSize="30"
+                    AllowColumnReorder="true" AllowAlternatingRows="false"
+                    Data="@filteredStockItemsList" AllowColumnPicking="true" Style="height: 85vh; overflow: hidden;"
+                    KeyProperty="Id" PagerHorizontalAlign="HorizontalAlign.Center" AllowColumnResize="true" Density="@density"
+                    AllowSorting="true" ShowPagingSummary="true" AllowFiltering="true"
+                    FilterMode="FilterMode.CheckBoxList" FilterCaseSensitivity="@filter" LogicalFilterOperator="LogicalFilterOperator.Or">
+
+        <HeaderTemplate>
+            <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="1rem" Wrap="FlexWrap.Wrap">
+                <span>
+                    Stock Categories <RadzenBadge Visible="@(status != string.Empty)" Shade="Shade.Dark" BadgeStyle="BadgeStyle.Danger" Text="@status" class="rz-ms-2" />
+                </span>
+            </RadzenStack>
+        </HeaderTemplate>
+
+        <Columns>
+
+            <RadzenDataGridColumn Visible=true Width="120px" TItem="VW_StockAccountPresetListing" Property="@nameof(VW_StockAccountPresetListing.PresetCode)" Title="Preset Code"></RadzenDataGridColumn>
+
+            <RadzenDataGridColumn Visible=true Width="160px" TItem="VW_StockAccountPresetListing" Property="@nameof(VW_StockAccountPresetListing.Description)" Title="Description"></RadzenDataGridColumn>
+
+            <RadzenDataGridColumn TItem="VW_StockAccountPresetListing" Property="@nameof(VW_StockAccountPresetListing.IsDefault)" Title="Default" Width="100px">
+                <Template Context="data">
+                    <RadzenCheckBox Value="data.IsDefault" TValue="bool" Disabled="true" />
+                </Template>
+            </RadzenDataGridColumn>
+
+        </Columns>
+    </RadzenDataGrid>
+</RadzenStack>
+
+
+@code {
+    string status = string.Empty;
+    private RadzenDataGrid<VW_StockAccountPresetListing> grids;
+    private IList<VW_StockAccountPresetListing> selectedStockAccountPreset { get; set; }
+
+    private IEnumerable<VW_StockAccountPresetListing> stockAccountPresetList { get; set; }
+
+    FilterCaseSensitivity filter = FilterCaseSensitivity.CaseInsensitive;
+    Density density = Density.Compact;
+    AlignItems alignItems = AlignItems.Center;
+    Variant variant = Variant.Flat;
+
+    bool isloading;
+
+    [CascadingParameter]
+    public Task<AuthenticationState> authenticationState { get; set; }
+    protected async override Task OnInitializedAsync()
+    {
+
+        var authState = (await authenticationState).User;
+        if (authState.Identity.IsAuthenticated)
+        {
+            var RoleId = authState.FindFirst("RoleId").Value;
+            GetLoadMenuPermission(RoleId);
+        }
+
+        // await loadAllData();
+    }
+
+    private SystemMenuObjectPermission? permission;
+    protected async void GetLoadMenuPermission(string RoleId)
+    {
+        permission = await permissionService.GetPermissionAsync(
+         RoleId,
+         "Account Preset");
+
+        if (permission is null)
+            return;
+        await loadAllData();
+        StateHasChanged();
+    }
+
+
+    private async Task loadAllData()
+    {
+        await GetStockAccountPreset();
+        isloading = false;
+    }
+
+    private async Task GetStockAccountPreset()
+    {
+        var data = await stockItemsService.GetStockAccountPresets();
+        stockAccountPresetList = data is not null ? data : new List<VW_StockAccountPresetListing>();
+        filteredStockItemsList = stockAccountPresetList; // enable search filter
+    }
+
+    protected void Edit(Guid Id)
+    {
+        navManager.NavigateTo($"/AccountPreset/Edit/{Id}");
+    }
+
+    //DoubleClick Cell Event
+    protected void OnCellContextMenu(DataGridCellMouseEventArgs<VW_StockAccountPresetListing> stockItems)
+    {
+        selectedStockAccountPreset = new List<VW_StockAccountPresetListing>() { stockItems.Data };
+
+        var contextMenuItems = new List<ContextMenuItem>
+    {
+        new ContextMenuItem() { Text = "New", Value = 1, Icon = "add" },
+        new ContextMenuItem() { Text = "Edit", Value = 2, Icon = "edit" },
+        new ContextMenuItem() { Text = "Delete", Value = 3, Icon = "delete" }
+    };
+
+        contextMenuService.Open(stockItems, contextMenuItems, (e) =>
+        {
+            switch (e.Value)
+            {
+                case 1:
+                    navigate();
+                    break;
+                case 2:
+                    Edit(stockItems.Data.Id);
+                    // Edit(stockItems.Data.Id);
+
+                    //await AddUpdateGLAccountDialog(stockItems.Data.Id, false);
+                    break;
+                case 3:
+                    // Delete(stockItems.Data.Id);
+                    break;
+
+            }
+            contextMenuService.Close();
+
+        });
+    }
+
+    private void navigate()
+    {
+        navManager.NavigateTo("/AccountPresetList");
+    }
+
+
+    private string searchText = string.Empty;
+    private IEnumerable<VW_StockAccountPresetListing> filteredStockItemsList;
+    private void ApplyFilter()
+    {
+        if (string.IsNullOrWhiteSpace(searchText))
+        {
+            filteredStockItemsList = stockAccountPresetList;
+        }
+        else
+        {
+            filteredStockItemsList = stockAccountPresetList.Where(x =>
+                (!string.IsNullOrEmpty(x.PresetCode) && x.PresetCode.Contains(searchText, StringComparison.OrdinalIgnoreCase)) ||
+                (!string.IsNullOrEmpty(x.Description) && x.Description.Contains(searchText, StringComparison.OrdinalIgnoreCase))
+
+            );
+        }
+        StateHasChanged();
+    }
+    private void ClearFilter()
+    {
+        searchText = string.Empty;
+        filteredStockItemsList = stockAccountPresetList;
+        StateHasChanged();
+    }
+
+
+}

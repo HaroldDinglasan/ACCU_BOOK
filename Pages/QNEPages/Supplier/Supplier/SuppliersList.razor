@@ -1,0 +1,281 @@
+﻿@page "/SuppliersList"
+@attribute [Authorize(Roles = "Admin,User")]
+
+
+
+
+<RadzenStack Gap="0.2rem">
+    <RadzenRow JustifyContent="JustifyContent.Start" AlignItems="AlignItems.Center" Gap="0.5rem">
+        <RadzenColumn Size="12" SizeSM="7">
+            <RadzenStack AlignItems="AlignItems.Center" Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.Normal">
+                <RadzenTextBox @bind-Value="@searchText"
+                               Placeholder="Search..."
+                               Style="font-size:smaller; width:30rem;"
+                               Change="@(args => ApplyFilter())" />
+                <RadzenButton Icon="search" Click="@ApplyFilter" Text="Find" />
+                <RadzenButton Icon="delete" Click="@ClearFilter" Text="Clear" />
+            </RadzenStack>
+        </RadzenColumn>
+        <RadzenColumn Size="12" SizeSM="5">
+            <RadzenStack AlignItems="AlignItems.Center" Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End">
+                <RadzenButton Text="New" Click="@navigate" ButtonStyle="ButtonStyle.Primary" Icon="add"></RadzenButton>
+            </RadzenStack>
+        </RadzenColumn>
+    </RadzenRow>
+
+
+    <RadzenRow>
+        <RadzenColumn>
+            <RadzenDataGrid @ref="grids" @bind-Value=selectedSuppliers TItem="VW_CreditorListing" AllowAlternatingRows="false"
+                            Data="@filteredsupplierList" AllowColumnPicking="true" AllowVirtualization="true" Style="height: 84vh"
+                            IsLoading=@isLoading Sort="@ShowLoading" Page="@ShowLoading" Group="@ShowLoading" Filter="@ShowLoading"
+                            RowDoubleClick="() => Edit(selectedSuppliers.FirstOrDefault().Id)"
+                            KeyProperty="Id" AllowColumnResize="true" Density="@density"
+                            RowClick="() => rightSidebarExpanded = true"
+                            AllowSorting="true" ShowPagingSummary="true" AllowFiltering="true" FilterPopupRenderMode="PopupRenderMode.OnDemand"
+                            FilterMode="FilterMode.CheckBoxList" FilterCaseSensitivity="@filter" LogicalFilterOperator="LogicalFilterOperator.Or">
+                <HeaderTemplate>
+                    <span>
+                        Suppliers
+                    </span>
+                </HeaderTemplate>
+                <Columns>
+
+                    <RadzenDataGridColumn Visible=true TItem="VW_CreditorListing" Property="CompanyCode" Title="Acc #"></RadzenDataGridColumn>
+                    <RadzenDataGridColumn Visible=true TItem="VW_CreditorListing" Property="CompanyName" Title="Name">
+                        <FooterTemplate>
+                            Total: <b>@totalSuppliers</b>
+                        </FooterTemplate>
+                    </RadzenDataGridColumn>
+                    <RadzenDataGridColumn TItem="VW_CreditorListing" Property="RegistrationNo" Title="Registration #"></RadzenDataGridColumn>
+                    <RadzenDataGridColumn TItem="VW_CreditorListing" Property="PurchaserCode" Title="Purchaser"></RadzenDataGridColumn>
+                    <RadzenDataGridColumn TItem="VW_CreditorListing" Property="Term" Title="Term"></RadzenDataGridColumn>
+                    <RadzenDataGridColumn TItem="VW_CreditorListing" Property="CurrencyCode" Title="Currency"></RadzenDataGridColumn>
+                    <RadzenDataGridColumn TItem="VW_CreditorListing" Property="CurrentBalance" Title="Balance">
+                        <Template Context="data">
+                            @{
+                                Func<decimal, string> formatBalance = balance => balance == 0.00M ? string.Empty : balance.ToString("#,0.0000");
+                                var balance = data.CurrentBalance;
+                            }
+                            <span>@formatBalance(balance)</span>
+                        </Template>
+                    </RadzenDataGridColumn>
+                </Columns>
+            </RadzenDataGrid>
+        </RadzenColumn>
+        <RadzenSidebar Responsive="false" @bind-Expanded="@rightSidebarExpanded" Style="width: 400px; background-color: var(--rz-body-background-color);">
+          
+            <RadzenCard class="rz-background-color-white"
+                        Variant="Variant.Outlined"
+                        Style="width: 100%; white-space: normal;">
+                <RadzenStack Gap="0"
+                             Style="width: 360px; max-width: 360px; word-break: break-word; overflow-wrap: break-word;">
+                    <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Start" JustifyContent="JustifyContent.SpaceBetween">
+                      
+                        @if (selectedSuppliers is not null && selectedSuppliers.Any())
+                        {
+                            @foreach (var item in selectedSuppliers)
+                            {
+                                <RadzenStack Gap="0">
+                                    <RadzenText class="@(item.Status == "INACTIVE" ? "rz-color-danger" : "rz-color-success")" TextStyle="TextStyle.Body1"><b>@item.Status</b></RadzenText>
+                                    <RadzenText TextStyle="TextStyle.Overline" class="rz-display-flex rz-mt-2 rz-my-0">Supplier #</RadzenText>
+                                    <RadzenText TextStyle="TextStyle.Body1"><b>@item.CompanyCode</b></RadzenText>
+                                    <RadzenText TextStyle="TextStyle.Overline" class="rz-display-flex rz-mt-2 rz-mb-0 rz-text-wrap">Supplier</RadzenText>
+                                    <RadzenText TextStyle="TextStyle.Body1"><b>@item.CompanyName</b></RadzenText>
+
+                                 
+                                    <RadzenText TextStyle="TextStyle.Body1" class="rz-display-flex rz-mt-5 rz-my-0">
+                                        <RadzenIcon Icon="phone"></RadzenIcon>
+                                        <b>
+                                            @{
+                                                var data = item.PhoneNo1 is not null ? item.PhoneNo1 : " NO PHONE NUMBER";
+                                                @data
+                                            }
+                                        </b>
+                                    </RadzenText>
+                                    <RadzenText TextStyle="TextStyle.Body1" class="rz-display-flex rz-mt-5 rz-my-0">
+                                        <RadzenIcon Icon="email"></RadzenIcon>
+                                        <b>
+                                            @{
+                                                var data = item.Email is not null ? item.Email : " NO EMAIL";
+                                                @data
+                                            }
+                                        </b>
+                                    </RadzenText>
+                                    <RadzenText TextStyle="TextStyle.Body1" class="rz-display-flex rz-mt-5 rz-my-0 rz-text-wrap">
+                                        <RadzenIcon Icon="location_on"></RadzenIcon>
+                                        <b>
+                                            @{
+                                                var data = item.Address1 is not null ? item.Address1 : " NO ADDRESS";
+                                                @data
+                                            }
+                                        </b>
+                                    </RadzenText>
+                                </RadzenStack>
+                             
+                                <RadzenButton Click="() => rightSidebarExpanded = false" Variant=Variant.Text Icon="close"></RadzenButton>
+                            }
+                        }
+                    </RadzenStack>
+                </RadzenStack>
+            </RadzenCard>
+			
+        </RadzenSidebar>
+
+
+
+    </RadzenRow>
+</RadzenStack>
+
+
+
+
+
+@code {
+    bool isLoading = false;
+    int totalSuppliers = 0;
+    [CascadingParameter]
+    public Task<AuthenticationState> authenticationState { get; set; }
+    bool rightSidebarExpanded = false;
+
+    FilterCaseSensitivity filter = FilterCaseSensitivity.CaseInsensitive;
+    Density density = Density.Compact;
+    AlignItems alignItems = AlignItems.Center;
+    Variant variant = Variant.Flat;
+
+    RadzenDataGrid<VW_CreditorListing> grids;
+    public string CompCode { get; set; }
+    IList<VW_CreditorListing> selectedSuppliers { get; set; }
+    IEnumerable<VW_CreditorListing> supplierList { get; set; }
+
+    private Creditors suppliers { get; set; } = new Creditors();
+
+    protected async override Task OnInitializedAsync()
+    {
+        var authState = (await authenticationState).User;
+        if (authState.Identity.IsAuthenticated)
+        {
+            var RoleId = authState.FindFirst("RoleId").Value;
+            GetLoadMenuPermission(RoleId);
+        }
+
+    }
+
+    public IEnumerable<SystemMenuObjectPermission> systemMenuObjectPermissionList;
+    protected async void GetLoadMenuPermission(string RoleId)
+    {
+
+        var data = await menuService.GetSystemMenuObjectPermissionId(RoleId);
+        if (data is not null)
+            systemMenuObjectPermissionList = data;
+        StateHasChanged();
+
+        var result = systemMenuObjectPermissionList.FirstOrDefault(x => x.MenuName == "Suppliers");
+        if (result.AllowNavigate == true)
+        {
+            await ShowLoading();
+            await GetSuppliers();
+            filteredsupplierList = supplierList;
+            StateHasChanged();
+        }
+        else
+        {
+            navManager.NavigateTo("/NotAuthorized");
+            StateHasChanged();
+        }
+
+
+    }
+
+
+
+    private string searchText = string.Empty;
+    private IEnumerable<VW_CreditorListing> filteredsupplierList;
+    private void ApplyFilter()
+    {
+        if (string.IsNullOrWhiteSpace(searchText))
+        {
+            filteredsupplierList = supplierList;
+        }
+        else
+        {
+            filteredsupplierList = supplierList.Where(x =>
+                (!string.IsNullOrEmpty(x.CompanyName) && x.CompanyName.Contains(searchText, StringComparison.OrdinalIgnoreCase)) ||
+                (!string.IsNullOrEmpty(x.CompanyName2) && x.CompanyName2.Contains(searchText, StringComparison.OrdinalIgnoreCase)) ||
+                (!string.IsNullOrEmpty(x.CompanyCode) && x.CompanyCode.Contains(searchText, StringComparison.OrdinalIgnoreCase)) ||
+                (!string.IsNullOrEmpty(x.AccountContactPerson) && x.AccountContactPerson.Contains(searchText, StringComparison.OrdinalIgnoreCase)) ||
+                (!string.IsNullOrEmpty(x.ControlAccountCode) && x.ControlAccountCode.Contains(searchText, StringComparison.OrdinalIgnoreCase))
+            );
+        }
+        StateHasChanged();
+    }
+    private void ClearFilter()
+    {
+        searchText = string.Empty;
+        filteredsupplierList = supplierList;
+        StateHasChanged();
+    }
+
+
+
+
+
+
+    async Task ShowLoading()
+    {
+        await Task.Yield();
+
+        isLoading = false;
+    }
+
+
+
+
+    private void navigate()
+    {
+        navManager.NavigateTo("/Suppliers");
+    }
+
+
+    //Get Supplier From db.Creditors By Id
+    protected async Task GetSupplierById(Guid Id)
+    {
+        //suppliers = await http.GetFromJsonAsync<Creditors>($"api/Supplier/GetSupplierById?companyCode={CompCode}&Id={Id}");
+        var data = await supplierServices.GetSupplierById(Id.ToString());
+        suppliers = data is not null ? data : new Creditors();
+    }
+    protected async void Edit(Guid Id)
+    {
+        // "/Customers/Edit/{id:guid}"
+        var ifExisting = GetSupplierById(Id);
+        if (ifExisting != null)
+        {
+            navManager.NavigateTo($"/Suppliers/Edit/{Id}");
+        }
+        else
+        {
+            await DialogService.Alert("Record Not Found", "Warning");
+        }
+
+    }
+
+    protected async Task GetSuppliers()
+    {
+        var data = await supplierServices.GetSuppliers();
+        supplierList = data is not null ? data : new List<VW_CreditorListing>();
+        totalSuppliers = supplierList.Count();
+
+    }
+
+
+    protected async void DeleteSupplier(Guid Id)
+    {
+
+        if (await DialogService.Confirm("You are about to delete record(s). Do you want to proceed?", "Delete") == true)
+        {
+
+        }
+    }
+
+
+}

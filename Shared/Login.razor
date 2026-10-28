@@ -1,0 +1,190 @@
+﻿@page "/Login"
+@layout LoginLayout
+@* @attribute [AllowAnonymous] *@
+@inject IAuthenticationService AuthService
+@inject MenuService MenuService
+@inject TokenService TokenService
+@inject Blazored.LocalStorage.ILocalStorageService LocalStorage
+@inject NavigationManager NavigationManager
+@inject IJSRuntime _jsRuntime
+
+
+<div class="abl">
+    <RadzenRow Gap="0" class="abl-shell">
+
+        <RadzenColumn Size="12" SizeMD="5">
+            <RadzenCard class="abl-brand">
+                <div>
+                    <div class="abl-logo-wrap">
+                        <div class="ab-book" role="img" aria-label="AccuBook">AB</div>
+                    </div>
+                    <h2>AccuBook</h2>
+                    <p>Accounting System Software <RadzenBadge BadgeStyle="BadgeStyle.Light" Text="BETA" /></p>
+                </div>
+                <div class="abl-note">
+                    <RadzenIcon Icon="menu_book" />
+                    <span>Your books, balanced and ready.</span>
+                </div>
+            </RadzenCard>
+        </RadzenColumn>
+
+        <RadzenColumn Size="12" SizeMD="7">
+            <RadzenCard class="abl-form">
+                <h1>Sign in</h1>
+                <p class="abl-sub">Pick your company, then enter your account details.</p>
+
+                <RadzenStack Gap="1.25rem">
+
+                    <div>
+                        <div class="abl-label">Company</div>
+                        <div class="abl-company">
+                            <RadzenSelectBar TValue="string" Size="ButtonSize.Small" @bind-Value=@SelectedCompanyCode Change="@OnSelectedValueChanged">
+                                <Items>
+                                    @if (companyList == null)
+                                    {
+                                        <RadzenSelectBarItem Value="404" Text="Loading" />
+                                    }
+                                    else
+                                    {
+                                        @foreach (var comp in companyList)
+                                        {
+                                            <RadzenSelectBarItem Style="min-width:5em;" Value="@comp.CompanyCode" Text="@comp.NameCode" />
+                                        }
+                                    }
+                                </Items>
+                            </RadzenSelectBar>
+                        </div>
+                    </div>
+
+                    <RadzenTemplateForm TItem=AuthenticationUserModel Data=@userModel Submit=@LoginUser>
+                        <RadzenStack Gap="1rem">
+                            <RadzenFormField Text="Username" Variant=Variant.Filled>
+                                <ChildContent>
+                                    <RadzenTextBox Name="UserName" @bind-Value=userModel.UserName />
+                                </ChildContent>
+                                <Helper>
+                                    <RadzenRequiredValidator Component="UserName" Text="Username is required." />
+                                </Helper>
+                            </RadzenFormField>
+                            <RadzenFormField Text="Password" Variant=Variant.Filled>
+                                <ChildContent>
+                                    <RadzenPassword Name="StoredPassword" @bind-Value=@userModel.StoredPassword />
+                                </ChildContent>
+                                <Helper>
+                                    <RadzenRequiredValidator Component="StoredPassword" Text="Password is required." />
+                                </Helper>
+                            </RadzenFormField>
+
+                            @if (!string.IsNullOrEmpty(Message))
+                            {
+                                <RadzenAlert AlertStyle="@(IsSigning ? AlertStyle.Info : AlertStyle.Danger)"
+                                             Variant="Variant.Flat" Shade="Shade.Lighter"
+                                             AllowClose="false" Size="AlertSize.Small">
+                                    @Message
+                                </RadzenAlert>
+                            }
+
+                            <RadzenButton ButtonType="ButtonType.Submit" Text="Log in" class="abl-submit"
+                                          IsBusy="@IsSigning" BusyText="Signing in..." />
+                        </RadzenStack>
+                    </RadzenTemplateForm>
+                </RadzenStack>
+
+                <a class="abl-back" href="/WelcomeToAccountingSystem">Back to welcome page</a>
+            </RadzenCard>
+        </RadzenColumn>
+
+    </RadzenRow>
+</div>
+
+@if (IsSigning)
+{
+    <Spinner />
+}
+
+@code {
+
+    [CascadingParameter]
+    public Task<AuthenticationState> authenticationState { get; set; }
+
+    private AuthenticationUserModel userModel = new AuthenticationUserModel();
+
+    public IEnumerable<Company> companyList;
+
+    string Message { get; set; } = string.Empty;
+
+    bool IsSigning = false;
+    string SelectedCompanyCode { get; set; } = "ERROR 404";
+    string? companyName = "ERROR 404";
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData();
+
+        var user = (await authenticationState).User;
+        companyName = await LocalStorage.GetItemAsync<string>("selectedCompanyName");
+
+        // Kung naka-login na at may napiling company, diretso na sa home.
+        // Kung wala, mananatili sa Login page para makapili ng company.
+        if (!string.IsNullOrEmpty(companyName) && companyName != "ERROR 404"
+            && user.Identity?.IsAuthenticated == true)
+        {
+            NavigationManager.NavigateTo("/");
+        }
+    }
+
+    protected async Task LoadData()
+    {
+        companyList = await MenuService.GetCompany();
+    }
+
+    protected async Task LoginUser()
+    {
+        if (string.IsNullOrEmpty(SelectedCompanyCode) || SelectedCompanyCode == "ERROR 404" || SelectedCompanyCode == "404")
+        {
+            Message = "Please select a company.";
+            return;
+        }
+
+        await LoginValidation();
+    }
+
+    protected async Task LoginValidation()
+    {
+        Message = "Signing in...";
+        IsSigning = true;
+
+        try
+        {
+            var result = await AuthService.Login(new UserModel
+            {
+                UserName = userModel.UserName,
+                StoredPassword = userModel.StoredPassword   // plain password ito galing sa textbox
+            });
+
+            if (!string.IsNullOrEmpty(result.Access_Token) && !string.IsNullOrEmpty(result.UserName))
+            {
+                NavigationManager.NavigateTo("/");
+                return;
+            }
+
+            Message = "Invalid username or password.";
+        }
+        catch (Exception ex)
+        {
+            Message = $"May error na naganap. Subukan ulit.{ex.Message}";
+        }
+
+        IsSigning = false;
+    }
+
+    protected async Task OnSelectedValueChanged(string value)
+    {
+        var selectedCompany = companyList?.FirstOrDefault(c => c.CompanyCode == value);
+        if (selectedCompany != null)
+        {
+            await _jsRuntime.InvokeVoidAsync("localStorage.setItem", "selectedCompanyCode", selectedCompany.CompanyCode);
+            await _jsRuntime.InvokeVoidAsync("localStorage.setItem", "selectedCompanyName", selectedCompany.Name);
+        }
+    }
+}

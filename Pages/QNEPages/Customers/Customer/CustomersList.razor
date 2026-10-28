@@ -1,0 +1,287 @@
+﻿@page "/CustomersList"
+@attribute [Authorize(Roles = "Admin,User")]
+@inject HttpClient http
+@inject CustomersServices customerServices
+@inject NavigationManager NavManager
+@inject RequestMessageHandler requestMessageHandler
+@inject DialogService dialogService
+@inject ContextMenuService contextMenuService
+@inject MenuService menuService
+
+<RadzenStack Gap="0.2rem">
+
+    <RadzenRow JustifyContent="JustifyContent.Start" AlignItems="AlignItems.Center" Gap="0.5rem">
+        <RadzenColumn Size="12" SizeSM="7">
+            <RadzenStack AlignItems="AlignItems.Center" Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.Normal">
+                <RadzenTextBox @bind-Value="@searchText"
+                               Placeholder="Search..."
+                               Style="font-size:smaller; width:30rem;"
+                               Change="@(args => ApplyFilter())" />
+                <RadzenButton Icon="search" Click="@ApplyFilter" Text="Find" />
+                <RadzenButton Icon="delete" Click="@ClearFilter" Text="Clear" />
+            </RadzenStack>
+        </RadzenColumn>
+        <RadzenColumn Size="12" SizeSM="5">
+            <RadzenStack AlignItems="AlignItems.Center" Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End">
+                <RadzenButton Text="New" Icon="add" Click="@AddCustomers"></RadzenButton>
+            </RadzenStack>
+        </RadzenColumn>
+    </RadzenRow>
+
+    <RadzenRow>
+        <RadzenColumn>
+            <RadzenDataGrid @ref="grids" @bind-Value=selectedCustomer TItem="VW_Debtors" AllowAlternatingRows="false"
+                            IsLoading=@isLoading Sort="@ShowLoading" Page="@ShowLoading" Group="@ShowLoading" Filter="@ShowLoading"
+                            RowDoubleClick="() => Edit(selectedCustomer.FirstOrDefault().Id)"
+                            Data="@filteredVW_Debtors" AllowColumnPicking="true" AllowVirtualization="true"
+                            Style="height: 84vh" ShowMultiColumnSortingIndex="true"
+                            KeyProperty="Id" AllowColumnResize="true" Density="@density"
+                            RowClick="() => rightSidebarExpanded = true"
+                            AllowSorting="true" ShowPagingSummary="true" AllowFiltering="true" FilterPopupRenderMode="PopupRenderMode.OnDemand"
+                            FilterMode="FilterMode.CheckBoxList" FilterCaseSensitivity="@filter" LogicalFilterOperator="LogicalFilterOperator.Or">
+                <HeaderTemplate>
+                    <span>
+                        Customers
+                    </span>
+                </HeaderTemplate>
+                <Columns>
+
+                    <RadzenDataGridColumn Visible=true TItem="VW_Debtors" Property="CompanyCode" Title="Acc #"></RadzenDataGridColumn>
+                    <RadzenDataGridColumn Visible=true TItem=" VW_Debtors" Property="CompanyName" Title="Name">
+                        <FooterTemplate>
+                            Total: <b>@totalCustomer</b>
+                        </FooterTemplate>
+                    </RadzenDataGridColumn>
+                    <RadzenDataGridColumn Visible=true TItem="VW_Debtors" Property="RegistrationNo" Title="TIN No"></RadzenDataGridColumn>
+                    <RadzenDataGridColumn Visible=true TItem="VW_Debtors" Property="Term" Title="Term"></RadzenDataGridColumn>
+                    <RadzenDataGridColumn Visible=true TItem="VW_Debtors" Property="StaffCode" Title="Agent"></RadzenDataGridColumn>
+                    <RadzenDataGridColumn Visible=true TItem="VW_Debtors" Property="AreaCode" Title="Area"></RadzenDataGridColumn>
+                    <RadzenDataGridColumn Visible=true TItem="VW_Debtors" Property="CurrentBalance" Title="Balance">
+                        <Template Context="data">
+                            @{
+                                var balance = data.CurrentBalance;
+                                @if (balance == 0.00M)
+                                {
+                                    @:<span></span>
+                                }
+                                else
+                                {
+                                    @:<span>@balance.ToString("#,0.0000")</span>
+                                }
+                            }
+                        </Template>
+                    </RadzenDataGridColumn>
+                </Columns>
+            </RadzenDataGrid>
+        </RadzenColumn>
+        <RadzenSidebar Responsive="false" @bind-Expanded="@rightSidebarExpanded" Style="width: 400px; background-color: var(--rz-body-background-color);">
+          
+            <RadzenCard class="rz-background-color-white"
+                        Variant="Variant.Outlined"
+                        Style="width: 100%; white-space: normal;">
+                <RadzenStack Gap="0"
+                             Style="width: 360px; max-width: 360px; word-break: break-word; overflow-wrap: break-word;">
+                    <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Start" JustifyContent="JustifyContent.SpaceBetween">
+                      
+                        @if (selectedCustomer is not null && selectedCustomer.Any())
+                        {
+                            @foreach (var item in selectedCustomer)
+                            {
+                               
+                                <RadzenStack Gap="0">
+                                    <RadzenText class="@(item.Status == "INACTIVE" ? "rz-color-danger" : "rz-color-success")" TextStyle="TextStyle.Body1"><b>@item.Status</b></RadzenText>
+                                    <RadzenText TextStyle="TextStyle.Overline" class="rz-display-flex rz-mt-2 rz-my-0">Customer #</RadzenText>
+                                    <RadzenText TextStyle="TextStyle.Body1"><b>@item.CompanyCode</b></RadzenText>
+                                    <RadzenText TextStyle="TextStyle.Overline" class="rz-display-flex rz-mt-2 rz-mb-0">Customer</RadzenText>
+                                    <RadzenText TextStyle="TextStyle.Body1"><b>@item.CompanyName</b></RadzenText>
+
+                                 
+                                    <RadzenText TextStyle="TextStyle.Body1" class="rz-display-flex rz-mt-5 rz-my-0">
+                                        <RadzenIcon Icon="phone"></RadzenIcon>
+                                        <b>
+                                            @{
+                                                var data = item.PhoneNo1 is not null ? item.PhoneNo1 : " NO PHONE NUMBER";
+                                                @data
+                                            }
+                                        </b>
+                                    </RadzenText>
+                                    <RadzenText TextStyle="TextStyle.Body1" class="rz-display-flex rz-mt-5 rz-my-0">
+                                        <RadzenIcon Icon="email"></RadzenIcon>
+                                        <b>
+                                            @{
+                                                var data = item.Email is not null ? item.Email : " NO EMAIL";
+                                                @data
+                                            }
+                                        </b>
+                                    </RadzenText>
+                                    <RadzenText TextStyle="TextStyle.Body1" class="rz-display-flex rz-mt-5 rz-my-0">
+                                        <RadzenIcon Icon="location_on"></RadzenIcon>
+                                        <b>
+                                            @{
+                                                var data = item.Address1 is not null ? item.Address1 : " NO ADDRESS";
+                                                @data
+                                            }
+                                        </b>
+                                    </RadzenText>
+                                </RadzenStack>
+                             
+                                <RadzenButton Click="() => rightSidebarExpanded = false" Variant=Variant.Text Icon="close"></RadzenButton>
+                            }
+                        }
+                    </RadzenStack>
+                </RadzenStack>
+            </RadzenCard>
+			
+        </RadzenSidebar>
+    </RadzenRow>
+	
+
+</RadzenStack>
+@code {
+    bool isLoading = false;
+    int totalCustomer = 0;
+    bool rightSidebarExpanded = false;
+    [CascadingParameter]
+    public Task<AuthenticationState> authenticationState { get; set; }
+
+    FilterCaseSensitivity filter = FilterCaseSensitivity.CaseInsensitive;
+    Density density = Density.Compact;
+    AlignItems alignItems = AlignItems.Center;
+    Variant variant = Variant.Flat;
+
+
+
+    protected RadzenDataGrid<VW_Debtors> grids;
+    public string CompCode { get; set; }
+    protected IList<VW_Debtors> selectedCustomer { get; set; }
+    protected IEnumerable<VW_Debtors> customerList { get; set; }
+
+    protected async override Task OnInitializedAsync()
+    {
+
+        var authState = (await authenticationState).User;
+        if (authState.Identity.IsAuthenticated)
+        {
+            var RoleId = authState.FindFirst("RoleId").Value;
+            GetLoadMenuPermission(RoleId);
+        }
+
+
+
+    }
+
+
+    public IEnumerable<SystemMenuObjectPermission> systemMenuObjectPermissionList;
+    protected async void GetLoadMenuPermission(string RoleId)
+    {
+
+        var data = await menuService.GetSystemMenuObjectPermissionId(RoleId);
+        if (data is not null)
+            systemMenuObjectPermissionList = data;
+        StateHasChanged();
+
+        var result = systemMenuObjectPermissionList.FirstOrDefault(x => x.MenuName == "Customers");
+        if (result.AllowNavigate == true)
+        {
+            await ShowLoading();
+            await loadAllData();
+            filteredVW_Debtors = customerList;
+            StateHasChanged();
+        }
+        else
+        {
+            NavManager.NavigateTo("/NotAuthorized");
+            StateHasChanged();
+        }
+
+
+    }
+
+
+
+
+
+    private string searchText = string.Empty;
+    private IEnumerable<VW_Debtors> filteredVW_Debtors;
+    private void ApplyFilter()
+    {
+        if (string.IsNullOrWhiteSpace(searchText))
+        {
+            filteredVW_Debtors = customerList;
+        }
+        else
+        {
+            filteredVW_Debtors = customerList.Where(x =>
+                (!string.IsNullOrEmpty(x.CompanyName) && x.CompanyName.Contains(searchText, StringComparison.OrdinalIgnoreCase)) ||
+                (!string.IsNullOrEmpty(x.CompanyName2) && x.CompanyName2.Contains(searchText, StringComparison.OrdinalIgnoreCase)) ||
+                (!string.IsNullOrEmpty(x.CompanyCode) && x.CompanyCode.Contains(searchText, StringComparison.OrdinalIgnoreCase)) ||
+                (!string.IsNullOrEmpty(x.AccountContactPerson) && x.AccountContactPerson.Contains(searchText, StringComparison.OrdinalIgnoreCase)) ||
+                (!string.IsNullOrEmpty(x.GLAccountCode) && x.GLAccountCode.Contains(searchText, StringComparison.OrdinalIgnoreCase))
+            );
+        }
+        StateHasChanged();
+    }
+    private void ClearFilter()
+    {
+        searchText = string.Empty;
+        filteredVW_Debtors = customerList;
+        StateHasChanged();
+    }
+
+
+
+
+
+
+    async Task ShowLoading()
+    {
+        await Task.Yield();
+
+        isLoading = false;
+    }
+
+
+    protected async Task loadAllData()
+    {
+        await GetCustomers();
+        isLoading = false;
+        StateHasChanged();
+    }
+
+    protected async Task GetCustomers()
+    {
+        var data = await customerServices.GetCustomersListing();
+        customerList = data is not null ? data : new List<VW_Debtors>();
+        totalCustomer = customerList.Count();
+    }
+
+
+
+
+    protected async void Edit(Guid Id)
+    {
+        // "/Customers/Edit/{id:guid}"
+        var ifExisting = await customerServices.GetCustomerById(Id.ToString());
+        if (ifExisting != null)
+        {
+            NavManager.NavigateTo($"/Customers/Edit/{Id}");
+        }
+        else
+        {
+            await dialogService.Alert("Record Not Found", "Warning");
+        }
+
+    }
+
+    private void AddCustomers()
+    {
+        NavManager.NavigateTo("/Customers");
+        // navManager.NavigateTo("/Customers");
+    }
+
+    void navigate()
+    {
+        NavManager.NavigateTo("/Customers");
+    }
+
+}

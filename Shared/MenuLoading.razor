@@ -1,0 +1,11 @@
+﻿@inherits LayoutComponentBase
+<RadzenStack Orientation="@Radzen.Orientation.Vertical" JustifyContent="@Radzen.JustifyContent.Center" AlignItems="AlignItems.Center" Gap="2rem" Class="rz-p-12">
+    <div class="placeholder-glow" style="width:150px">
+        <p>Loading...</p>
+        @for (int i = 0; i < 8; i++)
+        {
+            <span class="placeholder rounded-2 col-12 bg-light"></span>
+            <span class="placeholder rounded-2 col-4 bg-light"></span>
+        }
+    </div>
+</RadzenStack>

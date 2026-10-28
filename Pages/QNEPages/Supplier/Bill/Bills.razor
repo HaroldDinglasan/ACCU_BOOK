@@ -1,0 +1,1410 @@
+﻿@page "/Bills"
+@page "/Bills/Edit/{Id:guid}"
+@attribute [Authorize(Roles = "Admin,User")]
+
+
+@if (isloading)
+{
+    <Spinner />
+}
+<RadzenTemplateForm TItem="Bill" Data="bill" Submit="@OnSubmit">
+    <RadzenStack Gap="0.2rem">
+
+
+        <CrudToolbar Title="@(Id.HasValue ? "Edit Bills" : "Create Bills")"
+                     Subtitle="Manage bills information"
+                     Icon="badge"
+                     ButtonSize="@smallbtn"
+                     SaveText="Save"
+                     SaveBusy="@busy"
+                     SaveDisabled=@(bill.CreditorId is null || btnDiseabled || bill.IsCancelled is true || bill.FromDocId != Guid.Empty || Id.HasValue)
+                     BackText="Back to Search"
+                     OnBackSearch="@Navigate" />
+
+
+        <RadzenCard>
+            <div style="margin-bottom: 0.5rem">
+                <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.SpaceBetween">
+                    <RadzenStack Orientation="Orientation.Horizontal">
+                        Bills - @bill.BillCode <RadzenBadge Visible="@(status != string.Empty)" Shade="Shade.Dark" BadgeStyle="BadgeStyle.Danger" Text="@status" class="rz-ms-2" />
+                    </RadzenStack>
+                    <RadzenButton Visible="Id.HasValue" ButtonStyle="ButtonStyle.Light" Icon="info" Click="@OpenDocumentInfoDialog"></RadzenButton>
+                </RadzenStack>
+            </div>
+            <RadzenTabs RenderMode="TabRenderMode.Client">
+                <Tabs>
+                    <RadzenTabsItem Text="Bills">
+                        <RadzenRow Gap="0.5rem">
+                            <RadzenColumn Size="12" SizeMD="4">
+                                <RadzenStack Gap="0.2rem">
+                                    <RadzenRow AlignItems="@alignItems">
+                                        <RadzenColumn Size="12" SizeMD="12">
+                                            <RadzenFormField Style="width:100%" Text="Supplier" AllowFloatingLabel="false">
+                                                <RadzenDropDownDataGrid Name="Supplier" class="@redtext" Disabled="@(bill.IsCancelled == true)" @bind-Value=bill.CreditorId
+                                                                        Change=@(args => OnCreditorChanged((Guid?)args)) AllowSorting="false" Style="width: 100%;" PageSize=10 Data="@supplieraccountList" AllowVirtualization="true" AllowColumnResize="true"
+                                                                        AllowClear="true" FilterCaseSensitivity="@filter" AllowFilteringByAllStringColumns="true"
+                                                                        TextProperty="CompanyCode" Density="@density" ValueProperty="Id">
+                                                    <Columns>
+                                                        <RadzenDropDownDataGridColumn Width="4%" Property="CompanyCode" Title="Supplier #"></RadzenDropDownDataGridColumn>
+                                                        <RadzenDropDownDataGridColumn Width="10%" Property="CompanyName" Title="Name"></RadzenDropDownDataGridColumn>
+                                                    </Columns>
+                                                </RadzenDropDownDataGrid>
+                                            </RadzenFormField>
+                                            <RadzenRequiredValidator Component="Supplier" Text="'Supplier' must not be empty." Style="position: relative"></RadzenRequiredValidator>
+                                        </RadzenColumn>
+                                    </RadzenRow>
+
+                                    <RadzenRow AlignItems="@alignItems">
+                                        <RadzenColumn Size="12" SizeMD="12">
+                                            <RadzenFormField Style="width:100%" Text="Currency" AllowFloatingLabel="false">
+                                                <RadzenDropDownDataGrid Disabled="true" class="@redtext" @bind-Value=@bill.CurrencyId AllowSorting="false" Style="width: 100%;" PageSize=10 AllowColumnResize="true"
+                                                                        AllowClear="true" FilterCaseSensitivity="@filter" AllowFilteringByAllStringColumns="true"
+                                                                        TextProperty="CurrencyCode" Density="@density" Data="@currencyList" ValueProperty="Id">
+                                                    <Columns>
+                                                        <RadzenDropDownDataGridColumn Width="10%" Property="CurrencyCode" Title="CurrencyCode"></RadzenDropDownDataGridColumn>
+                                                        <RadzenDropDownDataGridColumn Width="10%" Property="Description" Title="Description"></RadzenDropDownDataGridColumn>
+                                                    </Columns>
+                                                </RadzenDropDownDataGrid>
+                                            </RadzenFormField>
+                                        </RadzenColumn>
+                                    </RadzenRow>
+
+                                    <RadzenRow AlignItems="@alignItems">
+                                        <RadzenColumn Size="12" SizeMD="12">
+                                            <RadzenFormField Style="width:100%" Text="Rate" AllowFloatingLabel="false">
+                                                <RadzenNumeric ShowUpDown="false" Disabled="@(IsForeignCurrency != true)" class="@redtext" @bind-Value=@bill.CurrencyRate Style="width: 100%;" Placeholder="Exchange Rate"></RadzenNumeric>
+                                            </RadzenFormField>
+                                        </RadzenColumn>
+                                    </RadzenRow>
+
+                                    <RadzenRow AlignItems="@alignItems">
+                                        <RadzenColumn Size="12" SizeMD="12">
+                                            <RadzenFormField Style="width:100%" Text="Description" AllowFloatingLabel="false">
+                                                <RadzenDropDown AllowClear="true" @bind-Value=@bill.Description Data=@descriptionsList TextProperty="Description" ValueProperty="Description" ShowValueTemplateOnEmpty="true" Style="width: 100%" Name="DropDownEdit">
+                                                    <ValueTemplate Context="asd">
+                                                        <RadzenTextBox @bind-Value=@bill.Description Style="width:120%; height:120%;" />
+                                                    </ValueTemplate>
+                                                </RadzenDropDown>
+                                            </RadzenFormField>
+                                        </RadzenColumn>
+                                    </RadzenRow>
+
+                                </RadzenStack>
+                            </RadzenColumn>
+
+                            <RadzenColumn Size="12" SizeMD="4">
+                                <RadzenStack Gap="0.2rem">
+                                    <RadzenRow AlignItems="@alignItems">
+                                        <RadzenColumn Size="12" SizeMD="12">
+                                            <RadzenFormField Variant="Variant.Outlined" Style="width:100%" Text="From" AllowFloatingLabel="false">
+                                                <RadzenTextArea class="@redtext" Style="width: 100%;" @bind-Value=@bill.BillFrom Rows="3" />
+                                            </RadzenFormField>
+                                        </RadzenColumn>
+                                    </RadzenRow>
+
+                                    <RadzenRow AlignItems="@alignItems">
+                                        <RadzenColumn Size="12" SizeMD="12">
+                                            <RadzenFormField Style="width:100%" Text="Purchaser" AllowFloatingLabel="false">
+                                                <RadzenDropDownDataGrid class="@redtext" @bind-Value=@bill.PurchaserId AllowSorting="false" Style="width: 100%;" PageSize=10 Data="@purchaserList" AllowVirtualization="true" AllowColumnResize="true"
+                                                                        AllowClear="true" FilterCaseSensitivity="@filter" AllowFilteringByAllStringColumns="true"
+                                                                        TextProperty="StaffCode" Density="@density" ValueProperty="Id">
+                                                    <Columns>
+                                                        <RadzenDropDownDataGridColumn Width="10%" Property="StaffCode" Title="Purchaser #"></RadzenDropDownDataGridColumn>
+
+                                                    </Columns>
+                                                </RadzenDropDownDataGrid>
+                                            </RadzenFormField>
+                                        </RadzenColumn>
+
+                                    </RadzenRow>
+
+
+                                    <RadzenRow AlignItems="@alignItems">
+                                        <RadzenColumn Size="12" SizeMD="12">
+                                            <RadzenFormField Style="width:100%" Text="Term" AllowFloatingLabel="false">
+                                                <RadzenDropDownDataGrid Name="Term" class="@redtext" @bind-Value=@bill.TermId Style="width: 100%;" Change="@GetDuedate" AllowSorting="false" PageSize=10 Data="@termList" AllowVirtualization="true" AllowColumnResize="true"
+                                                                        AllowClear="true" FilterCaseSensitivity="@filter" AllowFilteringByAllStringColumns="true"
+                                                                        TextProperty="Term" Density="@density" ValueProperty="Id">
+                                                    <Columns>
+                                                        <RadzenDropDownDataGridColumn Width="10%" Property="Term" Title="Term"></RadzenDropDownDataGridColumn>
+                                                        <RadzenDropDownDataGridColumn Width="10%" Property="Description" Title="Description"></RadzenDropDownDataGridColumn>
+                                                    </Columns>
+                                                </RadzenDropDownDataGrid>
+                                            </RadzenFormField>
+                                            <RadzenRequiredValidator Component="Term" Text="'Term' must not be empty." Style="position: relative"></RadzenRequiredValidator>
+
+                                        </RadzenColumn>
+                                    </RadzenRow>
+
+                                </RadzenStack>
+                            </RadzenColumn>
+
+                            <RadzenColumn Size="12" SizeMD="4">
+                                <RadzenStack Gap="0.2rem">
+
+                                    <RadzenRow AlignItems="@alignItems">
+                                        <RadzenColumn Size="12" SizeMD="12">
+                                            <RadzenFormField Style="width:100%" Text="Doc Date" AllowFloatingLabel="false">
+                                                <RadzenDatePicker Change="SetDocumentNo" class="@redtext" @bind-Value="@bill.BillDate" DateFormat="MM/dd/yyyy" Style="width:100%" />
+                                            </RadzenFormField>
+                                        </RadzenColumn>
+                                    </RadzenRow>
+
+                                    <RadzenRow AlignItems="@alignItems">
+                                        <RadzenColumn Size="12" SizeMD="12">
+                                            <RadzenFormField Style="width:92%" Text="Quotation No." AllowFloatingLabel="false">
+                                                <RadzenTextBox class="@redtext" @bind-Value="@bill.BillCode" Style="width: 100%;" />
+                                            </RadzenFormField>
+                                            <RadzenFormField Style="width:5%" AllowFloatingLabel="false">
+                                                <RadzenButton @ref=@button Icon="list" Click="@(args => popup.ToggleAsync(button.Element))" />
+                                            </RadzenFormField>
+                                        </RadzenColumn>
+                                    </RadzenRow>
+
+                                    <RadzenRow AlignItems="@alignItems">
+                                        <RadzenColumn Size="12" SizeMD="12">
+                                            <RadzenFormField Style="width:100%" Text="Supplier INV #" AllowFloatingLabel="false">
+                                                <RadzenTextBox Name="SupplierInvNo" class="@redtext" @bind-Value="@bill.CreditorInvNo" Style="width: 100%;" />
+                                            </RadzenFormField>
+                                            <RadzenRequiredValidator Component="SupplierInvNo" Text="'Supplier INV No.' must be not empty." Style="position: relative" />
+                                        </RadzenColumn>
+                                    </RadzenRow>
+                                    <RadzenRow AlignItems="@alignItems">
+                                        <RadzenColumn Size="12" SizeMD="12">
+                                            <RadzenFormField Style="width:100%" Text="Reference No." AllowFloatingLabel="false">
+                                                <RadzenTextBox Name="Reference" class="@redtext" @bind-Value="@bill.ReferenceNo" Style="width: 100%;" />
+                                            </RadzenFormField>
+                                            <RadzenRequiredValidator Component="Reference" Text="'Reference No.' must be not empty." Style="position: relative" />
+                                        </RadzenColumn>
+                                    </RadzenRow>
+
+                                    <RadzenRow AlignItems="@alignItems" JustifyContent="JustifyContent.Center" Style="margin-top:1rem;">
+
+                                        <RadzenColumn Size="3">
+                                            <RadzenSwitch Style="transform: scale(0.7);" @bind-Value=bill.IsDetailPosting />
+                                            <RadzenText class="@redtext" TextStyle="@textStyle" Style="" Text="Detail Posting"></RadzenText>
+                                        </RadzenColumn>
+                                        <RadzenColumn Size="3">
+                                            <RadzenSwitch Style="transform: scale(0.7);" @bind-Value=bill.IsTaxInclusive Change="@IsTaxInclusiveChanged" />
+                                            <RadzenText class="@redtext" TextStyle="@textStyle" Style="" Text="Tax Inclusive"></RadzenText>
+                                        </RadzenColumn>
+                                        <RadzenColumn Size="3">
+                                            <RadzenSwitch Style="transform: scale(0.7);" @bind-Value=bill.IsDeferredVAT />
+                                            <RadzenText class="@redtext" TextStyle="@textStyle" Style="" Text="Deferred VAT"></RadzenText>
+                                        </RadzenColumn>
+
+                                        @if (Id is not null)
+                                        {
+                                            <RadzenColumn Size="3">
+                                                <RadzenSwitch Style="transform: scale(0.7);" @bind-Value="@bill.IsCancelled" Change=@(args => OnSwitchChanged("IsCancelled")) />
+                                                <RadzenText class="@redtext" TextStyle="@textStyle" Style="" Text="Is Cancelled"></RadzenText>
+                                            </RadzenColumn>
+                                        }
+
+                                    </RadzenRow>
+                                </RadzenStack>
+                            </RadzenColumn>
+                        </RadzenRow>
+                    </RadzenTabsItem>
+                    <RadzenTabsItem Text="Supplier">
+                        <RadzenRow>
+
+                            <RadzenColumn Size="6" SizeMD="6">
+                                <RadzenStack Gap="0.2rem">
+                                    <RadzenRow AlignItems="@alignItems">
+                                        <RadzenColumn Size="12" SizeMD="12">
+                                            @*   <RadzenFormField Style="width:100%" Text="Address" AllowFloatingLabel="false">
+                                                <RadzenTextBox class="@redtext" @bind-Value=@bill.ProjectId Style="width: 100%;" />
+                                            </RadzenFormField> *@
+                                        </RadzenColumn>
+                                    </RadzenRow>
+                                    <RadzenRow AlignItems="@alignItems">
+                                        <RadzenColumn Size="12" SizeMD="12">
+                                            <RadzenFormField Style="width:100%" Text="Project" AllowFloatingLabel="false">
+                                                <RadzenDropDownDataGrid class="@redtext" @bind-Value=@bill.ProjectId AllowSorting="false" Style="width: 100%;"
+                                                                        PageSize=10 Data="@projectList" AllowVirtualization="true" AllowColumnResize="true"
+                                                                        AllowClear="true" FilterCaseSensitivity="@filter" AllowFilteringByAllStringColumns="true"
+                                                                        TextProperty="ProjectCode" Density="@density" ValueProperty="Id"
+                                                                        Change="@(args => OnProjectChanged(args))">
+                                                    <Columns>
+                                                        <RadzenDropDownDataGridColumn Width="15%" Property="ProjectCode" Title="Project Code"></RadzenDropDownDataGridColumn>
+                                                        <RadzenDropDownDataGridColumn Width="15%" Property="Description" Title="Description"></RadzenDropDownDataGridColumn>
+                                                        <RadzenDropDownDataGridColumn Width="8%" Property="IsActive" Title="Active">
+                                                            <Template Context="data2"><RadzenCheckBox TValue="bool" Value="data2.IsActive"></RadzenCheckBox></Template>
+                                                        </RadzenDropDownDataGridColumn>
+                                                    </Columns>
+                                                </RadzenDropDownDataGrid>
+                                            </RadzenFormField>
+                                        </RadzenColumn>
+                                    </RadzenRow>
+
+                                </RadzenStack>
+                            </RadzenColumn>
+                            <RadzenColumn Size="6" SizeMD="6">
+                                <RadzenStack Gap="0.2rem">
+                                    <RadzenRow AlignItems="@alignItems">
+                                        <RadzenColumn Size="12" SizeMD="12">
+                                            <RadzenFormField Style="width:100%" Text="GST Reg #" AllowFloatingLabel="false">
+                                                <RadzenTextBox Disabled="true" class="@redtext" Style="width: 100%;" />
+                                            </RadzenFormField>
+                                        </RadzenColumn>
+                                    </RadzenRow>
+
+                                    <RadzenRow AlignItems="@alignItems">
+                                        <RadzenColumn Size="12" SizeMD="12">
+
+                                        </RadzenColumn>
+                                    </RadzenRow>
+
+                                    <RadzenRow AlignItems="@alignItems">
+                                        <RadzenColumn Size="12" SizeMD="12">
+
+                                        </RadzenColumn>
+                                    </RadzenRow>
+                                </RadzenStack>
+                            </RadzenColumn>
+
+
+                        </RadzenRow>
+                    </RadzenTabsItem>
+                    <RadzenTabsItem Text="Notes">
+                        <RadzenRow>
+                            <RadzenColumn Size="12" SizeMD="12">
+                                <RadzenStack Gap="0.2rem">
+                                    <RadzenRow AlignItems="@alignItems">
+                                        <RadzenColumn Size="12" SizeMD="12">
+                                            <RadzenTextArea @bind-Value=@bill.Notes Rows="10" Style="width:100%" class="@redtext" aria-label="TextArea" />
+                                        </RadzenColumn>
+                                    </RadzenRow>
+                                </RadzenStack>
+                            </RadzenColumn>
+                        </RadzenRow>
+                    </RadzenTabsItem>
+                </Tabs>
+            </RadzenTabs>
+
+            @* TABLE DETAILS*@
+            <br />
+
+            <RadzenDataGrid EditMode="@editMode" @ref="grid" Style="width: 100%;"
+                            Data="@billDetailsList" AllowColumnResize=true RowCreate="@OnCreateRow"
+                            TItem="BillDetails" Density="@density" RowUpdate="@OnUpdateRow" RowRender="@RowRender">
+                @*   <HeaderTemplate>
+                        <RadzenButton ButtonStyle="ButtonStyle.Success" Icon="add" Text="Add New Order" Size="ButtonSize.ExtraSmall" Click="@InsertRow" Disabled="@(editMode == DataGridEditMode.Single && quotationsDetailsToInsert.Count() > 0)" />
+                    </HeaderTemplate> *@
+                <HeaderTemplate>
+                    <RadzenButton ButtonStyle="ButtonStyle.Success" Icon="add" Text="Add New" Size="ButtonSize.ExtraSmall"
+                                  Click="@(() => InsertAfterRow(billDetailsList.LastOrDefault()))" title="Add new row after this row"
+                                  Disabled="@(billDetailsToInsert.Any() || billDetailsToUpdate.Any() || bill.IsCancelled is true )" />
+                </HeaderTemplate>
+                <Columns>
+
+
+                    <RadzenDataGridColumn Width="45px" TextAlign="TextAlign.Center" Property="Action" Frozen="true" FrozenPosition="FrozenColumnPosition.Left">
+                        <Template Context="data">
+                            <RadzenButton Icon="edit" ButtonStyle="ButtonStyle.Secondary" Variant="Variant.Text" Size="ButtonSize.ExtraSmall"
+                                          Click="@(args => EditRow(data))" title="Edit this row"
+                                          Disabled="@(bill.IsCancelled is true || bill.IsReceived is true )" />
+                        </Template>
+                        <EditTemplate Context="data">
+                            <RadzenButton Icon="check" ButtonStyle="ButtonStyle.Success" Variant="Variant.Text" Size="ButtonSize.ExtraSmall" Click="@((args) => SaveRow(data))" title="Save" />
+                        </EditTemplate>
+                    </RadzenDataGridColumn>
+
+                    <RadzenDataGridColumn TItem="BillDetails" Property="@nameof(BillDetails.GLAccountId)" Title="Acct Code" TextAlign="TextAlign.Center">
+                        <Template Context="data">
+                            @{
+                                var stock = glaccountlist?.FirstOrDefault(s => s.Id == data.GLAccountId);
+                            }
+                            @stock?.GLAccountCode
+                        </Template>
+                        <EditTemplate Context="data">
+
+
+                            <RadzenDropDownDataGrid @bind-Value="data.GLAccountId" Style="width: 100%; font-size:12px" PageSize="10" Data="@glaccountlist" AllowVirtualization="true" AllowColumnResize="true"
+                                                    Change="@(args => OnGLAccountChanged(args, data))"
+                                                    AllowClear="true" AllowSorting="false" FilterCaseSensitivity="@filter" AllowFilteringByAllStringColumns="true"
+                                                    TextProperty="GLAccountCode" Density="@density" ValueProperty="Id">
+                                <Columns>
+                                    <RadzenDropDownDataGridColumn Width="6%" Property=@nameof(GLAccounts.GLAccountCode) Title="Account #" />
+                                    <RadzenDropDownDataGridColumn Width="10%" Property=@nameof(GLAccounts.Description) Title="Account Name" />
+                                </Columns>
+                            </RadzenDropDownDataGrid>
+                        </EditTemplate>
+                    </RadzenDataGridColumn>
+                    <RadzenDataGridColumn TItem="BillDetails" Title="Acct Desc" TextAlign="TextAlign.Center">
+                        <Template Context="data">
+                            @{
+                                var stock = glaccountlist?.FirstOrDefault(s => s.Id == data.GLAccountId);
+                            }
+                            @stock?.Description
+                        </Template>
+                    </RadzenDataGridColumn>
+
+                    <RadzenDataGridColumn TItem="BillDetails" Property="@nameof(BillDetails.Description)" Title="Description" TextAlign="TextAlign.Center">
+                        <EditTemplate Context="data">
+                            <RadzenTextBox Style="width: 100%; font-size:12px" @bind-Value="data.Description"></RadzenTextBox>
+                        </EditTemplate>
+                    </RadzenDataGridColumn>
+                    <RadzenDataGridColumn TItem="BillDetails" Property="@nameof(BillDetails.ReferenceNo)" Title="Reference No" TextAlign="TextAlign.Center">
+                        <EditTemplate Context="data">
+                            <RadzenTextBox Style="width: 100%; font-size:12px" @bind-Value="data.ReferenceNo"></RadzenTextBox>
+                        </EditTemplate>
+                    </RadzenDataGridColumn>
+                    <RadzenDataGridColumn TItem="BillDetails" Title="Project" TextAlign="TextAlign.Center">
+                        <Template Context="data">
+                            @{
+                                var project = projectList?.FirstOrDefault(s => s.Id == data.ProjectId);
+                            }
+                            @project?.Description
+                        </Template>
+                        <EditTemplate Context="data">
+                            <RadzenDropDownDataGrid class="@redtext" @bind-Value=@data.ProjectId AllowSorting="false" Style="width: 100%;" PageSize=10 Data="@projectList" AllowVirtualization="true" AllowColumnResize="true"
+                                                    AllowClear="true" FilterCaseSensitivity="@filter" AllowFilteringByAllStringColumns="true"
+                                                    TextProperty="ProjectCode" Density="@density" ValueProperty="Id">
+                                <Columns>
+                                    <RadzenDropDownDataGridColumn Width="15%" Property="ProjectCode" Title="Project Code"></RadzenDropDownDataGridColumn>
+                                    <RadzenDropDownDataGridColumn Width="15%" Property="Description" Title="Description"></RadzenDropDownDataGridColumn>
+                                    <RadzenDropDownDataGridColumn Width="8%" Property="IsActive" Title="Active">
+                                        <Template Context="data2"><RadzenCheckBox TValue="bool" Value="data2.IsActive"></RadzenCheckBox></Template>
+                                    </RadzenDropDownDataGridColumn>
+                                </Columns>
+                            </RadzenDropDownDataGrid>
+                        </EditTemplate>
+                    </RadzenDataGridColumn>
+                    <RadzenDataGridColumn Visible=true TItem="BillDetails" Property="@nameof(BillDetails.Amount)" Title="Amount" TextAlign="TextAlign.Center">
+                        <Template Context="data">
+                            @(data.Amount == 0.0000M ? "" : data.Amount.ToString("N4"))
+                        </Template>
+                        <EditTemplate Context="data">
+                            <RadzenNumeric Style="width: 100%; font-size:12px" Disabled="@IsDisable" Change="@(args => TransactionHelper(data))" TValue="decimal" @bind-Value="data.Amount" Format="#.0000"></RadzenNumeric>
+                        </EditTemplate>
+                    </RadzenDataGridColumn>
+                    <RadzenDataGridColumn Visible=true TItem="BillDetails" Property="@nameof(BillDetails.TaxCodeId)" Title="TaxCode" TextAlign="TextAlign.Center">
+                        <Template Context="data">
+                            @{
+                                var taxcode = taxCodesList?.FirstOrDefault(t => t.Id == data.TaxCodeId);
+                            }
+                            @taxcode?.TaxCode
+                        </Template>
+                        <EditTemplate Context="data">
+                            <RadzenDropDownDataGrid Change="@(args => TransactionHelper(data))" Disabled="@IsDisable" @bind-Value="data.TaxCodeId" AllowSorting="false" Style="font-size:12px" PageSize="10" Data="@taxCodesList"
+                                                    AllowClear="true" FilterCaseSensitivity="@filter" AllowFilteringByAllStringColumns="true"
+                                                    TextProperty="TaxCode" Density="@density" ValueProperty="Id">
+                                <Columns>
+                                    <RadzenDropDownDataGridColumn Width="100px" Property="TaxCode" Title="Vat #" />
+                                    <RadzenDropDownDataGridColumn Width="100px" Property="Rate" Title="Rate" />
+                                    <RadzenDropDownDataGridColumn Width="100px" Property="VatType" Title="VatType" />
+                                    <RadzenDropDownDataGridColumn Width="250px" Property="Description" Title="Description" />
+                                </Columns>
+                            </RadzenDropDownDataGrid>
+                        </EditTemplate>
+                    </RadzenDataGridColumn>
+
+                    <RadzenDataGridColumn Visible=true TItem="BillDetails" Property="@nameof(BillDetails.TaxAmount)" Title="Tax" TextAlign="TextAlign.Center">
+                        <Template Context="data">
+                            @(data.TaxAmount.GetValueOrDefault() == 0M ? "" : data.TaxAmount?.ToString("N8"))
+                        </Template>
+                    </RadzenDataGridColumn>
+
+                    <RadzenDataGridColumn Visible=true TItem="BillDetails" Property="@nameof(BillDetails.WTaxCode)" Title="WTax Code" TextAlign="TextAlign.Center">
+                        <Template Context="data">
+                            @{
+                                var wtaxcode = wTaxCodesList?.FirstOrDefault(w => w.Id == data.WTaxCode);
+                            }
+                            @wtaxcode?.Code
+                        </Template>
+
+                        <EditTemplate Context="data">
+                            <RadzenDropDownDataGrid Disabled="@IsDisable" @bind-Value="data.WTaxCode" AllowSorting="false" Style="font-size:12px" PageSize="10" Data="@FilteredWTaxCodesList"
+                                                    AllowClear="true" FilterCaseSensitivity="@filter" AllowFilteringByAllStringColumns="true"
+                                                    TextProperty="Code" Density="@density" ValueProperty="Id" Change="@(args => TransactionHelper(data))">
+                                <Columns>
+                                    <RadzenDropDownDataGridColumn Width="100px" Property="Code" Title="Code" />
+                                    <RadzenDropDownDataGridColumn Width="100px" Property="Rate" Title="Rate">
+                                        <Template Context="wtaxcode">
+                                            @((wtaxcode.Rate * 100).ToString("0.00") + "%")
+                                        </Template>
+                                    </RadzenDropDownDataGridColumn>
+                                    <RadzenDropDownDataGridColumn Width="250px" Property="Description" Title="Description" />
+                                </Columns>
+                            </RadzenDropDownDataGrid>
+                        </EditTemplate>
+                    </RadzenDataGridColumn>
+
+                    <RadzenDataGridColumn Visible=false TItem="BillDetails" Property="@nameof(BillDetails.IsTaxInclusive)" Title="Is TaxInclusive" TextAlign="TextAlign.Center" />
+                    <RadzenDataGridColumn Visible=false TItem="BillDetails" Property="@nameof(BillDetails.SubAmount)" Title="SubAmount" TextAlign="TextAlign.Center" />
+                    <RadzenDataGridColumn Visible=false TItem="BillDetails" Property="@nameof(BillDetails.TaxExclusiveAmount)" Title="TaxExclusiveAmount" TextAlign="TextAlign.Center" />
+                    <RadzenDataGridColumn Visible=false TItem="BillDetails" Property="@nameof(BillDetails.Pos)" Title="Pos" TextAlign="TextAlign.Center" />
+                    <RadzenDataGridColumn Visible=false TItem="BillDetails" Property="@nameof(BillDetails.TaxAmount)" Title="TaxAmount" TextAlign="TextAlign.Center" />
+                    <RadzenDataGridColumn Visible=true TItem="BillDetails" Property="@nameof(BillDetails.NetAmount)" Title="Net" TextAlign="TextAlign.Center" />
+
+                    <RadzenDataGridColumn Width="45px" TextAlign="TextAlign.Center" Property="Action" Frozen="true" FrozenPosition="FrozenColumnPosition.Right">
+                        <Template Context="data">
+                            <RadzenButton Icon="delete" ButtonStyle="ButtonStyle.Danger" title="Delete" Variant="Variant.Text" Size="ButtonSize.ExtraSmall" Click="@(args => DeleteRow(data))" Disabled="@(billDetailsList.Count == 1 || bill.IsCancelled is true)" />
+                        </Template>
+                    </RadzenDataGridColumn>
+
+                </Columns>
+            </RadzenDataGrid>
+            @* END OF TABLE DETAILS*@
+        </RadzenCard>
+        <RadzenCard Style="Padding: 0.5rem">
+            <RadzenRow JustifyContent="JustifyContent.Right" AlignItems="AlignItems.Center" Gap="0.5rem">
+                <RadzenColumn Size="12" SizeSM="5">
+                    <RadzenStack AlignItems="AlignItems.Center" Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End">
+
+                        <RadzenFormField Style="width:100%" Text="Taxable" AllowFloatingLabel="false">
+                            <RadzenNumeric Disabled=true Value="@bill.TaxExclusiveTotalAmountLocal" Format="#,0.00" ShowUpDown="false" TextAlign="TextAlign.Right" Style="width: 100%;" Placeholder="" />
+                        </RadzenFormField>
+
+                        <RadzenFormField Style="width:100%" Text="Tax" AllowFloatingLabel="false">
+                            <RadzenNumeric Disabled=true Value="@bill.TaxTotalAmountLocal" Format="#,0.00" ShowUpDown="false" TextAlign="TextAlign.Right" Style="width: 100%;" Placeholder="" />
+                        </RadzenFormField>
+
+                        <RadzenFormField Style="width:100%" Text="Due Amount" AllowFloatingLabel="false">
+                            <RadzenNumeric Disabled=true Value="@DueAmount" Format="#,0.00" ShowUpDown="false" TextAlign="TextAlign.Right" Style="width: 100%;" Placeholder="" />
+                        </RadzenFormField>
+
+                    </RadzenStack>
+                </RadzenColumn>
+            </RadzenRow>
+        </RadzenCard>
+
+
+    </RadzenStack>
+    <RadzenPopup @ref=popup Lazy=true class="my-popup">
+        <RadzenDataGrid RowDoubleClick="() => SetDocumentNoPopup(selectedtransactionCodesList.FirstOrDefault().Id)"
+                        TItem="TransactionsCode"
+                        @ref=transactionsCodeGrid
+                        @bind-Value="@selectedtransactionCodesList"
+                        Data=@transactionCodesList>
+            <Columns>
+                <RadzenDataGridColumn TItem="TransactionsCode" Property="@nameof(TransactionsCode.Format)" Title="Format" TextAlign="TextAlign.Center" Width="300px">
+                    <Template Context="transactionCode">
+                        @transactionCode.Format
+                    </Template>
+                </RadzenDataGridColumn>
+            </Columns>
+        </RadzenDataGrid>
+
+    </RadzenPopup>
+</RadzenTemplateForm>
+
+
+
+
+@* //FOR POP UP DIALOG *@
+<style type="text/css">
+    .my-popup {
+        display: none;
+        position: absolute;
+        overflow: hidden;
+        height: 160px;
+        width: 300px;
+        border: var(--rz-panel-border);
+        background-color: var(--rz-panel-background-color);
+        box-shadow: var(--rz-panel-shadow);
+        border-radius: var(--rz-border-radius)
+    }
+</style>
+
+@code {
+    [Parameter]
+    public Guid? Id { get; set; }
+
+    [CascadingParameter]
+    public Task<AuthenticationState> authenticationState { get; set; }
+
+
+    AlignItems alignItems = AlignItems.Center;
+    Density density = Density.Compact;
+    TextStyle textStyle = TextStyle.Body2;
+    FilterCaseSensitivity filter = FilterCaseSensitivity.CaseInsensitive;
+    Variant btnVariantText = Variant.Text;
+    ButtonSize smallbtn = ButtonSize.Small;
+
+
+    //FOR POP UP DIALOG
+    RadzenButton button;
+    RadzenPopup popup;
+    RadzenDataGrid<TransactionsCode> transactionsCodeGrid;
+    protected IList<TransactionsCode> selectedtransactionCodesList { get; set; }
+
+    //FOR PROPERTY SET VALUE OF OBJECT
+    string btnText = "Save";
+    bool busy = false;
+    string status = string.Empty;
+    string redtext;
+
+    //for diseabled quotatuion details table
+    protected bool IsDisable = true;
+
+    //for loading data
+    bool isloading = true;
+    bool btnDiseabled = false;
+
+
+
+    protected Bill bill { get; set; } = new Bill();
+
+    //FOR QUOTATION DETAILS GRID
+    // Add this after initializing quotationsDetailsList to ensure a first row is loaded by default
+    RadzenDataGrid<BillDetails> grid;
+    DataGridEditMode editMode = DataGridEditMode.Single;
+    List<BillDetails> billDetailsToInsert = new List<BillDetails>();
+    List<BillDetails> billDetailsToUpdate = new List<BillDetails>();
+    protected List<BillDetails> billDetailsList { get; set; }
+
+    //ALL LIST FOR DROPDOWN BOX INPUT
+    protected IEnumerable<Projects> projectList { get; set; }
+    protected IEnumerable<Currencies> currencyList { get; set; }
+    protected IEnumerable<Creditors> supplieraccountList { get; set; }
+    protected IEnumerable<Terms> termList { get; set; }
+    protected IEnumerable<Purchasers> purchaserList { get; set; }
+
+    protected IEnumerable<WTaxCodes> wTaxCodesList { get; set; }
+    protected IEnumerable<TaxCodes> taxCodesList { get; set; }
+
+    protected IEnumerable<Descriptions> descriptionsList { get; set; }
+    protected IEnumerable<TransactionsCode> transactionCodesList { get; set; }
+
+    protected DescriptionFilter descriptionFilter { get; set; } = new DescriptionFilter();
+    protected TransactionCodesFilter transactionCodesFilter = new TransactionCodesFilter();
+    protected TaxCodeFilter taxCodeFilter = new TaxCodeFilter();
+
+    string value = "";
+    IEnumerable<string> companyNames;
+
+    string? userId;//USER GUID
+
+
+    protected async override Task OnInitializedAsync()
+    {
+
+        var authState = (await authenticationState).User;
+        if (authState.Identity.IsAuthenticated)
+        {
+            var RoleId = authState.FindFirst("RoleId").Value;
+
+            //USER GUID
+            var userguid = authState.FindFirst(x => x.Type == System.Security.Claims.ClaimTypes.NameIdentifier);
+            userId = userguid.Value;
+
+            GetLoadMenuPermission(RoleId);
+        }
+
+    }
+
+    private SystemMenuObjectPermission? permission;
+    protected async void GetLoadMenuPermission(string RoleId)
+    {
+        permission = await permissionService.GetPermissionAsync(
+         RoleId,
+         "Bills");
+
+        if (permission is null)
+            return;
+
+        SetTransactionCodeData();
+        InitializeDetailsRows();
+        await loadAllData();
+        if (Id is not null)
+        {
+            await loadAllDataById();
+        }
+        StateHasChanged();
+    }
+
+
+
+    protected void SetTransactionCodeData()
+    {
+        descriptionFilter.OwnerCode = "Bills.Description";
+        transactionCodesFilter.TableId = 20;
+    }
+
+
+    protected void LoadDocumentStatus()
+    {
+        var statusList = new List<string>();
+        if (bill.FromDocId != Guid.Empty)
+            statusList.Add("Posted From Purchase");
+
+        if (bill.IsCancelled)
+            statusList.Add("Cancelled");
+
+        if (statusList.Any())
+        {
+            status = $"({string.Join(", ", statusList)})";
+        }
+
+        StateHasChanged();
+    }
+
+    protected GLTransactions gLTransactions { get; set; } = new GLTransactions();
+    protected async Task OnSubmit()
+    {
+
+        busy = true;
+        //SAVING
+        if (billDetailsToInsert.Any() || billDetailsToUpdate.Any())
+        {
+            NotificationHelper.ShowWarning(notificationService, "Unsaved Details", "Please click the 'Save' (checkmark) button for any active or newly added detail rows in the grid before saving.");
+            busy = false;
+            return;
+        }
+
+        if (!billDetailsList.Any(x => x.GLAccountId != null))
+        {
+            NotificationHelper.ShowError(notificationService, "Unsaved Details", "Please insert at least one data on details before saving.");
+            busy = false;
+            return;
+        }
+
+        var data = await billServices.SaveBillHeaderAndDetails(bill, billDetailsList);
+        if (data is not null)
+        {
+            if (data.Contains("Success"))
+            {
+                var info = await documentsInfoService.SaveDocumentInfo(documentInfo);
+                await DialogService.Alert(data + info);
+                btnDiseabled = true;
+                busy = false;
+            }
+            else
+            {
+                await DialogService.Alert(data);
+                btnDiseabled = false;
+            }
+
+        }
+        // btnDiseabled = true;
+        // bill = new();
+        // billDetailsList = new();
+        // InitializeQuotationDetailsRows();
+        StateHasChanged();
+    }
+
+
+    DialogPosition position;
+    bool closeDialogOnOverlayClick;
+    bool showMask;
+    bool resizable;
+    protected DocumentInfo documentInfo { get; set; } = new DocumentInfo();
+    async Task OpenDocumentInfoDialog()
+    {
+        await DialogService.OpenSideAsync<DocumentInfoPage>(
+            "Document Info",
+            new Dictionary<string, object?>
+            {
+            { "Id", (Guid?)Id }
+            },
+            options: new SideDialogOptions
+            {
+                CloseDialogOnOverlayClick = closeDialogOnOverlayClick,
+                Resizable = resizable,
+                Position = position,
+                ShowMask = showMask,
+                MinHeight = 250.0,
+                MinWidth = 350.0
+            });
+
+    }
+    protected void SetDocumentInfo()
+    {
+        documentInfo.DocumentId = bill.Id.ToString();
+        documentInfo.FirstCreatedUserId = userId;
+        documentInfo.LastModifiedUserId = userId;
+        documentInfo.DocType = "Bills";
+    }
+
+    protected async Task loadAllData()
+    {
+        await GetTransactionNo();
+        await GetSupplierList();
+        await GetTermList();
+        await GetCurrencyList();
+        SetDefaultCurrency();
+        await GetGLAccountLists();
+        await GetTaxCodesList();
+        await GetWTaxCodesList();
+        await GetPurchaserList();
+        await GetDescriptions();
+        await GetProjectList();
+        await SetDocumentNo();
+        await GetStockBundle();
+        SetDocumentInfo();
+
+        isloading = false;
+    }
+
+    protected async Task loadAllDataById()
+    {
+        await GetDocumentInfoById();
+        await GetBillsById();
+        await GetBillsDetailById();
+        SetDocumentInfo();
+        LoadDocumentStatus();
+        isloading = false;
+    }
+
+    protected IEnumerable<GLAccounts> glaccountlist { get; set; }
+    protected async Task GetGLAccountLists()
+    {
+        var data = await gLAccountsServices.GetGLAccountList();
+        glaccountlist = data is not null ? data : new List<GLAccounts>();
+    }
+
+    protected async Task GetDuedate()
+    {
+        int terms = termList.FirstOrDefault(t => t.Id == bill.TermId)?.TermDays ?? 0;
+
+        bill.DueDate = await termsDayMonthServices.ComputeDaysMonth(bill.BillDate, terms);
+
+    }
+
+
+    //Get Currencies From db.Currencies
+    protected async Task GetCurrencyList()
+    {
+        var data = await currenciesService.GetCurrencies();
+        currencyList = data is not null ? data : new List<Currencies>();
+
+    }
+    protected void SetDefaultCurrency()
+    {
+        var selectedcurrency = currencyList.FirstOrDefault(c => c.Id == 1);
+        bill.CurrencyId = selectedcurrency.Id;
+        bill.CurrencyRate = selectedcurrency.DefaultPurchaseRate;
+    }
+
+    protected async Task GetSupplierList()
+    {
+        var data = await suppliersServices.GetSupplierLists();
+        supplieraccountList = data is not null ? data : new List<Creditors>();
+    }
+    protected async Task GetTermList()
+    {
+        var data = await termService.GetTermsLists();
+        termList = data is not null ? data : new List<Terms>();
+    }
+
+    protected async Task GetProjectList()
+    {
+        var data = await projectService.GetProjectsLists();
+        projectList = data is not null ? data : new List<Projects>();
+    }
+
+
+    protected async Task GetPurchaserList()
+    {
+        var data = await purchaseRequisitionsService.GetPurchaserLists();
+        purchaserList = data is not null ? data : new List<Purchasers>();
+
+    }
+
+    protected async Task GetDescriptions()
+    {
+        var data = await descriptionsService.GetDescriptions(descriptionFilter);
+        descriptionsList = data is not null ? data : new List<Descriptions>();
+    }
+
+
+
+    private async void OnGLAccountChanged(object GLAccountId, BillDetails billDetails)
+    {
+        var selectedCreditor = supplieraccountList.FirstOrDefault(c => c.Id == bill.CreditorId);
+
+        if (GLAccountId != null && GLAccountId is Guid selectedGLAccountId)
+        {
+            var selectedGLaccount = glaccountlist?.FirstOrDefault(s => s.Id == selectedGLAccountId);
+            if (selectedGLaccount != null)
+            {
+                IsDisable = false;
+                billDetails.BillId = bill.Id;
+                billDetails.Description = selectedCreditor?.CompanyName;
+                //billDetails.GLAccountId = selectedGLAccountI
+                billDetails.TaxCodeId = selectedCreditor?.DefaultTaxCodeId;
+                billDetails.WTaxCode = selectedCreditor?.DefaultWTaxCodeId;
+                billDetails.ProjectId = bill.ProjectId;
+                billDetails.ReferenceNo = bill.ReferenceNo;
+                billDetails.DepartmentId = bill.DepartmentId;
+                billDetails.CostCentreId = bill.CostCentreId;
+
+                // billDetails.WTaxCode = selectedGLaccount?.DefaultWTaxCodeId;
+
+                // bill.Tax
+            }
+        }
+        else
+        {
+            IsDisable = true;
+            billDetails = new();
+        }
+
+        StateHasChanged();
+    }
+
+    ///FOR INSERT BUNDLED ITEM <summary>
+    ///
+    /// </summary>
+    protected List<StockBundlesModel> stockbundleDetailList { get; set; } = new();
+    private async Task GetStockBundle()
+    {
+        var data = await stockItemsService.GetStockBundlesList();
+        stockbundleDetailList = data is not null ? data.ToList() : new List<StockBundlesModel>();
+    }
+    public async void InsertBundleRow(Stocks selectedStock, BillDetails billDetails, Debtors selectedDebtor)
+    {
+        if (selectedStock.IsBundled)
+        {
+            // 1. Hanapin current row index
+            var currentIndex = billDetailsList.IndexOf(billDetails);
+
+            if (currentIndex >= 0)
+            {
+                // 2. Kunin lahat ng bundle items
+                var bundleItems = stockbundleDetailList
+                    .Where(x => x.StockId == selectedStock.Id)
+                    .ToList();
+
+                int insertIndex = currentIndex + 1;
+
+                // 3. Insert child rows kasunod ng parent
+                foreach (var item in bundleItems)
+                {
+                    var newRow = new BillDetails
+                    {
+                        TaxCodeId = selectedDebtor?.DefaultTaxCodeId,
+                        WTaxCode = selectedDebtor?.DefaultWTaxCodeId,
+                        // StockId = item.SubItemId,
+                        // QuotationId = bill.Id,
+                        Description = item.Description,
+                        //  Qty = item.Qty,
+                        //  StockLocationId = bill.StockLocationId,
+                        //  UOMId = item.UOMId,
+                        // optional fields
+                        //  Discount = string.Empty
+                    };
+
+                    billDetailsList.Insert(insertIndex, newRow);
+                    insertIndex++;
+                }
+
+                // 5. Refresh UI
+                await grid.Reload();
+                StateHasChanged();
+            }
+        }
+    }
+
+
+
+    protected async Task GetTransactionNo()
+    {
+        var data = await transactionCodeService.GetTransactionNo(transactionCodesFilter);
+        transactionCodesList = data is not null ? data : new List<TransactionsCode>();
+    }
+
+
+    //FOR RUNNING NUMBERS
+    protected TransactionsCode selectedTransacCode => transactionCodesList.FirstOrDefault(sa => sa.IsDefault == true);
+    protected RunningNumbers runningNumbers { get; set; } = new RunningNumbers();
+
+    protected async Task SetDocumentNoPopup(int Id)
+    {
+        await SetDocumentNo();
+    }
+    protected async Task SetDocumentNo()
+    {
+        runningNumbers.DocDate = bill.BillDate;
+        runningNumbers.Format = selectedTransacCode?.Format;
+        runningNumbers.ColumnName = "BillCode";
+        runningNumbers.TableName = "Bills";
+
+        await GetNextDocumentCodeAsync();
+        await popup.CloseAsync();
+
+    }
+    private async Task GetNextDocumentCodeAsync()
+    {
+
+        var data = await runningNumberService.GetNextRunningNumber(runningNumbers);
+        bill.BillCode = data is not null ? data : string.Empty;
+
+    }
+
+    protected void SetRedText()
+    {
+        redtext = bill.IsCancelled == true ? "rz-color-danger-darker" : "";
+    }
+
+
+    protected async Task GetDocumentInfoById()
+    {
+        var data = await documentsInfoService.GetDocumentInfoById(Id.ToString());
+        documentInfo = data is not null ? data : new DocumentInfo();
+    }
+
+    protected async Task GetBillsById()
+    {
+        var data = await billServices.GetBillsById(Id.ToString());
+        bill = data is not null ? data : new Bill();
+        redtext = bill.IsCancelled == true ? "rz-color-danger-darker" : "";
+        SetRedText();
+    }
+
+
+    protected async Task GetBillsDetailById()
+    {
+        var data = await billServices.GetBillsDetailById(Id.ToString());
+        billDetailsList = data is not null ? data.ToList() : new List<BillDetails>();
+    }
+
+
+
+    //Tax Code List
+    //FOR TAXCODE DROPDOWN
+    protected async Task GetTaxCodesList()
+    {
+        taxCodeFilter.IsOutOrIn = false;// true for Output Tax Codes
+        taxCodeFilter.IsActive = true; // true for Active Tax Codes
+
+        var data = await allTaxCodeService.GetTaxCodes(taxCodeFilter);
+        taxCodesList = data is not null ? data : new List<TaxCodes>();
+    }
+
+    //FOR WTAXCODE DROPDOWN
+    //CreditableAccount != null IS REFERRING TO CREDIABLE ACCOUNT WHICH IS CREDITABLE WTAX ON GLACCOUNT
+    protected IEnumerable<WTaxCodes> FilteredWTaxCodesList => wTaxCodesList?.Where(w => w.CreditableAccount != null) ?? Enumerable.Empty<WTaxCodes>();
+    protected async Task GetWTaxCodesList()
+    {
+        // wTaxCodesList = await http.GetFromJsonAsync<List<WTaxCodes>>("api/AllTaxCodes/GetWTaxCodesList?companyCode=" + CompCode);
+        var data = await allTaxCodeService.GetWTaxCodes();
+        wTaxCodesList = data is not null ? data : new List<WTaxCodes>();
+    }
+
+    protected void OnCreditorChanged(object Id)
+    {
+        if (Id is not null)
+        {
+            if (supplieraccountList.FirstOrDefault(sa => sa.Id == (Guid)Id) is var selectedsuppliers && selectedsuppliers != null)
+            {
+                LoadBillsDataModel(selectedsuppliers);
+            }
+        }
+        else
+        {
+            ClearBillsDataModel();
+        }
+    }
+
+    bool IsForeignCurrency = false;
+    public void LoadBillsDataModel(Creditors selectedsuppliers)
+    {
+        var currency = currencyList.FirstOrDefault(c => c.Id == selectedsuppliers.CurrencyId);
+
+        bill.CreditorId = selectedsuppliers.Id;
+        bill.GLAccountId = selectedsuppliers.GLAccountId;
+        bill.CurrencyId = selectedsuppliers.CurrencyId;
+        bill.CurrencyRate = currency?.DefaultPurchaseRate ?? 0;
+        IsForeignCurrency = currency.IsForeign; /// for editing CurrencyRate Textbox
+        bill.ObjectType = 9; /// object value is from XPObjectType Table
+
+        bill.BillFrom = string.Join(Environment.NewLine, selectedsuppliers.CompanyName, selectedsuppliers.Address1); ///merge of Creditor Name and Address
+    }
+
+    public void ClearBillsDataModel()
+    {
+        SetDefaultCurrency();
+        bill.CreditorId = null;
+        bill.BillFrom = string.Empty;
+        IsForeignCurrency = false;
+
+    }
+
+
+    private void OnProjectChanged(object projectId)
+    {
+        int? selectedprojectId = projectId as int?;
+
+        foreach (var detail in billDetailsList)
+        {
+            detail.ProjectId = selectedprojectId;
+        }
+
+        StateHasChanged();
+    }
+
+    protected void IsTaxInclusiveChanged()
+    {
+        foreach (var row in billDetailsList)
+        {
+            row.IsTaxInclusive = bill.IsTaxInclusive;
+            BillsTransactionHelper.Compute(row);
+        }
+        // LoadSubtotalRow();
+        // LoadAllTaxTotalDiscNetAmount();
+    }
+
+
+    private async Task OnSwitchChanged(string switchName)
+    {
+        // bool hasTransfer = purchaseordersHeader.TransferToInfo != null;
+        // bool hasTransfer = !string.IsNullOrWhiteSpace(purchaseordersHeader.TransferToInfo);
+
+        if (Id is null)
+        {
+            bill.IsCancelled = false;
+            NotificationHelper.ShowWarning(
+                notificationService,
+                "",
+                "Please click the 'Save' (checkmark) button for any active or newly added detail rows in the grid before saving."
+            );
+            return;
+        }
+
+        await SetSwitchValue(switchName);
+        SetRedText();
+    }
+
+    private ForCloseCancelledDocumentsModel forCloseCancelledDocumentsModel = new ForCloseCancelledDocumentsModel();
+    private async Task SetSwitchValue(string switchName)
+    {
+
+        forCloseCancelledDocumentsModel = new()
+        {
+            Id = Id,
+            TableName = "Bills",
+            SwitchName = switchName,
+            IsCancelled = bill.IsCancelled
+        };
+
+        await headerSwitchServices.UpdateForCloseOrCancelled(forCloseCancelledDocumentsModel);
+    }
+
+
+    protected void Navigate()
+    {
+        navManager.NavigateTo("/BillList");
+    }
+
+
+    protected void InitializeDetailsRows()
+    {// Initialize with 5 rows and set default Pos index
+        billDetailsList = Enumerable.Range(1, 5)
+           .Select(i => new BillDetails
+           {
+               Pos = i,
+               BillId = Id ?? bill.Id,
+               IsTaxInclusive = bill.IsTaxInclusive
+           })
+           .ToList();
+    }
+
+
+    // Helper to reset Pos index after any add/delete
+    private void ResetPosIndexes()
+    {
+        for (int i = 0; i < billDetailsList.Count; i++)
+        {
+            billDetailsList[i].Pos = i + 1;
+        }
+    }
+
+
+    //insert after row
+    async Task InsertAfterRow(BillDetails billDetails)
+    {
+        // If there's an active edit, prevent adding another row until it's saved.
+
+        if (billDetailsToInsert.Any() || billDetailsToUpdate.Any())
+        {
+            NotificationHelper.ShowWarning(notificationService, "Unsaved Details", "Please click the 'Save' (checkmark) button for any active or newly added detail rows in the grid before saving.");
+            return;
+        }
+
+
+
+        if (!grid.IsValid) return;
+        if (editMode == DataGridEditMode.Single)
+        {
+            Reset();
+        }
+        var newbillDetails = new BillDetails();
+
+        //Set QuotationId to new inserted row
+        newbillDetails.BillId = Id ?? bill.Id;
+        newbillDetails.IsTaxInclusive = bill.IsTaxInclusive;
+        // Assign a sequential Pos for new rows, inserting after the current row's Pos
+        billDetailsToInsert.Add(newbillDetails);
+        var index = billDetailsList.IndexOf(billDetails);
+        if (index >= 0)
+        {
+            billDetailsList.Insert(index + 1, newbillDetails); // Insert after selected row
+        }
+        else
+        {
+            billDetailsList.Add(newbillDetails);
+        }
+
+
+        ResetPosIndexes();
+
+        if (billDetails is not null)
+        {
+            await grid.InsertAfterRow(newbillDetails, billDetails);
+        }
+        else
+        {
+            await grid.InsertRow(newbillDetails);
+        }
+
+        await grid.Reload();
+        StateHasChanged();
+    }
+
+    async Task EditRow(BillDetails billDetails)
+    {
+        if (billDetailsToInsert.Any() || billDetailsToUpdate.Any())
+        {
+            NotificationHelper.ShowWarning(notificationService, "Unsaved Details", "Please click the 'Save' (checkmark) button for any active or newly added detail rows in the grid before saving.");
+            return;
+        }
+
+        if (!grid.IsValid) return;
+        if (editMode == DataGridEditMode.Single)
+        {
+            Reset();
+        }
+
+        billDetailsToUpdate.Add(billDetails);
+        await grid.EditRow(billDetails);
+        StateHasChanged(); // Ensure UI updates and list is reflected
+    }
+
+    async Task SaveRow(BillDetails billDetails)
+    {
+
+        await grid.UpdateRow(billDetails);
+        await grid.Reload();
+        StateHasChanged();
+    }
+
+    void OnUpdateRow(BillDetails billDetails)
+    {
+
+        Reset(billDetails);
+
+
+    }
+
+    void OnCreateRow(BillDetails billDetails)
+    {
+        billDetailsToInsert.Remove(billDetails);
+    }
+
+    protected DeleteModel deleteModel { get; set; } = new();
+    async Task DeleteRow(BillDetails billDetails)
+    {
+
+        if (billDetailsToInsert.Any() || billDetailsToUpdate.Any())
+        {
+            NotificationHelper.ShowWarning(notificationService, "Unsaved Details", "Please click the 'Save' (checkmark) button for any active or newly added detail rows in the grid before saving.");
+
+            return;
+        }
+
+        if (await DialogService.Confirm("You are about to delete record(s). Do you want to proceed?", "Delete") == true)
+        {
+
+            deleteModel.Id = billDetails.Id;
+            deleteModel.TableName = "BillDetails";
+            var data = await deleteServices.DeleteDataOnDetailRows(deleteModel);
+
+
+            Reset(billDetails);
+            billDetailsList.Remove(billDetails); // Remove from main list
+            ResetPosIndexes();
+            await grid.Reload();
+            StateHasChanged();
+        }
+
+
+    }
+
+
+    void Reset(BillDetails billDetails)
+    {
+        billDetailsToInsert.Remove(billDetails);
+        billDetailsToUpdate.Remove(billDetails);
+    }
+
+    void Reset()
+    {
+        billDetailsToInsert.Clear();
+        billDetailsToUpdate.Clear();
+    }
+
+
+    //CONTINUE ON THIS PART
+    private void OnDiscountChanged(QuotationDetails row)
+    {
+
+        // DiscountAndSubtotalHelper.Compute(row);
+
+        //  DiscountAndSubtotalHelper.Compute(row);
+        // TransactionHelper(row);
+        // LoadAllTaxTotalDiscNetAmount();
+        // StateHasChanged();
+
+
+    }
+
+
+    private void TransactionHelper(BillDetails row)
+    {
+        row.TaxRate = taxCodesList.FirstOrDefault(tax => tax.Id == row.TaxCodeId)?.TaxRate ?? 0;
+        row.WTaxRate = wTaxCodesList.FirstOrDefault(tax => tax.Id == row.WTaxCode)?.Rate ?? 0;
+        BillsTransactionHelper.Compute(row);
+        // TransactionNumberHelper.Compute(row);
+        // ConvertPackUOM(row);
+    }
+
+
+    // private void ConvertPackUOM(QuotationDetails row)
+    // {
+    //     // 1. Get the full list of UOMs for this stock item
+    //     var uoms = GetUOMsForStock(row.StockId)?.ToList();
+
+    //     if (uoms == null || !uoms.Any())
+    //         return;
+
+    //     // 2. Find the rate of the UOM currently selected by the user
+    //     var selectedUom = uoms.FirstOrDefault(x => x.Id == row.UOMId);
+
+    //     if (selectedUom == null)
+    //         return;
+
+    //     // 3. Call the service to get the split values
+    //     var result = UomService.ComputePackingSalesUOM(
+    //         row.Qty,
+    //         selectedUom.Rate,
+    //         uoms
+    //     );
+
+    //     // 4. Update the UI bound properties
+    //     row.PackingUOM1 = result.uom1;
+    //     row.PackingUOM2 = result.uom2;
+
+    //     // Note: If you are using an EditForm, you might need to call StateHasChanged()
+    //     // if the update happens inside a custom event.
+    // }
+
+
+    public decimal Amount => billDetailsList?.Where(x => x.ItemTypeCode != "D" && x.ItemTypeCode != "T").Sum(x => x.Amount) ?? 0.00m;
+    public decimal AmountLocal => billDetailsList?.Where(x => x.ItemTypeCode != "D" && x.ItemTypeCode != "T").Sum(x => x.AmountLocal) ?? 0.00m;
+    //public decimal DiscountAmount => billDetailsList?.Where(x => x.ItemTypeCode != "D" && x.ItemTypeCode != "T").Sum(p => p.DiscountAmount) ?? 0.00m;
+    // public decimal DiscountAmountLocal => billDetailsList?.Where(x => x.ItemTypeCode != "D" && x.ItemTypeCode != "T").Sum(p => p.DiscountAmountLocal) ?? 0.00m;
+    public decimal NetAmount => billDetailsList?.Where(x => x.ItemTypeCode != "D" && x.ItemTypeCode != "T").Sum(p => p.NetAmount) ?? 0.00m;
+    public decimal NetAmountLocal => billDetailsList?.Where(x => x.ItemTypeCode != "D" && x.ItemTypeCode != "T").Sum(p => p.NetAmountLocal) ?? 0.00m;
+    public decimal TaxAmount => billDetailsList?.Where(x => x.ItemTypeCode != "D" && x.ItemTypeCode != "T").Sum(p => p.TaxAmount) ?? 0.00m;
+    public decimal TaxAmountLocal => billDetailsList?.Where(x => x.ItemTypeCode != "D" && x.ItemTypeCode != "T").Sum(p => p.TaxAmountLocal) ?? 0.00m;
+    public decimal SubAmount => billDetailsList?.Where(x => x.ItemTypeCode != "D" && x.ItemTypeCode != "T").Sum(p => p.SubAmount) ?? 0.00m;
+    public decimal SubAmountLocal => billDetailsList?.Where(x => x.ItemTypeCode != "D" && x.ItemTypeCode != "T").Sum(p => p.SubAmountLocal) ?? 0.00m;
+    public decimal TaxExclusiveAmount => billDetailsList?.Where(x => x.ItemTypeCode != "D" && x.ItemTypeCode != "T").Sum(p => p.TaxExclusiveAmount) ?? 0.00m;
+    public decimal TaxExclusiveAmountLocal => billDetailsList?.Where(x => x.ItemTypeCode != "D" && x.ItemTypeCode != "T").Sum(p => p.TaxExclusiveAmountLocal) ?? 0.00m;
+    public decimal WTaxAmount => billDetailsList?.Where(x => x.ItemTypeCode != "D" && x.ItemTypeCode != "T").Sum(p => p.WTaxAmount) ?? 0.00m;
+    public decimal WTaxAmountLocal => billDetailsList?.Where(x => x.ItemTypeCode != "D" && x.ItemTypeCode != "T").Sum(p => p.WTaxAmountLocal) ?? 0.00m;
+
+    public decimal DueAmount => (bill?.NetTotalAmountLocal ?? 0m) - (bill?.WTaxTotalAmountLocal ?? 0m);
+    // protected decimal? TaxableLocal => quotationsDetailsList?.Where(p => p.ItemTypeCode != "T").Sum(p => p.TaxExclusiveAmountLocal) ?? 0.00m;
+    // protected decimal? TaxLocal => quotationsDetailsList?.Where(p => p.ItemTypeCode != "T").Sum(p => p.TaxAmountLocal) ?? 0.00m;
+    // protected decimal? DueAmountLocal => quotationsDetailsList?.Where(p => p.ItemTypeCode != "T").Sum(p => p.NetAmountLocal) ?? 0.00m;
+
+
+    private void LoadAllTaxTotalDiscNetAmount()
+    {
+        ///INCLUDE HERE THE TAX, DISCOUNT, WTAX, AMOUT, ALL QUOTATION DETAILS AMOUNT
+
+
+        var filteredList = billDetailsList?.Where(x => (x.Description?.Split(' ')[0] != "SUBTOTAL"));
+
+
+        bill.TotalAmount = filteredList?.Sum(x => x.Amount) ?? 0.00m;
+        bill.TotalAmountLocal = filteredList?.Sum(x => x.AmountLocal) ?? 0.00m;
+
+        // bill.DiscountAmount = filteredList?.Sum(x => x.DiscountAmount) ?? 0.00m;
+        // bill.DiscountAmountLocal = filteredList?.Sum(x => x.DiscountAmountLocal) ?? 0.00m;
+
+        bill.NetTotalAmount = filteredList?.Sum(x => x.NetAmount) ?? 0.00m;
+        bill.NetTotalAmountLocal = filteredList?.Sum(x => x.NetAmountLocal) ?? 0.00m;
+
+        bill.TaxTotalAmount = filteredList?.Sum(x => x.TaxAmount) ?? 0.00m;
+        bill.TaxTotalAmountLocal = filteredList?.Sum(x => x.TaxAmountLocal) ?? 0.00m;
+
+        bill.SubtotalAmount = filteredList?.Sum(x => x.SubAmount) ?? 0.00m;
+        bill.SubtotalAmountLocal = filteredList?.Sum(x => x.SubAmountLocal) ?? 0.00m;
+
+        bill.TaxExclusiveTotalAmount = filteredList?.Sum(x => x.TaxExclusiveAmount) ?? 0.00m;
+        bill.TaxExclusiveTotalAmountLocal = filteredList?.Sum(x => x.TaxExclusiveAmountLocal) ?? 0.00m;
+
+        bill.WTaxTotalAmount = filteredList?.Sum(x => x.WTaxAmount) ?? 0.00m;
+        bill.WTaxTotalAmountLocal = filteredList?.Sum(x => x.WTaxAmountLocal) ?? 0.00m;
+    }
+
+
+
+    protected void RowRender(RowRenderEventArgs<BillDetails> args)
+    {
+        // if (args?.Data.StockId == null)
+        //     return;
+        // args.Attributes["style"] = $"font-weight: {(args.Data.Description?.Split(' ')[0] is ("SALES" or "DISCOUNT" or "SUBTOTAL") ? "bold" : "normal")};";
+
+        // LoadAllTaxTotalDiscNetAmount();
+
+        LoadAllTaxTotalDiscNetAmount();
+    }
+
+
+    private void LoadSubtotalRow()
+    {
+        ///
+
+        if (billDetailsList == null || !billDetailsList.Any())
+            return;
+
+        var subtotalRow = billDetailsList
+           .FirstOrDefault(x => x.Description?.StartsWith("SUBTOTAL") == true);
+
+        if (subtotalRow == null)
+            return;
+
+        var rows = billDetailsList
+            .Where(x => x.Description?.Split(' ')[0] is not ("SUBTOTAL" or "DISCOUNT" or "SALES DISCOUNT"))
+            .ToList();
+
+        subtotalRow.Amount = rows.Sum(x => x.Amount);
+        subtotalRow.AmountLocal = rows.Sum(x => x.AmountLocal);
+
+        // subtotalRow.DiscountAmount = rows.Sum(x => x.DiscountAmount);
+        // subtotalRow.DiscountAmountLocal = rows.Sum(x => x.DiscountAmountLocal);
+
+        subtotalRow.NetAmount = rows.Sum(x => x.NetAmount);
+        subtotalRow.NetAmountLocal = rows.Sum(x => x.NetAmountLocal);
+
+        subtotalRow.TaxAmount = rows.Sum(x => x.TaxAmount);
+        subtotalRow.TaxAmountLocal = rows.Sum(x => x.TaxAmountLocal);
+
+        subtotalRow.SubAmount = rows.Sum(x => x.SubAmount);
+        subtotalRow.SubAmountLocal = rows.Sum(x => x.SubAmountLocal);
+
+        subtotalRow.TaxExclusiveAmount = rows.Sum(x => x.TaxExclusiveAmount);
+        subtotalRow.TaxExclusiveAmountLocal = rows.Sum(x => x.TaxExclusiveAmountLocal);
+
+        subtotalRow.WTaxAmount = rows.Sum(x => x.WTaxAmount);
+        subtotalRow.WTaxAmountLocal = rows.Sum(x => x.WTaxAmountLocal);
+
+    }
+}

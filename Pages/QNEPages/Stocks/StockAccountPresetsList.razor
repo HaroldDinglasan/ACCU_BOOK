@@ -1,0 +1,477 @@
+﻿@page "/AccountPresetList"
+@page "/AccountPreset/Edit/{id:guid}"
+@attribute [Authorize(Roles = "Admin,User")]
+
+<RadzenTemplateForm TItem="StockAccountPresetsModel" Data="@stockaccountpresetmodel" Submit="@OnSubmit" InvalidSubmit="@OnInvalidSubmit">
+    <RadzenStack Gap="0.5rem">
+        <RadzenCard Style="Padding: 0.5rem">
+            <RadzenRow JustifyContent="JustifyContent.Start" AlignItems="AlignItems.Center" Gap="0.5rem">
+                <RadzenColumn Size="12" SizeSM="5">
+                    <RadzenStack AlignItems="AlignItems.Center" Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.Normal">
+                        <RadzenButton Size="ButtonSize.Small" Disabled="@isDisable" IsBusy="@isBusy" ButtonType="ButtonType.Submit" Text="Save" Icon="save"></RadzenButton>
+                    </RadzenStack>
+                </RadzenColumn>
+
+                <RadzenColumn Size="12" SizeSM="7">
+                    <RadzenStack AlignItems="AlignItems.Center" Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End">
+                        <RadzenButton Size="@smallbtn" ButtonStyle="ButtonStyle.Light" Click="@Navigate" Text="Search" Icon="search"></RadzenButton>
+                    </RadzenStack>
+                </RadzenColumn>
+            </RadzenRow>
+        </RadzenCard>
+
+        <RadzenCard>
+
+            <RadzenCard Style="padding: 1rem; margin-bottom: 1rem; border-left: 6px solid #588157; border-radius: 10px;">
+                <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.75rem">
+                    <RadzenHeading Size="H4" Text="Stock Account Preset" Style="margin: 0; font-weight: 600; color: #3A5A40;" />
+                </RadzenStack>
+            </RadzenCard>
+
+            <RadzenStack Gap="0.5rem">
+                <RadzenRow AlignItems="AlignItems.Center">
+
+                    <RadzenColumn Size="12" SizeMD="6">
+                        <RadzenFormField Style="width:100%" Text="Preset Code*" AllowFloatingLabel="false">
+                            <RadzenTextBox @bind-Value="stockaccountpresetmodel.PresetCode"
+                                           Name="PresetCode"
+                                           class="@GetAccountPresetClass()"
+                                           Style="width:100%;" />
+                        </RadzenFormField>
+                        <RadzenRequiredValidator Component="PresetCode" Text="Preset Code is required" Popup="false" />
+
+                    </RadzenColumn>
+
+                    <RadzenColumn Size="12" SizeMD="6" Style="display:flex; align-items:center;">
+                        <RadzenCheckBox Style="margin-left:20px;" @bind-Value="stockaccountpresetmodel.IsDefault" />
+                        <label style="margin-left:5px;">Default</label>
+                    </RadzenColumn>
+
+                </RadzenRow>
+
+                <RadzenRow>
+
+                    <RadzenColumn Size="12">
+                        <RadzenFormField Style="width:100%" Text="Description*" AllowFloatingLabel="false">
+                            <RadzenTextBox @bind-Value="stockaccountpresetmodel.Description"
+                                           Name="Description"
+                                           class="@GetAccountPresetClass()"
+                                           Style="width:100%;" />
+                        </RadzenFormField>
+                        <RadzenRequiredValidator Component="Description" Text="Description is required" Popup="false" />
+
+                    </RadzenColumn>
+
+                </RadzenRow>
+            </RadzenStack>
+        </RadzenCard>
+
+        <RadzenTabs RenderMode="TabRenderMode.Client">
+            <Tabs>
+                <RadzenTabsItem Text="Posting Accounts">
+                    <RadzenRow>
+                        <RadzenColumn Size="12">
+                            <!-- Sales Section -->
+                            <div style=" padding:5px;">
+                                <h6 style="margin:0;">Sales</h6>
+                            </div>
+
+                            <RadzenRow>
+                                <RadzenColumn Size="6">
+
+                                    <RadzenFormField Text="Sales Account*" Style="width:100%" AllowFloatingLabel="false">
+                                        <RadzenDropDownDataGrid Data="@glAccountList" @bind-Value="stockaccountpresetmodel.SalesAccountId" AllowSorting="false" Style="width:100%"
+                                                                PageSize="10" AllowVirtualization="true" AllowColumnResize="true" Density="@density"
+                                                                FilterCaseSensitivity="@filter" AllowFilteringByAllStringColumns="true"
+                                                                TextProperty="GLAccountCode"
+                                                                ValueProperty="Id"
+                                                                Name="SalesAccountCode"
+                                                                class="@GetAccountPresetClass()"
+                                                                AllowClear="true"
+                                                                Change="@(args => OnAccountChanged(args, val => vwstockaccountpresetmodel.SalesAccountDescription = val))">
+
+                                            <Columns>
+                                                <RadzenDropDownDataGridColumn Width="4%" Property="GLAccountCode" Title="Account #"></RadzenDropDownDataGridColumn>
+                                                <RadzenDropDownDataGridColumn Width="10%" Property="Description" Title="Account Name"></RadzenDropDownDataGridColumn>
+                                            </Columns>
+
+                                        </RadzenDropDownDataGrid>
+                                    </RadzenFormField>
+                                    <RadzenRequiredValidator Component="SalesAccountCode" Popup="false" />
+
+                                </RadzenColumn>
+                                <RadzenColumn Size="6">
+                                    <RadzenFormField Text="Description" Style="width:100%" AllowFloatingLabel="false">
+                                        <RadzenTextBox @bind-Value="vwstockaccountpresetmodel.SalesAccountDescription"
+                                                       Style="width:100%;" />
+                                    </RadzenFormField>
+                                </RadzenColumn>
+                            </RadzenRow>
+
+                            <RadzenRow>
+                                <RadzenColumn Size="6">
+
+                                    <RadzenFormField Text="Sales Return Account*" Style="width:100%" AllowFloatingLabel="false">
+                                        <RadzenDropDownDataGrid Data="@glAccountList" @bind-Value="stockaccountpresetmodel.SalesReturnAccountId" AllowSorting="false" Style="width:100%"
+                                                                PageSize="10" AllowVirtualization="true" AllowColumnResize="true" Density="@density"
+                                                                FilterCaseSensitivity="@filter" AllowFilteringByAllStringColumns="true"
+                                                                TextProperty="GLAccountCode"
+                                                                ValueProperty="Id"
+                                                                Name="SalesReturnAccountCode"
+                                                                class="@GetAccountPresetClass()"
+                                                                AllowClear="true"
+                                                                Change="@(args => OnAccountChanged(args, val => vwstockaccountpresetmodel.SalesReturnAccountDescription = val))">
+
+
+                                            <Columns>
+                                                <RadzenDropDownDataGridColumn Width="4%" Property="GLAccountCode" Title="Account #"></RadzenDropDownDataGridColumn>
+                                                <RadzenDropDownDataGridColumn Width="10%" Property="Description" Title="Account Name"></RadzenDropDownDataGridColumn>
+                                            </Columns>
+
+                                        </RadzenDropDownDataGrid>
+                                    </RadzenFormField>
+                                    <RadzenRequiredValidator Component="SalesReturnAccountCode" Popup="false" />
+
+
+                                </RadzenColumn>
+                                <RadzenColumn Size="6">
+                                    <RadzenFormField Text="Description" Style="width:100%" AllowFloatingLabel="false">
+                                        <RadzenTextBox @bind-Value="vwstockaccountpresetmodel.SalesReturnAccountDescription"
+                                                       Style="width:100%;" />
+                                    </RadzenFormField>
+                                </RadzenColumn>
+                            </RadzenRow>
+
+                            <RadzenRow>
+                                <RadzenColumn Size="6">
+
+                                    <RadzenFormField Text="Cash Sales Acc*" Style="width:100%" AllowFloatingLabel="false">
+                                        <RadzenDropDownDataGrid Data="@glAccountList" @bind-Value="stockaccountpresetmodel.CashSalesAccountId" AllowSorting="false" Style="width:100%"
+                                                                PageSize="10" AllowVirtualization="true" AllowColumnResize="true" Density="@density"
+                                                                FilterCaseSensitivity="@filter" AllowFilteringByAllStringColumns="true"
+                                                                TextProperty="GLAccountCode"
+                                                                ValueProperty="Id"
+                                                                Name="CashSalesAccountCode"
+                                                                class="@GetAccountPresetClass()"
+                                                                AllowClear="true"
+                                                                Change="@(args => OnAccountChanged(args, val => vwstockaccountpresetmodel.CashSalesAccountDescription = val))">
+
+                                            <Columns>
+                                                <RadzenDropDownDataGridColumn Width="4%" Property="GLAccountCode" Title="Account #"></RadzenDropDownDataGridColumn>
+                                                <RadzenDropDownDataGridColumn Width="10%" Property="Description" Title="Account Name"></RadzenDropDownDataGridColumn>
+                                            </Columns>
+
+                                        </RadzenDropDownDataGrid>
+                                    </RadzenFormField>
+                                    <RadzenRequiredValidator Component="CashSalesAccountCode" Popup="false" />
+
+
+                                </RadzenColumn>
+                                <RadzenColumn Size="6">
+                                    <RadzenFormField Text="Description" Style="width:100%" AllowFloatingLabel="false">
+                                        <RadzenTextBox @bind-Value="vwstockaccountpresetmodel.CashSalesAccountDescription"
+                                                       Style="width:100%;" />
+                                    </RadzenFormField>
+                                </RadzenColumn>
+                            </RadzenRow>
+
+                            <!-- Purchase Section -->
+                            <div style=" padding:5px; margin-top:15px;">
+                                <h6 style="margin:0;">Purchase</h6>
+                            </div>
+
+                            <RadzenRow>
+                                <RadzenColumn Size="6">
+
+                                    <RadzenFormField Text="Purchase Account*" Style="width:100%" AllowFloatingLabel="false">
+                                        <RadzenDropDownDataGrid Data="@glAccountList" @bind-Value="stockaccountpresetmodel.PurchaseAccountId" AllowSorting="false" Style="width:100%"
+                                                                PageSize="10" AllowVirtualization="true" AllowColumnResize="true" Density="@density"
+                                                                FilterCaseSensitivity="@filter" AllowFilteringByAllStringColumns="true"
+                                                                TextProperty="GLAccountCode"
+                                                                ValueProperty="Id"
+                                                                Name="PurchaseAccountCode"
+                                                                class="@GetAccountPresetClass()"
+                                                                AllowClear="true"
+                                                                Change="@(args => OnAccountChanged(args, val => vwstockaccountpresetmodel.PurchaseAccountDescription = val))">
+
+                                            <Columns>
+                                                <RadzenDropDownDataGridColumn Width="4%" Property="GLAccountCode" Title="Account #"></RadzenDropDownDataGridColumn>
+                                                <RadzenDropDownDataGridColumn Width="10%" Property="Description" Title="Account Name"></RadzenDropDownDataGridColumn>
+                                            </Columns>
+
+                                        </RadzenDropDownDataGrid>
+                                    </RadzenFormField>
+                                    <RadzenRequiredValidator Component="PurchaseAccountCode" Popup="false" />
+
+
+                                </RadzenColumn>
+                                <RadzenColumn Size="6">
+                                    <RadzenFormField Text="Description" Style="width:100%" AllowFloatingLabel="false">
+                                        <RadzenTextBox @bind-Value="vwstockaccountpresetmodel.PurchaseAccountDescription"
+                                                       Style="width:100%;" />
+                                    </RadzenFormField>
+                                </RadzenColumn>
+                            </RadzenRow>
+
+                            <RadzenRow>
+                                <RadzenColumn Size="6">
+
+                                    <RadzenFormField Text="Purchase Return Account*" Style="width:100%" AllowFloatingLabel="false">
+                                        <RadzenDropDownDataGrid Data="@glAccountList" @bind-Value="stockaccountpresetmodel.PurchaseReturnAccountId" AllowSorting="false" Style="width:100%"
+                                                                PageSize="10" AllowVirtualization="true" AllowColumnResize="true" Density="@density"
+                                                                FilterCaseSensitivity="@filter" AllowFilteringByAllStringColumns="true"
+                                                                TextProperty="GLAccountCode"
+                                                                ValueProperty="Id"
+                                                                Name="PurchaseReturnAccountCode"
+                                                                class="@GetAccountPresetClass()"
+                                                                AllowClear="true"
+                                                                Change="@(args => OnAccountChanged(args, val => vwstockaccountpresetmodel.PurchaseReturnAccountDescription = val))">
+
+                                            <Columns>
+                                                <RadzenDropDownDataGridColumn Width="4%" Property="GLAccountCode" Title="Account #"></RadzenDropDownDataGridColumn>
+                                                <RadzenDropDownDataGridColumn Width="10%" Property="Description" Title="Account Name"></RadzenDropDownDataGridColumn>
+                                            </Columns>
+
+                                        </RadzenDropDownDataGrid>
+                                    </RadzenFormField>
+                                    <RadzenRequiredValidator Component="PurchaseReturnAccountCode" Popup="false" />
+
+                                </RadzenColumn>
+                                <RadzenColumn Size="6">
+                                    <RadzenFormField Text="Description" Style="width:100%" AllowFloatingLabel="false">
+                                        <RadzenTextBox @bind-Value="vwstockaccountpresetmodel.PurchaseReturnAccountDescription"
+                                                       Style="width:100%;" />
+                                    </RadzenFormField>
+                                </RadzenColumn>
+
+                            </RadzenRow>
+
+                        </RadzenColumn>
+                    </RadzenRow>
+                </RadzenTabsItem>
+
+
+                <RadzenTabsItem Text="Stocks">
+                    <RadzenRow>
+                        <RadzenColumn Size="12">
+                            <RadzenDataGrid TItem="Stocks" Data="@stockList" ColumnWidth="200px" AllowSorting="true" AllowFiltering="true" AllowPaging="true" PageSize="10">
+                                <Columns>
+                                    <RadzenDataGridColumn TItem="Stocks" Property="StockCode" Title="Stock #" />
+                                    <RadzenDataGridColumn TItem="Stocks" Property="StockName" Title="Description" />
+                                    <RadzenDataGridColumn TItem="Stocks" Property="CurrentBalance" Title="Balance" />
+                                </Columns>
+                            </RadzenDataGrid>
+                        </RadzenColumn>
+                    </RadzenRow>
+                </RadzenTabsItem>
+
+
+            </Tabs>
+        </RadzenTabs>
+
+
+    </RadzenStack>
+</RadzenTemplateForm>
+
+
+@code {
+
+    [Parameter]
+    public Guid? Id { get; set; }
+
+    AlignItems alignItems = AlignItems.Center;
+    Density density = Density.Compact;
+    ButtonSize smallbtn = ButtonSize.Small;
+    FilterCaseSensitivity filter = FilterCaseSensitivity.CaseInsensitive;
+
+    bool isloading;
+    bool isDisable = false;
+    bool isVisible = false;
+    bool isBusy;
+
+    //FOR PROPERTY SET VALUE OF OBJECT
+    string btnText = "Save";
+    string redtext;
+
+    // STOCK CLASSES MODEL
+    private StockAccountPresetsModel stockaccountpresetmodel { get; set; } = new StockAccountPresetsModel();
+    private GLAccounts glAccountsmodel { get; set; } = new GLAccounts();
+    private VW_StockAccountPresetListing vwstockaccountpresetmodel { get; set; } = new VW_StockAccountPresetListing();
+    private GLAccounts glaccountmodel { get; set; } = new GLAccounts();
+    private Stocks stocksmodel { get; set; } = new Stocks();
+    private List<Stocks> stockList = new List<Stocks>();
+
+
+    // FOR DROPDOWN LIST
+    protected IEnumerable<GLAccounts> glAccountList { get; set; }
+
+    // Page Initialization
+    [CascadingParameter]
+    public Task<AuthenticationState> authenticationState { get; set; }
+    protected async override Task OnInitializedAsync()
+    {
+
+        var authState = (await authenticationState).User;
+        if (authState.Identity.IsAuthenticated)
+        {
+            var RoleId = authState.FindFirst("RoleId").Value;
+            GetLoadMenuPermission(RoleId);
+        }
+
+      
+    }
+
+
+    private SystemMenuObjectPermission? permission;
+    protected async void GetLoadMenuPermission(string RoleId)
+    {
+        permission = await permissionService.GetPermissionAsync(
+         RoleId,
+         "Account Preset");
+
+        if (permission is null)
+            return;
+
+        await loadAllData(); // loads all data
+        if (Id is not null)
+        {
+            await loadAllDataById();
+        }
+        StateHasChanged();
+    }
+
+
+
+
+
+    private async Task loadAllDataById()
+    {
+        await GetStockAccountPresetById();
+
+    }
+
+    private async Task loadAllData()
+    {
+        await GetGeneralLedgerAccountList();
+    }
+
+    private async Task GetGeneralLedgerAccountList()
+    {
+        var data = await gLAccountsServices.GetGeneralLedgerAccountList();
+        glAccountList = data is not null ? data : new List<GLAccounts>();
+    }
+
+    // GET STOCK ACCOUNT PRESET BY ID
+    protected async Task GetStockAccountPresetById()
+    {
+        var data = await stockItemsService.GetStocksAccountPresetById(Id.ToString());
+        vwstockaccountpresetmodel = data is not null ? data : new VW_StockAccountPresetListing();
+
+        vwstockaccountpresetmodel = data;
+
+        // Map to StockAccountPresets (for saving)
+        stockaccountpresetmodel = new StockAccountPresetsModel
+        {
+            Id = vwstockaccountpresetmodel.Id,
+            PresetCode = vwstockaccountpresetmodel.PresetCode,
+            Description = vwstockaccountpresetmodel.Description,
+            SalesAccountId = vwstockaccountpresetmodel.SalesAccountId,
+            SalesReturnAccountId = vwstockaccountpresetmodel.SalesReturnAccountId,
+            CashSalesAccountId = vwstockaccountpresetmodel.CashSalesAccountId,
+            PurchaseAccountId = vwstockaccountpresetmodel.PurchaseAccountId,
+            PurchaseReturnAccountId = vwstockaccountpresetmodel.PurchaseReturnAccountId,
+            IsDefault = vwstockaccountpresetmodel.IsDefault
+        };
+
+        // Now load the stocks for this preset
+        var stockData = await stockItemsService.GetStocksByPresetId(Id);
+        stockList = stockData is not null ? stockData.ToList() : new List<Stocks>();
+    }
+
+
+
+    // PARA MAG DISPLAY SA DESCRIPTION FIELD YUNG SINELECT NA GLACCOUNT CODE
+    private void OnAccountChanged(object value, Action<string> setDescription)
+    {
+        if (value == null) return;
+
+        var selected = glAccountList.FirstOrDefault(x => x.Id.ToString() == value.ToString());
+        if (selected != null)
+        {
+            setDescription(selected.Description);
+        }
+    }
+
+    private async Task OnSubmit()
+    {
+        try
+        {
+            isBusy = true;
+
+            var id = await stockItemsService.SaveStockAccountPreset(stockaccountpresetmodel);
+
+            if (id != Guid.Empty)
+            {
+                notificationService.Notify(new NotificationMessage
+                {
+                    Severity = NotificationSeverity.Success,
+                    Summary = "Success",
+                    Detail = "Stock Account Preset saved successfully!"
+                });
+            }
+            else
+            {
+                notificationService.Notify(new NotificationMessage
+                {
+                    Severity = NotificationSeverity.Info,
+                    Summary = "Info",
+                    Detail = "Failed to save account preset"
+                });
+            }
+        }
+        catch (Exception ex)
+        {
+            notificationService.Notify(new NotificationMessage
+            {
+                Severity = NotificationSeverity.Error,
+                Summary = "Error",
+                Detail = $"An unexpected error occurred: {ex.Message}"
+            });
+        }
+        finally
+        {
+            isBusy = false;
+        }
+    }
+
+    private bool showValidationErrors = false;
+
+    private string GetAccountPresetClass()
+    {
+        if (showValidationErrors && string.IsNullOrWhiteSpace(stockaccountpresetmodel.PresetCode))
+            return "invalid-input";
+        return "";
+    }
+
+    private void OnInvalidSubmit(FormInvalidSubmitEventArgs args)
+    {
+        notificationService.Notify(new NotificationMessage
+        {
+            Severity = NotificationSeverity.Error,
+            Summary = "Validation",
+            Detail = "Preset Code must not be empty.",
+            Duration = 4000
+        });
+    }
+
+    private void OnPrint()
+    {
+        CustomNotificationMessage.Message(notificationService, true);
+    }
+
+    private void Navigate()
+    {
+        navManager.NavigateTo("/AccountPreset");
+    }
+
+}

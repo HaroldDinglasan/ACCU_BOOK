@@ -1,0 +1,204 @@
+﻿@page "/QuotationsList"
+@* @page "/QuotationList" *@
+@attribute [Authorize(Roles = "Admin,User")]
+
+
+
+<RadzenStack Gap="0.2rem">
+    <RadzenDataGrid @ref="grid" Visible="true" @bind-Value=@selectedvwQuotation
+                    IsLoading=@isLoading Sort="@ShowLoading" Page="@ShowLoading" Group="@ShowLoading" Filter="@ShowLoading"
+                    Data="@GetQuotation()"
+                    TItem="VW_Quotations"
+                    RowDoubleClick="() => Edit(selectedvwQuotation.FirstOrDefault().Id)"
+                    AllowVirtualization="true"
+                    ColumnWidth="200px"
+                    AllowSorting="true"
+                    AllowFiltering="true"
+                    ShowPagingSummary="true"
+                    ShowMultiColumnSortingIndex="true"
+                    FilterMode="FilterMode.CheckBoxList"
+                    Style="height: 84vh"
+                    AllowColumnPicking="true"
+                    FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive">
+        <HeaderTemplate>
+
+            <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.Center"
+                         Style="width: 100%;">
+                <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem;">
+                    <RadzenButton Size="ButtonSize.Small" Text="New"
+                                  ButtonStyle="ButtonStyle.Primary"
+                                  Icon="add"
+                                  Click="@Add" />
+
+                    <!-- DIVIDER -->
+                    <div style="border-left: 2px solid #ccc; height: 2rem; margin: 0 0.5rem;"></div>
+
+                    <RadzenTextBox InputSize="InputSize.Medium" @bind-Value="@searchText"
+                                   @ref="textBox"
+                                   @oninput="@(args => OnInput(args))"
+                                   Placeholder="Search..."
+                                   Style="width:30rem;" />
+
+                    <RadzenButton Size="ButtonSize.Small" Icon="delete"
+                                  Click="@ClearFilter"
+                                  Text="Clear" />
+                </RadzenStack>
+            </RadzenStack>
+        </HeaderTemplate>
+        <Columns>
+           
+            <RadzenDataGridColumn Filterable="false" Width="150px" Visible=true Title="Status">
+
+                <Template Context="data">
+                    @{
+                        var (text, style) = StatusHelper.Get(
+                        data.IsClosed,
+                        data.IsCancelled,
+                        data.TransferToInfo);
+                    }
+
+                    <RadzenBadge IsPill="true" Text="@text" BadgeStyle="@style" />
+                </Template>
+            </RadzenDataGridColumn>
+            <RadzenDataGridColumn Visible=false TItem="VW_Quotations" Property="@nameof(VW_Quotations.Id)" Title="Id" />
+            <RadzenDataGridColumn Width="110px" TItem="VW_Quotations" Property="@nameof(VW_Quotations.QuotationDate)" FormatString="{0:d}" Title="Date" />
+            <RadzenDataGridColumn Width="110px" TItem="VW_Quotations" Property="@nameof(VW_Quotations.QuotationCode)" Title="Quotation #" />
+            <RadzenDataGridColumn Width="350px" TItem="VW_Quotations" Title="Customer" Property="@nameof(VW_Quotations.CustomerName)">
+                <Template Context="data">
+                    <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem" AlignItems="AlignItems.Center">
+                        <RadzenStack Gap="0">
+                            <RadzenText TextStyle="TextStyle.Subtitle2" class="rz-mb-0 rz-text-wrap">@data.CustomerCode - @data.CustomerName</RadzenText>
+                            <RadzenText TextStyle="TextStyle.Caption" class="rz-mb-0 rz-text-wrap">@data.Address1</RadzenText>
+                        </RadzenStack>
+                    </RadzenStack>
+                </Template>
+                <FooterTemplate>
+                    Total: <b>@totalData</b>
+                </FooterTemplate>
+            </RadzenDataGridColumn>
+            <RadzenDataGridColumn TItem="VW_Quotations" Property="@nameof(VW_Quotations.TransferToInfo)" Title="Transfer To Info" />
+            <RadzenDataGridColumn TItem="VW_Quotations" Property="@nameof(VW_Quotations.ReferenceNo)" Title="Reference No" />
+            <RadzenDataGridColumn Visible="false" TItem="VW_Quotations" Property="@nameof(VW_Quotations.CustomerCode)" Title="Company Code" />
+            <RadzenDataGridColumn Visible="false" Width="315px" TItem="VW_Quotations" Property="@nameof(VW_Quotations.CustomerName)" Title="Company Name" />
+            <RadzenDataGridColumn TItem="VW_Quotations" Property="@nameof(VW_Quotations.CurrencyCode)" Title="Currency" />
+            <RadzenDataGridColumn TItem="VW_Quotations" Property="@nameof(VW_Quotations.Term)" Title="Term" />
+            <RadzenDataGridColumn TItem="VW_Quotations" Property="@nameof(VW_Quotations.StaffCode)" Title="Staff" />
+            <RadzenDataGridColumn TItem="VW_Quotations" Property="@nameof(VW_Quotations.QuotationDate)" Title="Due Date" FormatString="{0:MM/dd/yyyy}" />
+            <RadzenDataGridColumn TItem="VW_Quotations" Property="@nameof(VW_Quotations.NetTotalAmount)" Title="Net Amount" FormatString="{0:N2}" />
+            <RadzenDataGridColumn TItem="VW_Quotations" Property="@nameof(VW_Quotations.TaxTotalAmount)" Title="Tax Amount" FormatString="{0:N2}" />
+            <RadzenDataGridColumn TItem="VW_Quotations" Property="@nameof(VW_Quotations.WTaxTotalAmount)" Title="WTax Amount" FormatString="{0:N2}" />
+            <RadzenDataGridColumn Visible=false TItem="VW_Quotations" Property="@nameof(VW_Quotations.IsCancelled)" Title="IsCancelled" />
+            <RadzenDataGridColumn Visible=false TItem="VW_Quotations" Property="@nameof(VW_Quotations.OptimisticLockField)" Title="OptimisticLockField" />
+   
+        </Columns>
+    </RadzenDataGrid>
+</RadzenStack>
+
+
+
+@code {
+    [CascadingParameter]
+    public Task<AuthenticationState> authenticationState { get; set; }
+
+    RadzenTextBox textBox;
+    RadzenDataGrid<VW_Quotations> grid;
+    IEnumerable<VW_Quotations> vwQuotationList;
+    protected IList<VW_Quotations> selectedvwQuotation { get; set; }
+
+    //SAMPLE DATA
+    string status = string.Empty;
+
+    int totalData = 0;
+    bool isLoading;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = (await authenticationState).User;
+        if (authState.Identity.IsAuthenticated)
+        {
+            var RoleId = authState.FindFirst("RoleId").Value;
+            GetLoadMenuPermission(RoleId);
+        }
+    }
+
+
+    private SystemMenuObjectPermission? permission;
+    protected async void GetLoadMenuPermission(string RoleId)
+    {
+        isLoading = true;
+        permission = await permissionService.GetPermissionAsync(
+            RoleId,
+            "Quotations");
+
+        if (permission is null)
+            return;
+        await ShowLoading();
+        await GetQuotationsListing();
+        StateHasChanged();
+    }
+
+    
+    private async Task GetQuotationsListing()
+    {
+        var data = await _quotation.GetVWQuotationsList();
+        vwQuotationList = data is not null ? data : new List<VW_Quotations>();
+        totalData = vwQuotationList.Count();
+    }
+
+    private string searchText = "";
+    private IEnumerable<VW_Quotations> GetQuotation()
+    {
+        if (vwQuotationList == null)
+            return Enumerable.Empty<VW_Quotations>();
+
+
+        return vwQuotationList
+       .Where(x => string.IsNullOrEmpty(searchText) ||
+               (x.QuotationCode?.Contains(searchText, StringComparison.OrdinalIgnoreCase) ?? false) ||
+               (x.DebtorName?.Contains(searchText, StringComparison.OrdinalIgnoreCase) ?? false) ||
+               (x.CustomerCode?.Contains(searchText, StringComparison.OrdinalIgnoreCase) ?? false) ||
+               (x.Ref1?.Contains(searchText, StringComparison.OrdinalIgnoreCase) ?? false) ||
+               (x.ReferenceNo?.Contains(searchText, StringComparison.OrdinalIgnoreCase) ?? false) ||
+               (x.ControlAccountCode?.Contains(searchText, StringComparison.OrdinalIgnoreCase) ?? false) ||
+               (x.CustomerName?.Contains(searchText, StringComparison.OrdinalIgnoreCase) ?? false))
+               .OrderBy(x => x.CategoryCode);
+     }
+        
+    async Task OnInput(ChangeEventArgs args)
+    {
+        searchText = args.Value?.ToString() ?? string.Empty;
+        await grid.Reload();
+    }
+
+    private async Task ClearFilter()
+    {
+        searchText = string.Empty;
+        await grid.Reload();
+        StateHasChanged();
+    }
+
+    protected void Edit(Guid Id)
+    {
+        navManager.NavigateTo($"/Quotations/Edit/{Id}");
+    }
+
+
+    private void Add()
+    {
+        navManager.NavigateTo("/Quotations");
+    }
+
+
+    //error loading
+
+    async Task ShowLoading()
+    {
+        await Task.Yield();
+
+        isLoading = false;
+    }
+
+
+
+}
+

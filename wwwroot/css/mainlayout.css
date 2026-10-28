@@ -1,0 +1,72 @@
+﻿/* Header, sidebar at body ay sumusunod na sa Radzen theme. Ito lang ang dagdag. */
+.main-shell .rz-header {
+    border-bottom: 1px solid var(--rz-base-300, rgba(128, 128, 128, 0.3));
+}
+
+.main-brand {
+    font-weight: 700;
+    font-size: 1.1rem;
+    letter-spacing: -0.01em;
+}
+
+.main-company {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    padding: 0.15rem 0.65rem;
+    border: 1px solid var(--rz-base-300, rgba(128, 128, 128, 0.3));
+    border-radius: 999px;
+    background: var(--rz-body-background-color);
+    font-size: 0.88rem;
+    font-weight: 600;
+}
+
+    .main-company .rzi {
+        font-size: 1.05rem;
+    }
+
+.main-foot {
+    margin-top: 2.5rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--rz-base-300, rgba(128, 128, 128, 0.3));
+    color: var(--rz-text-secondary-color);
+    font-size: 0.9rem;
+    text-align: center;
+}
+
+/* main logo drawn as a book. Laki: palitan lang ang --s. Kulay: sumusunod sa Radzen theme. */
+.main-book {
+    --s: 30px;
+    --book-cover: var(--rz-primary);
+    --book-spine: var(--rz-primary-darker, var(--rz-primary));
+    --book-ink: var(--rz-on-primary, #fff);
+    --book-pages: var(--rz-base-background-color, #fff);
+    --book-edge: var(--rz-base-400, var(--rz-base-300));
+    position: relative;
+    box-sizing: border-box;
+    width: var(--s);
+    height: calc(var(--s) * 1.25);
+    margin: 0 calc(var(--s) * 0.1) calc(var(--s) * 0.09) 0;
+    padding-left: calc(var(--s) * 0.2);
+    display: grid;
+    place-items: center;
+    background: var(--book-cover);
+    color: var(--book-ink);
+    border-radius: 2px 6px 6px 2px;
+    font-weight: 700;
+    font-size: calc(var(--s) * 0.4);
+    line-height: 1;
+    letter-spacing: -0.02em;
+    box-shadow: inset calc(var(--s) * 0.2) 0 0 var(--book-spine), calc(var(--s) * 0.04) calc(var(--s) * 0.035) 0 0 var(--book-pages), calc(var(--s) * 0.04) calc(var(--s) * 0.035) 0 1px var(--book-edge), calc(var(--s) * 0.08) calc(var(--s) * 0.07) 0 0 var(--book-pages), calc(var(--s) * 0.08) calc(var(--s) * 0.07) 0 1px var(--book-edge);
+}
+
+    .main-book::before {
+        content: "";
+        position: absolute;
+        top: 0;
+        right: 16%;
+        width: 13%;
+        height: 30%;
+        background: var(--rz-success);
+        clip-path: polygon(0 0, 100% 0, 100% 100%, 50% 80%, 0 100%);
+    }

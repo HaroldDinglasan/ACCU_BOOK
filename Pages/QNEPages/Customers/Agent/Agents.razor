@@ -1,0 +1,312 @@
+﻿@page "/Agents"
+@page "/Agents/Edit/{id:int}"
+@attribute [Authorize(Roles = "Admin,User")]
+
+
+@if (isLoading)
+{
+    <Spinner />
+}
+else
+{
+    <RadzenTemplateForm TItem="SalesPersons" Data="salesPersons" Submit="@OnSubmit">
+        <RadzenStack Gap="0.2rem">
+
+            <!-- TOOLBAR ACTION CARD -->
+
+            <CrudToolbar Title="@(Id.HasValue ? "Edit Agent" : "Create Agent")"
+                         Subtitle="Manage agent information"
+                         Icon="badge"
+                         ButtonSize="@smallbtn"
+                         SaveText="Save"
+                         SaveBusy="@busy"
+                         SaveDisabled="@btnDiseabled"
+                         BackText="Back to Search"
+                         OnBackSearch="@Navigate">
+            </CrudToolbar>
+
+           
+            <!-- MAIN FORM BODY -->
+            <RadzenRow Gap="0.5rem">
+
+                <!-- LEFT COLUMN: SALES PERSON INFORMATION -->
+                <RadzenColumn Size="12" SizeLG="6">
+                    <RadzenCard>
+                        <RadzenStack Gap="0.5rem" Style="margin-bottom: 1rem;">
+                            <RadzenText TextStyle="TextStyle.H6" Style="color: var(--rz-primary);"> Sales Person Details</RadzenText>
+                            @*   <RadzenHr Style="margin: 0 0 0.5rem 0;" /> *@
+                        </RadzenStack>
+
+                        <RadzenRow Gap="0.5rem">
+                            <!-- Left Sub-Column -->
+                            <RadzenColumn Size="12" SizeMD="6">
+                                <RadzenStack Gap="0.5rem">
+                                    <RadzenFormField Text="Agent # *" AllowFloatingLabel="false" Style="width:100%">
+                                        <RadzenTextBox Name="AgentCode" @bind-Value="salesPersons.StaffCode" Style="width:100%" />
+                                    </RadzenFormField>
+                                    <RadzenRequiredValidator Component="AgentCode" Text="'Agent Code' must not be empty." Style="position: relative"></RadzenRequiredValidator>
+
+                                    <RadzenFormField Text="Name" AllowFloatingLabel="false" Style="width:100%">
+                                        <RadzenTextBox @bind-Value="salesPersons.Name" Style="width:100%" />
+                                    </RadzenFormField>
+
+                                    <RadzenFormField Text="IC No" AllowFloatingLabel="false" Style="width:100%">
+                                        <RadzenTextBox @bind-Value="salesPersons.IDNo" Style="width:100%" />
+                                    </RadzenFormField>
+
+                                    <RadzenFormField Text="Gender" AllowFloatingLabel="false" Style="width:100%">
+                                        <RadzenDropDown TValue="string" Data="@gendersList" @bind-Value="salesPersons.Gender" ValueProperty="@nameof(Gender.Code)" TextProperty="@nameof(Gender.Description)" Style="width:100%" />
+                                    </RadzenFormField>
+
+                                    <RadzenFormField Text="Mobile No" AllowFloatingLabel="false" Style="width:100%">
+                                        <RadzenTextBox @bind-Value="salesPersons.MobileNo" Style="width:100%" />
+                                    </RadzenFormField>
+
+                                    <RadzenFormField Text="Email" AllowFloatingLabel="false" Style="width:100%">
+                                        <RadzenTextBox @bind-Value="salesPersons.Email" Style="width:100%" />
+                                    </RadzenFormField>
+
+                                    <RadzenFormField Text="Default Team" AllowFloatingLabel="false" Style="width:100%">
+                                        <RadzenTextBox @bind-Value="salesPersons.DefaultTeam" Style="width:100%" />
+                                    </RadzenFormField>
+                                </RadzenStack>
+                            </RadzenColumn>
+
+                            <!-- Right Sub-Column -->
+                            <RadzenColumn Size="12" SizeMD="6">
+                                <RadzenStack Gap="0.5rem">
+                                    <RadzenFormField Text="Date Joined" AllowFloatingLabel="false" Style="width:100%">
+                                        <RadzenDatePicker @bind-Value="salesPersons.DateJoined" DateFormat="MM/dd/yyyy" Style="width:100%" />
+                                    </RadzenFormField>
+
+                                    <RadzenFormField Text="Date Left" AllowFloatingLabel="false" Style="width:100%">
+                                        <RadzenDatePicker @bind-Value="salesPersons.DateLeft" DateFormat="MM/dd/yyyy" Style="width:100%" />
+                                    </RadzenFormField>
+
+                                    <RadzenFormField Text="EPF" AllowFloatingLabel="false" Style="width:100%">
+                                        <RadzenTextBox @bind-Value="salesPersons.EPF" Style="width:100%" />
+                                    </RadzenFormField>
+
+                                    <RadzenFormField Text="SOCSO" AllowFloatingLabel="false" Style="width:100%">
+                                        <RadzenTextBox @bind-Value="salesPersons.SOCSO" Style="width:100%" />
+                                    </RadzenFormField>
+
+                                    <RadzenFormField Text="Tax File" AllowFloatingLabel="false" Style="width:100%">
+                                        <RadzenTextBox @bind-Value="salesPersons.TaxFile" Style="width:100%" />
+                                    </RadzenFormField>
+
+                                    <RadzenFormField Text="Salary" AllowFloatingLabel="false" Style="width:100%">
+                                        <RadzenNumeric @bind-Value="salesPersons.Salary" Style="width:100%" />
+                                    </RadzenFormField>
+
+                                    <RadzenFormField Text="Remarks" AllowFloatingLabel="false" Style="width:100%">
+                                        <RadzenTextArea @bind-Value="salesPersons.Remarks" Rows="2" Style="width:100%; resize: vertical;" />
+                                    </RadzenFormField>
+
+                                    <RadzenCard Variant="Variant.Flat" Style="padding: 0.75rem; background: rgba(0,0,0,0.02); border: 1px dashed var(--rz-divider);">
+                                        <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.Start" Gap="1.5rem">
+                                            <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.5rem">
+                                                <RadzenCheckBox TValue="bool" @bind-Value="salesPersons.IsDefault" Name="IsDefault" />
+                                                <RadzenLabel Text="Default" Component="IsDefault" Style="font-weight: bold;" />
+                                            </RadzenStack>
+                                            <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.5rem">
+                                                <RadzenCheckBox TValue="bool" @bind-Value="salesPersons.IsActive" Name="IsActive" />
+                                                <RadzenLabel Text="Active" Component="IsActive" Style="font-weight: bold;" />
+                                            </RadzenStack>
+
+                                            <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.5rem">
+                                                <RadzenCheckBox TValue="bool" @bind-Value="salesPersons.IsManager" Name="IsManager" />
+                                                <RadzenLabel Text="Manager" Component="IsManager" Style="font-weight: bold;" />
+                                            </RadzenStack>
+                                        </RadzenStack>
+                                    </RadzenCard>
+                                </RadzenStack>
+                            </RadzenColumn>
+                        </RadzenRow>
+                    </RadzenCard>
+                </RadzenColumn>
+
+                <!-- RIGHT COLUMN: COMMISSION CONFIGURATION -->
+                <RadzenColumn Size="12" SizeLG="6">
+                    <RadzenCard Style="height: 100%;">
+                        <RadzenStack Gap="0.5rem" Style="margin-bottom: 1rem;">
+                            <RadzenText TextStyle="TextStyle.H6" Style="color: var(--rz-primary);">Commission Settings</RadzenText>
+
+                        </RadzenStack>
+
+                        <RadzenStack Gap="1rem">
+                            <RadzenRow Gap="1rem">
+                                <RadzenColumn Size="12" SizeSM="6">
+                                    <RadzenFormField Text="Commission Type" AllowFloatingLabel="false" Style="width:100%">
+                                        <RadzenDropDown TValue="int" Data="@commissionTypes" @bind-Value="salesPersons.CommissionType" ValueProperty="@nameof(CommissionType.Id)" TextProperty="@nameof(CommissionType.Description)" Style="width:100%" />
+                                    </RadzenFormField>
+                                </RadzenColumn>
+
+                                <RadzenColumn Size="12" SizeSM="6">
+                                    <RadzenFormField Text="Commission By Date" AllowFloatingLabel="false" Style="width:100%">
+                                        <RadzenDropDown TValue="int" Data="@commissionDate" @bind-Value="salesPersons.CommissionByDate" ValueProperty="@nameof(CommissionDate.Id)" TextProperty="@nameof(CommissionDate.Description)" Style="width:100%" />
+                                    </RadzenFormField>
+                                </RadzenColumn>
+
+                                @*    <RadzenColumn Size="12" SizeSM="6">
+                                    <RadzenFormField Text="Commission By Date" AllowFloatingLabel="false" Style="width:100%">
+                                        <RadzenDropDown Data="@commissionDates" @bind-Value="commissionDate" Style="width:100%" />
+                                    </RadzenFormField>
+                                </RadzenColumn> *@
+                            </RadzenRow>
+
+                            <RadzenTabs Visible="false" RenderMode="TabRenderMode.Client" Style="border: 1px solid var(--rz-divider); border-radius: var(--rz-border-radius);">
+                                <Tabs>
+                                    <RadzenTabsItem Text="Payment Rates">
+                                        <RadzenDataGrid Data="@paymentRates" TItem="PaymentCommission" AllowPaging="false" AllowSorting="false" Density="Density.Compact" Style="max-height: 350px;">
+                                            <Columns>
+                                                <RadzenDataGridColumn TItem="PaymentCommission" Property="PaymentWithin" Title="Payment Within (Days)" HeaderCssClass="rz-background-color-primary-lighter" />
+                                                <RadzenDataGridColumn TItem="PaymentCommission" Property="Rate" Title="Rate (%)" HeaderCssClass="rz-background-color-primary-lighter" />
+                                            </Columns>
+                                        </RadzenDataGrid>
+                                    </RadzenTabsItem>
+
+                                    <RadzenTabsItem Text="Sales Targets">
+                                        <RadzenDataGrid Data="@salesTargetCommissionRate" TItem="SalesTargetCommissionRate" AllowPaging="false" Density="Density.Compact" Style="max-height: 350px;">
+                                            <Columns>
+                                                <RadzenDataGridColumn TItem="SalesTargetCommissionRate" Property="SalesTargetDescription" Title="Sales Target" HeaderCssClass="rz-background-color-primary-lighter" />
+                                                <RadzenDataGridColumn TItem="SalesTargetCommissionRate" Property="CommissionRate" Title="Rate (%)" HeaderCssClass="rz-background-color-primary-lighter" />
+                                            </Columns>
+                                        </RadzenDataGrid>
+                                    </RadzenTabsItem>
+                                </Tabs>
+                            </RadzenTabs>
+                        </RadzenStack>
+                    </RadzenCard>
+                </RadzenColumn>
+
+            </RadzenRow>
+        </RadzenStack>
+    </RadzenTemplateForm>
+}
+
+
+@code {
+    [Parameter] public int? Id { get; set; }
+    [CascadingParameter] public Task<AuthenticationState> authenticationState { get; set; }
+
+    bool isLoading = true;
+    bool busy = false;
+    bool btnDiseabled = false;
+    ButtonSize smallbtn = ButtonSize.Small;
+
+    protected SalesPersons salesPersons { get; set; } = new SalesPersons();
+
+    protected async override Task OnInitializedAsync()
+    {
+
+        var authState = (await authenticationState).User;
+        if (authState.Identity.IsAuthenticated)
+        {
+            var RoleId = authState.FindFirst("RoleId").Value;
+            await GetLoadMenuPermission(RoleId);
+        }
+
+    }
+    private SystemMenuObjectPermission? permission;
+    protected async Task GetLoadMenuPermission(string RoleId)
+    {
+
+        permission = await permissionService.GetPermissionAsync(
+         RoleId,
+         "Agents");
+
+        if (permission is null)
+            return;
+        isLoading = true;
+        await loadAllData();
+        if (Id.HasValue)
+        {
+            await loadAllDataById();
+        }
+        StateHasChanged();
+    }
+
+    protected async Task loadAllData()
+    {
+        isLoading = false;
+    }
+
+
+    protected async Task loadAllDataById()
+    {
+        await GetSalesPersonsById();
+        isLoading = false;
+    }
+
+
+
+    protected async Task GetSalesPersonsById()
+    {
+        var data = await salesService.GetSalesPersonsById(Id);
+        salesPersons = data is not null ? data : new SalesPersons();
+
+    }
+
+    // protected async Task OnSubmit()
+    // {
+
+        
+    
+    // }
+
+    protected async Task OnSubmit()
+    {
+        busy = true;
+        var data = await salesService.SaveSalesPersons(salesPersons);
+        if (data is not null)
+        {
+            if (data.Contains("Success"))
+            {
+                await DialogService.Alert(data);
+                btnDiseabled = true;
+                busy = false;
+            }
+            else
+            {
+                await DialogService.Alert(data);
+                busy = false;
+            }
+        }
+    }
+
+    protected void Navigate()
+    {
+        navManager.NavigateTo("/AgentsList");
+    }
+
+    protected List<Gender> gendersList = new() { new Gender 
+        { Code = "M", Description = "Male" }, new Gender { Code = "F", Description = "Female" },
+     new Gender { Code = "N", Description = "Undefined" }};
+
+    protected List<CommissionType> commissionTypes = new() { new CommissionType
+        { Id = 0, Description = "Payment in days" }, new CommissionType { Id = 1, Description = "Payment in months" }};
+
+
+    protected List<CommissionDate> commissionDate = new() { new CommissionDate
+        { Id = 0, Description = "By invoice date" }, new CommissionDate { Id = 1, Description = "By due date" }};
+
+
+
+    List<Team> teams = new();
+    List<PaymentCommission> paymentRates = new();
+
+    public class Team
+    {
+        public int Id { get; set; }
+        public string Name { get; set; }
+    }
+
+    public class PaymentCommission
+    {
+        public int PaymentWithin { get; set; }
+        public decimal Rate { get; set; }
+    }
+
+    protected List<SalesTargetCommissionRate> salesTargetCommissionRate { get; set; }
+}

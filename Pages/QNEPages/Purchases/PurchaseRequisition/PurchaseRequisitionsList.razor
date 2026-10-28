@@ -1,0 +1,227 @@
+﻿@page "/PurchaseRequisitionsList"
+@attribute [Authorize(Roles = "Admin,User")]
+@* @inject MenuService menuService
+@inject PurchaseRequisitionsService purchaseRequisitions
+@inject NavigationManager NavManager
+@inject ContextMenuService contextMenuService
+@inject MenuService menuService
+@inject IJSRuntime JSRuntime *@
+
+
+<RadzenStack Gap="0.2rem">
+	<RadzenRow JustifyContent="JustifyContent.Start" AlignItems="AlignItems.Center" Gap="0.5rem">
+		<RadzenColumn Size="12" SizeSM="7">
+			<RadzenStack AlignItems="AlignItems.Center" Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.Normal">
+				<RadzenTextBox Disabled=@(filteredpurchaseRequisitionList == null) @bind-Value="@searchText"
+							   Placeholder="Search..."
+							   Style="font-size:smaller; width:30rem;"
+							   Change="@(args => ApplyFilter())" />
+				<RadzenButton Disabled=@(filteredpurchaseRequisitionList == null) Icon="search" Click="@ApplyFilter" Text="Find" />
+				<RadzenButton Disabled=@(filteredpurchaseRequisitionList == null) Icon="delete" Click="@ClearFilter" Text="Clear" />
+			</RadzenStack>
+		</RadzenColumn>
+		<RadzenColumn Size="12" SizeSM="5">
+			<RadzenStack AlignItems="AlignItems.Center" Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End">
+				<RadzenButton Text="New" Click="@navigate" Size="ButtonSize.Small" ButtonStyle="ButtonStyle.Primary" Icon="add"></RadzenButton>
+			</RadzenStack>
+		</RadzenColumn>
+	</RadzenRow>
+
+
+
+	<RadzenDataGrid @ref="grids" @bind-Value=@selectedPurchaseRequisition RowDoubleClick="() => Edit(selectedPurchaseRequisition.FirstOrDefault().Id)" TItem="VW_PurchaseRequisitionsListing"
+					IsLoading=@isLoading Sort="@ShowLoading" Page="@ShowLoading" Group="@ShowLoading" Filter="@ShowLoading"
+					AllowColumnReorder="true" AllowAlternatingRows="false" ColumnWidth="200px"
+					Data="@filteredpurchaseRequisitionList" AllowColumnPicking="true" Style="height: 84vh"
+					KeyProperty="Id" PagerHorizontalAlign="HorizontalAlign.Center" AllowColumnResize="true" Density="@density"
+					AllowVirtualization="true"
+					AllowSorting="true" AllowFiltering="true"
+					FilterMode="FilterMode.CheckBoxList" FilterCaseSensitivity="@filter" LogicalFilterOperator="LogicalFilterOperator.Or">
+		<HeaderTemplate>
+			<RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="1rem" Wrap="FlexWrap.Wrap">
+				<span>
+					Purchase Requisitions
+				</span>
+			</RadzenStack>
+
+		</HeaderTemplate>
+		<Columns>
+
+			<RadzenDataGridColumn Width="150px" Filterable="false" Visible=true Title="Status">
+				
+				<Template Context="data">
+					@{
+						var (text, style) = StatusHelper.Get(
+						data.IsClosed,
+						data.IsCancelled,
+						data.TransferToInfo);
+					}
+
+					<RadzenBadge IsPill="true" Text="@text" BadgeStyle="@style" />
+				</Template>
+			</RadzenDataGridColumn>
+			<RadzenDataGridColumn Visible=true TItem="VW_PurchaseRequisitionsListing" Property="@nameof(VW_PurchaseRequisitionsListing.PurchaseRequisitionDate)" FormatString="{0:d}" Title="Date"></RadzenDataGridColumn>
+			<RadzenDataGridColumn Visible=true TItem="VW_PurchaseRequisitionsListing" Property="@nameof(VW_PurchaseRequisitionsListing.PurchaseRequisitionCode)" Title="P.Requesition #">
+				@*    <Template Context="data">
+                            <span class="@(data.IsCancelled ? "rz-color-danger-dark" : "")">@data.PurchaseRequisitionCode</span>
+                        </Template> *@
+			</RadzenDataGridColumn>
+			<RadzenDataGridColumn Visible=true TItem="VW_PurchaseRequisitionsListing" Property="@nameof(VW_PurchaseRequisitionsListing.CreditorCompanyCode)" Title="Supplier"/>
+		
+			<RadzenDataGridColumn Width="315px" Visible=true TItem="VW_PurchaseRequisitionsListing" Property="@nameof(VW_PurchaseRequisitionsListing.PurchaseTo)" Title="Name"></RadzenDataGridColumn>
+			<RadzenDataGridColumn Visible=true TItem="VW_PurchaseRequisitionsListing" Property="@nameof(VW_PurchaseRequisitionsListing.PurchaserCode)" Title="Purchaser"></RadzenDataGridColumn>
+			<RadzenDataGridColumn Visible=true TItem="VW_PurchaseRequisitionsListing" Property="@nameof(VW_PurchaseRequisitionsListing.RequestByUserName)" Title="Request By"></RadzenDataGridColumn>
+			<RadzenDataGridColumn Visible=true TItem="VW_PurchaseRequisitionsListing" Property="@nameof(VW_PurchaseRequisitionsListing.CurrencyCode)" Title="Currency"></RadzenDataGridColumn>
+			<RadzenDataGridColumn Visible=true TItem="VW_PurchaseRequisitionsListing" TextAlign="TextAlign.Right" Property="@nameof(VW_PurchaseRequisitionsListing.WTaxTotalAmount)" Title="WTax Total Amount">
+				<Template Context="data">
+					<span>@(data.WTaxTotalAmount == 0 ? "" : data.WTaxTotalAmount.ToString("#,0.00"))</span>
+				</Template>
+				<FooterTemplate>
+					Total: <b>@totalPurchaseRequisition</b>
+				</FooterTemplate>
+			</RadzenDataGridColumn>
+
+			<RadzenDataGridColumn Visible=true TItem="VW_PurchaseRequisitionsListing" TextAlign="TextAlign.Right" Property="@nameof(VW_PurchaseRequisitionsListing.TaxTotalAmount)" Title="Tax">
+				<Template Context="data">
+					<span>@(data.TaxTotalAmount == 0 ? "" : data.TaxTotalAmount.ToString("#,0.00"))</span>
+				</Template>
+			</RadzenDataGridColumn>
+
+			<RadzenDataGridColumn Visible=true TItem="VW_PurchaseRequisitionsListing" TextAlign="TextAlign.Right" Property="@nameof(VW_PurchaseRequisitionsListing.NetTotalAmount)" Title="Net Amount">
+				<Template Context="data">
+					<span>@(data.NetTotalAmount == 0 ? "" : data.NetTotalAmount.ToString("#,0.00"))</span>
+				</Template>
+			</RadzenDataGridColumn>
+			<RadzenDataGridColumn Visible=false TItem="VW_PurchaseRequisitionsListing" Property="@nameof(VW_PurchaseRequisitionsListing.IsCancelled)" Title="Is Cancelled">
+				<Template Context="data">
+					<RadzenCheckBox Disabled="true" TValue="bool" @bind-Value="@data.IsCancelled"></RadzenCheckBox>
+				</Template>
+			</RadzenDataGridColumn>
+		</Columns>
+	</RadzenDataGrid>
+</RadzenStack>
+
+
+@code {
+	[CascadingParameter]
+	public Task<AuthenticationState> authenticationState { get; set; }
+
+	string status = string.Empty;
+	private RadzenDataGrid<VW_PurchaseRequisitionsListing> grids;
+	private IList<VW_PurchaseRequisitionsListing> selectedPurchaseRequisition { get; set; }
+	private IEnumerable<VW_PurchaseRequisitionsListing> purchaseRequisitionList { get; set; }
+
+	FilterCaseSensitivity filter = FilterCaseSensitivity.CaseInsensitive;
+	Density density = Density.Compact;
+	AlignItems alignItems = AlignItems.Center;
+	Variant variant = Variant.Flat;
+
+	bool IsDisable = true;
+	bool isLoading = true;
+	int totalPurchaseRequisition = 0;
+
+
+	protected override async Task OnInitializedAsync()
+	{
+
+		var authState = (await authenticationState).User;
+		if (authState.Identity.IsAuthenticated)
+		{
+			var RoleId = authState.FindFirst("RoleId").Value;
+			GetLoadMenuPermission(RoleId);
+		}
+	}
+
+
+	private SystemMenuObjectPermission? permission;
+	protected async void GetLoadMenuPermission(string RoleId)
+	{
+		permission = await permissionService.GetPermissionAsync(
+		 RoleId,
+		 "Purchase Requisitions");
+
+		if (permission is null)
+			return;
+		await ShowLoading();
+		await loadAllData();
+		filteredpurchaseRequisitionList = purchaseRequisitionList;
+		StateHasChanged();
+	}
+
+
+	private string searchText = string.Empty;
+	private IEnumerable<VW_PurchaseRequisitionsListing> filteredpurchaseRequisitionList;
+	private void ApplyFilter()
+	{
+		if (string.IsNullOrWhiteSpace(searchText))
+		{
+			filteredpurchaseRequisitionList = purchaseRequisitionList;
+		}
+		else
+		{
+			filteredpurchaseRequisitionList = purchaseRequisitionList.Where(x =>
+				(!string.IsNullOrEmpty(x.PurchaseRequisitionCode) && x.PurchaseRequisitionCode.Contains(searchText, StringComparison.OrdinalIgnoreCase)) ||
+				(!string.IsNullOrEmpty(x.CreditorCompanyName) && x.CreditorCompanyName.Contains(searchText, StringComparison.OrdinalIgnoreCase)) ||
+				(!string.IsNullOrEmpty(x.CreditorCompanyCode) && x.CreditorCompanyCode.Contains(searchText, StringComparison.OrdinalIgnoreCase)) ||
+				(!string.IsNullOrEmpty(x.RequestByFullName) && x.RequestByFullName.Contains(searchText, StringComparison.OrdinalIgnoreCase)) ||
+				(!string.IsNullOrEmpty(x.RequestByUserName) && x.RequestByUserName.Contains(searchText, StringComparison.OrdinalIgnoreCase)) ||
+				(!string.IsNullOrEmpty(x.Ref1) && x.Ref1.Contains(searchText, StringComparison.OrdinalIgnoreCase)) ||
+				(!string.IsNullOrEmpty(x.ReferenceNo) && x.ReferenceNo.Contains(searchText, StringComparison.OrdinalIgnoreCase)) ||
+				(!string.IsNullOrEmpty(x.ControlAccountCode) && x.ControlAccountCode.Contains(searchText, StringComparison.OrdinalIgnoreCase))
+			);
+		}
+		StateHasChanged();
+	}
+	private void ClearFilter()
+	{
+		searchText = string.Empty;
+		filteredpurchaseRequisitionList = purchaseRequisitionList;
+		StateHasChanged();
+	}
+
+
+
+
+	async Task ShowLoading()
+	{
+		await Task.Yield();
+
+		isLoading = false;
+	}
+
+
+
+	private async Task loadAllData()
+	{
+		await GetPurchaseRequisitionsListing();
+	}
+
+	
+	private async Task GetPurchaseRequisitionsListing()
+	{
+		//purchaseRequisitionList = await http.GetFromJsonAsync<List<VW_PurchaseRequisitionsListing>>("api/PurchaseRequisitions/GetPurchaseRequisitionsLists?companyCode=" + CompCode);
+
+		var data = await purchaseRequisitionsService.GetPurchaseRequisitionList();
+		purchaseRequisitionList = data is not null ? data : new List<VW_PurchaseRequisitionsListing>();
+
+
+
+
+		totalPurchaseRequisition = purchaseRequisitionList.Count();
+
+
+	}
+
+	protected void Edit(Guid Id)
+	{
+		navManager.NavigateTo($"/PurchaseRequisitions/Edit/{Id}");
+	}
+
+
+	private void navigate()
+	{
+		navManager.NavigateTo("/PurchaseRequisitions");
+	}
+
+
+}

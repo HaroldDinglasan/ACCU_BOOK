@@ -1,0 +1,257 @@
+﻿@page "/BankCharges/{bankCharges}"
+@attribute [Authorize(Roles = "Admin,User")]
+
+
+
+@if (isloading == false)
+{
+    <RadzenTemplateForm TItem="BankCharges" Data="bankCharges" Submit="OnSubmit">
+        <RadzenRow Gap="0.5rem">
+
+            <RadzenColumn Size="12" SizeMD="6">
+                <RadzenStack Gap="0.2rem">
+
+                    <RadzenRow AlignItems="@alignItems">
+                        <RadzenColumn Size="12" SizeMD="12">
+                            <RadzenFormField Style="width:100%" Text="Amount" AllowFloatingLabel="false">
+                                <RadzenNumeric Style="width: 100%; font-size:12px" TValue="decimal" @bind-Value=@bankCharges.Amount Format="#.00" />
+                            </RadzenFormField>
+                        </RadzenColumn>
+                    </RadzenRow>
+
+                    <RadzenRow AlignItems="@alignItems">
+                        <RadzenColumn Size="12" SizeMD="12">
+                            <RadzenFormField Style="width:100%" Text="Account*" AllowFloatingLabel="false">
+                                @*       <RadzenNumeric Style="width: 100%" TValue="decimal" @bind-Value=@bankCharges.Amount Format="#.00" />
+                            <RadzenTextBox @bind-Value=@receipts.Description Style="width:120%; height:120%;" /> *@
+                                <RadzenDropDownDataGrid Name="GLAccount" @bind-Value="bankCharges.GLAccount" Style="width: 100%; font-size:12px" PageSize="10" Data="@glaccountlist" AllowVirtualization="true" AllowColumnResize="true"
+                                                        AllowClear="true" AllowSorting="false" FilterCaseSensitivity="@filter" AllowFilteringByAllStringColumns="true"
+                                                        TextProperty="GLAccountCode" Density="@density" ValueProperty="Id">
+                                    <Columns>
+                                        <RadzenDropDownDataGridColumn Width="6%" Property=@nameof(GLAccounts.GLAccountCode) Title="Account #" />
+                                        <RadzenDropDownDataGridColumn Width="10%" Property=@nameof(GLAccounts.Description) Title="Account Name" />
+                                    </Columns>
+                                </RadzenDropDownDataGrid>
+                            </RadzenFormField>
+                            <RadzenRequiredValidator Component="GLAccount" Text="'Account' must not be empty." Style="position: relative"></RadzenRequiredValidator>
+                        </RadzenColumn>
+                    </RadzenRow>
+
+                
+
+                    <RadzenRow AlignItems="@alignItems">
+                        <RadzenFormField Style="width:100%" Text="Currency*" AllowFloatingLabel="false">
+                            <RadzenDropDownDataGrid Disabled="true" Name="Currency" Change="OnCurrencyChange"  @bind-Value=@bankCharges.Currency AllowSorting="false" Style="width: 100%;" PageSize=10 AllowColumnResize="true"
+                                                   FilterCaseSensitivity="@filter" AllowFilteringByAllStringColumns="true"
+                                                    TextProperty="CurrencyCode" Density="@density" Data="@currencyList" ValueProperty="Id">
+                                <Columns>
+                                    <RadzenDropDownDataGridColumn Width="10%" Property="CurrencyCode" Title="CurrencyCode"></RadzenDropDownDataGridColumn>
+                                    <RadzenDropDownDataGridColumn Width="10%" Property="Description" Title="Description"></RadzenDropDownDataGridColumn>
+                                </Columns>
+                            </RadzenDropDownDataGrid>
+                            <RadzenRequiredValidator Component="Currency" Text="'Currency' must not be empty." Style="position: relative"></RadzenRequiredValidator>
+                        </RadzenFormField>
+                    </RadzenRow>
+
+                    <RadzenRow AlignItems="@alignItems">
+                        <RadzenColumn Size="12" SizeMD="12">
+                            <RadzenFormField Style="width:100%" Text="Rate" AllowFloatingLabel="false">
+                                <RadzenNumeric Disabled="true" Style="width: 100%; font-size:12px" TValue="decimal" @bind-Value=@bankCharges.CurrencyRate Format="#.00000000" />
+                            </RadzenFormField>
+                        </RadzenColumn>
+                    </RadzenRow>
+
+                    <RadzenRow AlignItems="@alignItems" JustifyContent="JustifyContent.Center" Style="margin-top:1rem;">
+                        <RadzenSwitch Disabled="true" Style="transform: scale(0.7);" @bind-Value=bankCharges.UseBankAccountCurrency />
+                        <RadzenText TextStyle="TextStyle.Body2" Text="Use Foreign Currency"></RadzenText>
+                    </RadzenRow>
+
+
+                </RadzenStack>
+            </RadzenColumn>
+
+            <RadzenColumn Size="12" SizeMD="6">
+                <RadzenStack Gap="0.2rem">
+                    <RadzenRow AlignItems="@alignItems">
+                        <RadzenColumn Size="12" SizeMD="12">
+                            
+                              <RadzenFormField Style="width:100%" Text="Tax #" AllowFloatingLabel="false">
+                                    <RadzenDropDownDataGrid Change="OnTaxCodeChange"  @bind-Value="bankCharges.TaxCode" AllowSorting="false" Style="font-size:12px" PageSize="10" Data="@taxCodesList"
+                                                            AllowClear="true" FilterCaseSensitivity="@filter" AllowFilteringByAllStringColumns="true"
+                                                            TextProperty="TaxCode" Density="@density" ValueProperty="Id">
+                                        <Columns>
+                                            <RadzenDropDownDataGridColumn Width="100px" Property="TaxCode" Title="Vat #" />
+                                            <RadzenDropDownDataGridColumn Width="100px" Property="Rate" Title="Rate" />
+                                            <RadzenDropDownDataGridColumn Width="100px" Property="VatType" Title="VatType" />
+                                            <RadzenDropDownDataGridColumn Width="250px" Property="Description" Title="Description" />
+                                        </Columns>
+                                    </RadzenDropDownDataGrid>
+                            </RadzenFormField>
+                      
+                        </RadzenColumn>
+                    </RadzenRow>
+
+                    <RadzenRow AlignItems="@alignItems">
+                        <RadzenColumn Size="12" SizeMD="12">
+                            <RadzenFormField Style="width:100%" Text="Tax Rate" AllowFloatingLabel="false">
+                                <RadzenTextBox Style="width: 100%; font-size:12px" Disabled="true" @bind-Value=@Rate Placeholder="0.00%"></RadzenTextBox>
+                               @*  <RadzenNumeric Style="width: 100%; font-size:12px" TValue="decimal" @bind-Value=@Rate Format="#.00" /> *@
+                            </RadzenFormField>
+                        </RadzenColumn>
+                    </RadzenRow>
+
+                    <RadzenRow AlignItems="@alignItems">
+                        <RadzenColumn Size="12" SizeMD="12">
+                            <RadzenFormField Style="width:100%" Text="Tax Amt" AllowFloatingLabel="false">
+                                <RadzenNumeric Style="width: 100%; font-size:12px" TValue="decimal" @bind-Value=@bankCharges.TaxAmount Format="#.00" />
+                            </RadzenFormField>
+                        </RadzenColumn>
+                    </RadzenRow>
+
+             @*        <RadzenRow AlignItems="@alignItems">
+                        <RadzenColumn Size="12" SizeMD="12">
+                            <RadzenFormField Style="width:100%" Text="Posting Strategy" AllowFloatingLabel="false">
+                                <RadzenNumeric Style="width: 100%; font-size:12px" TValue="decimal" @bind-Value=@bankCharges.Amount Format="#.00" />
+                            </RadzenFormField>
+                        </RadzenColumn>
+                    </RadzenRow> *@
+
+                    <RadzenRow AlignItems="@alignItems">
+                        <RadzenColumn Size="12" SizeMD="12">
+                            <RadzenFormField Style="width:100%" Text="Local Amount" AllowFloatingLabel="false">
+                                <RadzenNumeric Style="width: 100%; font-size:12px" TValue="decimal" @bind-Value=@bankCharges.AmountLocal Format="#.00" />
+                            </RadzenFormField>
+                        </RadzenColumn>
+                    </RadzenRow>
+                </RadzenStack>
+            </RadzenColumn>
+
+        </RadzenRow>
+
+        <br />
+        <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.Right">
+            <RadzenRow>
+                <RadzenButton ButtonType="ButtonType.Submit" ButtonStyle="ButtonStyle.Secondary" Icon="Check" Text="OK" />
+                <RadzenButton ButtonStyle="ButtonStyle.Secondary" Icon="close" Text="CANCEL" Click="@(() => DialogService.Close())" />
+            </RadzenRow>
+
+        </RadzenStack>
+    </RadzenTemplateForm>
+}
+else
+{
+    <Spinner />
+}
+
+
+
+
+
+@code {
+    [Parameter]
+    public BankCharges bankCharges { get; set; } = new BankCharges();
+
+    AlignItems alignItems = AlignItems.Center;
+    FilterCaseSensitivity filter = FilterCaseSensitivity.CaseInsensitive;
+    Density density = Density.Compact;
+
+    bool isloading = true;
+
+    protected async override Task OnInitializedAsync()
+    {
+        //base.OnInitialized();
+        await loadAllData();
+
+    }
+
+
+    protected async Task loadAllData()
+    {
+        await GetGLAccountLists();
+        await GetCurrencyList();
+        await GetTaxCodesList();
+        SetDefaultCurrency();
+
+
+        isloading = false;
+
+    }
+
+    protected IEnumerable<GLAccounts> glaccountlist { get; set; }
+    protected async Task GetGLAccountLists()
+    {
+        var data = await gLAccountsServices.GetGLAccountList();
+        glaccountlist = data is not null ? data : new List<GLAccounts>();
+
+    }
+
+    protected IEnumerable<Currencies> currencyList { get; set; }
+    //Get Currencies From db.Currencies
+    protected async Task GetCurrencyList()
+    {
+        var data = await currenciesService.GetCurrencies();
+        currencyList = data is not null ? data : new List<Currencies>();
+
+    }
+    protected void SetDefaultCurrency()
+    {
+
+        var selectedcurrency = currencyList.FirstOrDefault(c => c.Id == 1);
+        bankCharges.Currency = selectedcurrency.Id;
+        bankCharges.CurrencyRate = selectedcurrency.DefaultPurchaseRate;
+    }
+
+
+    protected IEnumerable<TaxCodes> taxCodesList { get; set; }
+    protected TaxCodeFilter taxCodeFilter = new TaxCodeFilter();
+    protected IEnumerable<TaxCodes> alltaxCodesList { get; set; }
+
+
+    protected async Task GetTaxCodesList()
+    {
+        taxCodeFilter.IsOutOrIn = false;// true for Output Tax Codes
+        taxCodeFilter.IsActive = true; // true for Active Tax Codes
+
+        var data = await allTaxCodeService.GetTaxCodes(taxCodeFilter);
+        taxCodesList = data is not null ? data : new List<TaxCodes>();
+
+
+        //Get All TaxCodesList
+        var allTaxCodedata = await allTaxCodeService.GetAllTaxCodes();
+        alltaxCodesList = allTaxCodedata is not null ? allTaxCodedata : new List<TaxCodes>();
+
+    }
+
+    public string Rate;
+    protected void OnTaxCodeChange()
+    {
+        var selectedTaxCode = alltaxCodesList.FirstOrDefault(t => t.Id == bankCharges.TaxCode);
+        if (selectedTaxCode != null)
+        {
+            bankCharges.TaxRate = selectedTaxCode.TaxRate;
+            Rate = selectedTaxCode.Rate;
+        }
+        else
+        {
+            Rate = "0.00%";
+            bankCharges.TaxRate = 0.00M;
+        }
+
+    }
+    protected void OnCurrencyChange()
+    {
+        // var selectedTaxCode = alltaxCodesList.FirstOrDefault(t => t.Id == bankCharges.TaxCode);
+
+        var selectedcurrency = currencyList.FirstOrDefault(c => c.Id == bankCharges.Currency);
+        if (selectedcurrency != null)
+        {
+            bankCharges.CurrencyRate = selectedcurrency.DefaultPurchaseRate;
+        }
+    }
+
+    protected async Task OnSubmit(BankCharges bankCharges)
+    {
+        //after ma close yung Dialog, irereturn yung laman ng bankCharges object sa page component na nag open ng dialog.
+        DialogService.Close(bankCharges);
+    }
+}

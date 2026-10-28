@@ -1,0 +1,2240 @@
+﻿@page "/SalesOrders"
+@page "/SalesOrders/Edit/{id:guid}"
+@attribute [Authorize(Roles = "Admin,User")]
+@using Radzen.Blazor.Rendering
+
+@if (isLoading)
+{
+    <Spinner />
+}
+<RadzenTemplateForm TItem="SalesOrdersHeader" Data="salesOrdersHeader" Submit="@OnSubmit">
+    <RadzenStack Gap="0.2rem">
+        <RadzenCard Style="Padding: 0.5rem">
+            <RadzenRow JustifyContent="JustifyContent.Start" AlignItems="AlignItems.Center" Gap="0.5rem">
+                <RadzenColumn Size="12" SizeSM="5">
+                    <RadzenStack AlignItems="AlignItems.Center" Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.Normal">
+
+                        <RadzenButton Disabled=@(salesOrdersHeader.IsCancelled is true || salesOrdersHeader.IsClosed is true || salesOrdersHeader.DebtorId is null || btnDiseabled) Size="@smallbtn" Icon="save" BusyText="Saving..." IsBusy=@busy ButtonStyle="ButtonStyle.Primary" Text="@btnText" ButtonType="@Radzen.ButtonType.Submit" />
+                        <RadzenButton Disabled=@(salesOrdersHeader.DebtorId is null || Id is not null || btnDiseabled) Text="Transfer" Size="@smallbtn" ButtonStyle="ButtonStyle.Primary" @ref="@transferbutton" Icon="compare_arrows" Click="@(args => popuptransfer.ToggleAsync(transferbutton.Element))" />
+                    </RadzenStack>
+                </RadzenColumn>
+                <RadzenColumn Size="12" SizeSM="7">
+                    <RadzenStack AlignItems="AlignItems.Center" Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End">
+                        <RadzenButton Size="@smallbtn" ButtonStyle="ButtonStyle.Light" Click="@Navigate" Text="Search" Icon="search"></RadzenButton>
+                    </RadzenStack>
+                </RadzenColumn>
+            </RadzenRow>
+        </RadzenCard>
+        <RadzenCard>
+            <div style="margin-bottom: 0.5rem">
+                SalesOrder @salesOrdersHeader.SalesOrderCode <RadzenBadge Visible="@(status != string.Empty)" Shade="Shade.Dark" BadgeStyle="BadgeStyle.Danger" Text="@status" class="rz-ms-2" />
+            </div>
+            <RadzenTabs RenderMode="TabRenderMode.Client">
+                <Tabs>
+                    <RadzenTabsItem Text="Details">
+                        <RadzenRow>
+                            <RadzenColumn Size="12" SizeMD="4">
+                                <RadzenStack Gap="0.2rem">
+                                    <RadzenRow AlignItems="@alignItems">
+                                        <RadzenColumn Size="12" SizeMD="12">
+                                            <RadzenFormField Style="width:100%" Text="Customer" AllowFloatingLabel="false">
+                                                <RadzenDropDownDataGrid Name="Customer" class="@redtext" Disabled="@(salesOrdersHeader.IsCancelled != true && salesOrdersHeader.TransferToInfo != null)"
+                                                                        @bind-Value=salesOrdersHeader.DebtorId
+                                                                        Change=@(args => OnDebtorChanged((Guid?)args))
+                                                                        AllowSorting="false" Style="width: 100%;" PageSize=10
+                                                                        Data="@debtorsaccountList" AllowVirtualization="true" AllowColumnResize="true"
+                                                                        AllowClear="true" FilterCaseSensitivity="@filter" AllowFilteringByAllStringColumns="true"
+                                                                        TextProperty="CompanyCode" Density="@density" ValueProperty="Id">
+                                                    <Columns>
+                                                        <RadzenDropDownDataGridColumn Width="4%" Property="@nameof(Debtors.CompanyCode)" Title="Customer #"></RadzenDropDownDataGridColumn>
+                                                        <RadzenDropDownDataGridColumn Width="10%" Property="@nameof(Debtors.CompanyName)" Title="Name"></RadzenDropDownDataGridColumn>
+                                                    </Columns>
+                                                </RadzenDropDownDataGrid>
+                                            </RadzenFormField>
+                                            <RadzenRequiredValidator Component="Customer" Text="'Customer' must not be empty." Style="position: relative"></RadzenRequiredValidator>
+                                        </RadzenColumn>
+                                    </RadzenRow>
+
+                                    <RadzenRow AlignItems="@alignItems">
+                                        <RadzenColumn Size="12" SizeMD="12">
+                                            <RadzenFormField Style="width:100%" Text="To" AllowFloatingLabel="false">
+                                                <RadzenTextBox class="@redtext" @bind-Value=salesOrdersHeader.DebtorName Style="width: 100%;" />
+                                            </RadzenFormField>
+                                        </RadzenColumn>
+                                    </RadzenRow>
+
+                                    <RadzenRow AlignItems="@alignItems">
+                                        <RadzenColumn Size="12" SizeMD="12">
+                                            <RadzenFormField Style="width:100%" Text="Delivery Term" AllowFloatingLabel="false">
+                                                <RadzenTextBox class="@redtext" @bind-Value=salesOrdersHeader.DeliveryTerm Style="width: 100%;" />
+                                            </RadzenFormField>
+                                        </RadzenColumn>
+                                    </RadzenRow>
+
+
+                                    <RadzenRow AlignItems="@alignItems">
+                                        <RadzenColumn Size="12" SizeMD="12">
+                                            <RadzenFormField Style="width:100%" Text="Term" AllowFloatingLabel="false">
+                                                <RadzenDropDownDataGrid Name="Term" class="@redtext" @bind-Value=@salesOrdersHeader.TermId Style="width: 100%;" AllowSorting="false" PageSize=10 Data="@termList" AllowVirtualization="true" AllowColumnResize="true"
+                                                                        AllowClear="true" FilterCaseSensitivity="@filter" AllowFilteringByAllStringColumns="true"
+                                                                        TextProperty="Term" Density="@density" ValueProperty="Id">
+                                                    <Columns>
+                                                        <RadzenDropDownDataGridColumn Width="10%" Property="Term" Title="Term"></RadzenDropDownDataGridColumn>
+                                                        <RadzenDropDownDataGridColumn Width="10%" Property="Description" Title="Description"></RadzenDropDownDataGridColumn>
+                                                    </Columns>
+                                                </RadzenDropDownDataGrid>
+                                            </RadzenFormField>
+                                            <RadzenRequiredValidator Component="Term" Text="'Term' must not be empty." Style="position: relative"></RadzenRequiredValidator>
+                                        </RadzenColumn>
+                                    </RadzenRow>
+
+
+                                    <RadzenRow AlignItems="@alignItems">
+                                        <RadzenColumn Size="12" SizeMD="12">
+                                            <RadzenFormField Style="width:100%" Text="Location" AllowFloatingLabel="false">
+                                                <RadzenDropDownDataGrid class="@redtext" @bind-Value=@salesOrdersHeader.StockLocationId Change="@(args => OnStockLocationChanged(args))"
+                                                                        AllowSorting="false" Style="width: 120%;" PageSize=10 Data="@stocklocationList" AllowVirtualization="true" AllowColumnResize="true"
+                                                                        AllowClear="true" FilterCaseSensitivity="@filter" AllowFilteringByAllStringColumns="true"
+                                                                        TextProperty="LocationCode" Density="@density" ValueProperty="Id">
+                                                    <Columns>
+                                                        <RadzenDropDownDataGridColumn Width="15%" Property="LocationCode" Title="Location #"></RadzenDropDownDataGridColumn>
+                                                        <RadzenDropDownDataGridColumn Width="15%" Property="Description" Title="Description"></RadzenDropDownDataGridColumn>
+                                                        <RadzenDropDownDataGridColumn Width="8%" Property="IsActive" Title="Active">
+                                                            <Template Context="data"><RadzenCheckBox TValue="bool" Value="data.IsActive"></RadzenCheckBox></Template>
+                                                        </RadzenDropDownDataGridColumn>
+                                                    </Columns>
+                                                </RadzenDropDownDataGrid>
+                                            </RadzenFormField>
+                                        </RadzenColumn>
+                                    </RadzenRow>
+
+
+
+                                </RadzenStack>
+                            </RadzenColumn>
+
+                            <RadzenColumn Size="12" SizeMD="4">
+                                <RadzenStack Gap="0.2rem">
+                                    <RadzenRow AlignItems="@alignItems">
+                                        <RadzenColumn Size="12" SizeMD="12">
+                                            <RadzenFormField Style="width:100%" Text="Currency" AllowFloatingLabel="false">
+                                                <RadzenDropDownDataGrid Disabled="true" class="@redtext" @bind-Value=@salesOrdersHeader.CurrencyId AllowSorting="false" Style="width: 100%;" PageSize=10 AllowColumnResize="true"
+                                                                        AllowClear="true" FilterCaseSensitivity="@filter" AllowFilteringByAllStringColumns="true"
+                                                                        TextProperty="CurrencyCode" Density="@density" Data="@currencyList" ValueProperty="Id">
+                                                    <Columns>
+                                                        <RadzenDropDownDataGridColumn Width="10%" Property="CurrencyCode" Title="CurrencyCode"></RadzenDropDownDataGridColumn>
+                                                        <RadzenDropDownDataGridColumn Width="10%" Property="Description" Title="Description"></RadzenDropDownDataGridColumn>
+                                                    </Columns>
+                                                </RadzenDropDownDataGrid>
+                                            </RadzenFormField>
+                                        </RadzenColumn>
+                                    </RadzenRow>
+
+                                    <RadzenRow AlignItems="@alignItems">
+                                        <RadzenColumn Size="12" SizeMD="12">
+                                            <RadzenFormField Style="width:100%" Text="Attention" AllowFloatingLabel="false">
+                                                <RadzenTextBox class="@redtext" @bind-Value=@salesOrdersHeader.Attention Style="width: 100%;" />
+                                            </RadzenFormField>
+                                        </RadzenColumn>
+                                    </RadzenRow>
+
+                                    <RadzenRow AlignItems="@alignItems">
+                                        <RadzenColumn Size="12" SizeMD="12">
+                                            <RadzenFormField Style="width:100%" Text="Agent" AllowFloatingLabel="false">
+                                                <RadzenDropDownDataGrid class="@redtext" @bind-Value=@salesOrdersHeader.SalesPersonId AllowSorting="false" Style="width: 100%;" PageSize=10 Data="@salespersonList" AllowVirtualization="true" AllowColumnResize="true"
+                                                                        AllowClear="true" FilterCaseSensitivity="@filter" AllowFilteringByAllStringColumns="true"
+                                                                        TextProperty="StaffCode" Density="@density" ValueProperty="Id">
+                                                    <Columns>
+                                                        <RadzenDropDownDataGridColumn Width="10%" Property="StaffCode" Title="Agent #"></RadzenDropDownDataGridColumn>
+                                                    </Columns>
+                                                </RadzenDropDownDataGrid>
+                                            </RadzenFormField>
+                                        </RadzenColumn>
+
+                                    </RadzenRow>
+
+
+
+                                    <RadzenRow AlignItems="@alignItems">
+                                        <RadzenColumn Size="12" SizeMD="12">
+                                            <RadzenFormField Style="width:100%" Text="Project" AllowFloatingLabel="false">
+                                                <RadzenDropDownDataGrid class="@redtext" @bind-Value=@salesOrdersHeader.ProjectId AllowSorting="false" Style="width: 100%;" PageSize=10 Data="@projectList" AllowVirtualization="true" AllowColumnResize="true"
+                                                                        AllowClear="true" FilterCaseSensitivity="@filter" AllowFilteringByAllStringColumns="true"
+                                                                        TextProperty="ProjectCode" Density="@density" ValueProperty="Id">
+                                                    <Columns>
+                                                        <RadzenDropDownDataGridColumn Width="15%" Property="ProjectCode" Title="Project Code"></RadzenDropDownDataGridColumn>
+                                                        <RadzenDropDownDataGridColumn Width="15%" Property="Description" Title="Description"></RadzenDropDownDataGridColumn>
+                                                        <RadzenDropDownDataGridColumn Width="8%" Property="IsActive" Title="Active">
+                                                            <Template Context="data2"><RadzenCheckBox TValue="bool" Value="data2.IsActive"></RadzenCheckBox></Template>
+                                                        </RadzenDropDownDataGridColumn>
+                                                    </Columns>
+                                                </RadzenDropDownDataGrid>
+                                            </RadzenFormField>
+                                        </RadzenColumn>
+                                    </RadzenRow>
+
+                                </RadzenStack>
+                            </RadzenColumn>
+
+                            <RadzenColumn Size="12" SizeMD="4">
+                                <RadzenStack Gap="0.2rem">
+                                    <RadzenRow AlignItems="@alignItems">
+                                        <RadzenColumn Size="12" SizeMD="12">
+                                            <RadzenFormField Style="width:100%" Text="Rate" AllowFloatingLabel="false">
+                                                <RadzenNumeric ShowUpDown="false" Disabled="true" class="@redtext" @bind-Value=@salesOrdersHeader.CurrencyRate Style="width: 100%;" Placeholder="Exchange Rate"></RadzenNumeric>
+                                                @*   <RadzenTextBox @bind-Value=purchaserequisition.CurrencyRate Style="width: 100%;" Placeholder="Exchange Rate" /> *@
+                                            </RadzenFormField>
+                                        </RadzenColumn>
+                                    </RadzenRow>
+                                    <RadzenRow AlignItems="@alignItems">
+                                        <RadzenColumn Size="12" SizeMD="12">
+                                            <RadzenFormField Style="width:100%" Text="Doc Date" AllowFloatingLabel="false">
+                                                <RadzenDatePicker Change="SetSalesOrderNo" class="@redtext" @bind-Value="@salesOrdersHeader.SalesOrderDate" DateFormat="MM/dd/yyyy" Style="width:100%" />
+                                            </RadzenFormField>
+                                        </RadzenColumn>
+                                    </RadzenRow>
+
+                                    <RadzenRow AlignItems="@alignItems">
+                                        <RadzenColumn Size="12" SizeMD="12">
+                                            <RadzenFormField Style="width:92%" Text="SalesOrder No." AllowFloatingLabel="false">
+                                                <RadzenTextBox class="@redtext" @bind-Value="@salesOrdersHeader.SalesOrderCode" Style="width: 100%;" />
+                                            </RadzenFormField>
+                                            <RadzenFormField Style="width:5%" AllowFloatingLabel="false">
+                                                <RadzenButton @ref=@button Icon="list" Click="@(args => popup.ToggleAsync(button.Element))" />
+                                            </RadzenFormField>
+                                        </RadzenColumn>
+                                    </RadzenRow>
+
+                                    <RadzenRow AlignItems="@alignItems">
+                                        <RadzenColumn Size="12" SizeMD="12">
+                                            <RadzenFormField Style="width:100%" Text="Reference No." AllowFloatingLabel="false">
+                                                <RadzenTextBox Name="Reference" class="@redtext" @bind-Value="@salesOrdersHeader.ReferenceNo" Style="width: 100%;" />
+                                            </RadzenFormField>
+                                            <RadzenRequiredValidator Component="Reference" Text="'Reference No.' must be not empty." Style="position: relative" />
+                                        </RadzenColumn>
+                                    </RadzenRow>
+
+                                    <RadzenRow AlignItems="@alignItems" JustifyContent="JustifyContent.Center" Style="margin-top:1rem;">
+
+                                        <RadzenColumn Size="3">
+                                            <RadzenSwitch Style="transform: scale(0.7);" @bind-Value=salesOrdersHeader.IsTaxInclusive Name="Active" Change="@IsTaxInclusiveChanged" />
+                                            <RadzenText class="@redtext" TextStyle="@textStyle" Style="" Text="Tax Inclusive"></RadzenText>
+                                        </RadzenColumn>
+
+                                        @if (Id is not null)
+                                        {
+                                            <RadzenColumn Size="3">
+                                                <RadzenSwitch Style="transform: scale(0.7);" @bind-Value="@salesOrdersHeader.IsCancelled" Change=@(args => OnSwitchChanged("IsCancelled")) />
+                                                <RadzenText class="@redtext" TextStyle="@textStyle" Style="" Text="Is Cancelled"></RadzenText>
+                                            </RadzenColumn>
+
+                                            <RadzenColumn Size="3">
+                                                <RadzenSwitch Style="transform: scale(0.7);" @bind-Value="@salesOrdersHeader.IsClosed" Change=@(args => OnSwitchChanged("IsClosed")) />
+                                                <RadzenText class="@redtext" TextStyle="@textStyle" Style="" Text="Is Closed"></RadzenText>
+                                            </RadzenColumn>
+                                        }
+
+                                    </RadzenRow>
+
+
+                                </RadzenStack>
+                            </RadzenColumn>
+                        </RadzenRow>
+                    </RadzenTabsItem>
+                    <RadzenTabsItem Text="Customer">
+                        <RadzenRow>
+
+                            <RadzenColumn Size="6" SizeMD="6">
+                                <RadzenStack Gap="0.2rem">
+                                    <RadzenRow AlignItems="@alignItems">
+                                        <RadzenColumn Size="12" SizeMD="12">
+                                            <RadzenFormField Style="width:100%" Text="Address" AllowFloatingLabel="false">
+                                                <RadzenTextBox class="@redtext" @bind-Value=@salesOrdersHeader.Address1 Style="width: 100%;" />
+                                            </RadzenFormField>
+                                        </RadzenColumn>
+                                    </RadzenRow>
+                                    <RadzenRow AlignItems="@alignItems">
+                                        <RadzenColumn Size="12" SizeMD="12">
+                                            <RadzenFormField Style="width:100%" Text="Address2" AllowFloatingLabel="false">
+                                                <RadzenTextBox class="@redtext" @bind-Value=@salesOrdersHeader.Address2 Style="width: 100%;" />
+                                            </RadzenFormField>
+                                        </RadzenColumn>
+                                    </RadzenRow>
+                                    <RadzenRow AlignItems="@alignItems">
+                                        <RadzenColumn Size="12" SizeMD="12">
+                                            <RadzenFormField Style="width:100%" Text="Address3" AllowFloatingLabel="false">
+                                                <RadzenTextBox class="@redtext" @bind-Value=@salesOrdersHeader.Address3 Style="width: 100%;" />
+                                            </RadzenFormField>
+                                        </RadzenColumn>
+                                    </RadzenRow>
+                                    <RadzenRow AlignItems="@alignItems">
+                                        <RadzenColumn Size="12" SizeMD="12">
+                                            <RadzenFormField Style="width:100%" Text="Address4" AllowFloatingLabel="false">
+                                                <RadzenTextBox class="@redtext" @bind-Value=@salesOrdersHeader.Address4 Style="width: 100%;" />
+                                            </RadzenFormField>
+                                        </RadzenColumn>
+                                    </RadzenRow>
+                                </RadzenStack>
+                            </RadzenColumn>
+
+
+                            <RadzenColumn Size="6" SizeMD="6">
+                                <RadzenStack Gap="0.2rem">
+                                    <RadzenRow AlignItems="@alignItems">
+                                        <RadzenColumn Size="12" SizeMD="12">
+                                            <RadzenFormField Style="width:100%" Text="GST Reg #" AllowFloatingLabel="false">
+                                                <RadzenTextBox Disabled="true" class="@redtext" Style="width: 100%;" />
+                                            </RadzenFormField>
+                                        </RadzenColumn>
+                                    </RadzenRow>
+
+                                    <RadzenRow AlignItems="@alignItems">
+                                        <RadzenColumn Size="12" SizeMD="12">
+                                            <RadzenFormField Style="width:100%" Text="Phone" AllowFloatingLabel="false">
+                                                <RadzenTextBox class="@redtext" @bind-Value=@salesOrdersHeader.Phone Style="width: 100%;" />
+                                            </RadzenFormField>
+                                        </RadzenColumn>
+                                    </RadzenRow>
+
+                                    <RadzenRow AlignItems="@alignItems">
+                                        <RadzenColumn Size="12" SizeMD="12">
+                                            <RadzenFormField Style="width:100%" Text="Fax" AllowFloatingLabel="false">
+                                                <RadzenTextBox class="@redtext" @bind-Value=@salesOrdersHeader.Fax Style="width: 100%;" />
+                                            </RadzenFormField>
+                                        </RadzenColumn>
+                                    </RadzenRow>
+                                </RadzenStack>
+                            </RadzenColumn>
+
+
+                        </RadzenRow>
+                    </RadzenTabsItem>
+                    <RadzenTabsItem Text="Do Address">
+                        <RadzenRow>
+                            <RadzenColumn Size="6" SizeMD="6">
+                                <RadzenStack Gap="0.2rem">
+                                    <RadzenRow AlignItems="@alignItems">
+                                        <RadzenColumn Size="12" SizeMD="12">
+                                            <RadzenFormField Style="width:100%" Text="Address" AllowFloatingLabel="false">
+                                                <RadzenTextBox class="@redtext" @bind-Value=@salesOrdersHeader.DOAddress1 Style="width: 100%;" />
+                                            </RadzenFormField>
+                                        </RadzenColumn>
+                                    </RadzenRow>
+                                    <RadzenRow AlignItems="@alignItems">
+                                        <RadzenColumn Size="12" SizeMD="12">
+                                            <RadzenFormField Style="width:100%" Text="Address2" AllowFloatingLabel="false">
+                                                <RadzenTextBox class="@redtext" @bind-Value=@salesOrdersHeader.DOAddress2 Style="width: 100%;" />
+                                            </RadzenFormField>
+                                        </RadzenColumn>
+                                    </RadzenRow>
+                                    <RadzenRow AlignItems="@alignItems">
+                                        <RadzenColumn Size="12" SizeMD="12">
+                                            <RadzenFormField Style="width:100%" Text="Address3" AllowFloatingLabel="false">
+                                                <RadzenTextBox class="@redtext" @bind-Value=@salesOrdersHeader.DOAddress3 Style="width: 100%;" />
+                                            </RadzenFormField>
+                                        </RadzenColumn>
+                                    </RadzenRow>
+                                    <RadzenRow AlignItems="@alignItems">
+                                        <RadzenColumn Size="12" SizeMD="12">
+                                            <RadzenFormField Style="width:100%" Text="Address4" AllowFloatingLabel="false">
+                                                <RadzenTextBox class="@redtext" @bind-Value=@salesOrdersHeader.DOAddress4 Style="width: 100%;" />
+                                            </RadzenFormField>
+                                        </RadzenColumn>
+                                    </RadzenRow>
+                                </RadzenStack>
+                            </RadzenColumn>
+
+                            <RadzenColumn Size="6" SizeMD="6">
+                                <RadzenStack Gap="0.2rem">
+                                    <RadzenRow AlignItems="@alignItems">
+                                        <RadzenColumn Size="12" SizeMD="12">
+                                            <RadzenFormField Style="width:100%" Text="Branch Code" AllowFloatingLabel="false">
+                                                <RadzenTextBox class="@redtext" @bind-Value=@salesOrdersHeader.DOBranchCode Style="width: 100%;" />
+                                            </RadzenFormField>
+                                        </RadzenColumn>
+                                    </RadzenRow>
+
+                                    <RadzenRow AlignItems="@alignItems">
+                                        <RadzenColumn Size="12" SizeMD="12">
+                                            <RadzenFormField Style="width:100%" Text="Branch Name" AllowFloatingLabel="false">
+                                                <RadzenTextBox class="@redtext" @bind-Value=@salesOrdersHeader.DOBranchName Style="width: 100%;" />
+                                            </RadzenFormField>
+                                        </RadzenColumn>
+                                    </RadzenRow>
+
+                                    <RadzenRow AlignItems="@alignItems">
+                                        <RadzenColumn Size="12" SizeMD="12">
+                                            <RadzenFormField Style="width:100%" Text="Contact" AllowFloatingLabel="false">
+                                                <RadzenTextBox class="@redtext" @bind-Value=@salesOrdersHeader.DOContact Style="width: 100%;" />
+                                            </RadzenFormField>
+                                        </RadzenColumn>
+                                    </RadzenRow>
+
+                                    <RadzenRow AlignItems="@alignItems">
+                                        <RadzenColumn Size="12" SizeMD="5">
+                                            <RadzenFormField Style="width:100%" Text="Phone" AllowFloatingLabel="false">
+                                                <RadzenTextBox class="@redtext" @bind-Value=@salesOrdersHeader.DOPhone Style="width: 100%;" />
+                                            </RadzenFormField>
+                                        </RadzenColumn>
+                                        <RadzenColumn Size="12" SizeMD="5">
+                                            <RadzenFormField Style="width:100%" Text="Fax" AllowFloatingLabel="false">
+                                                <RadzenTextBox class="@redtext" @bind-Value=@salesOrdersHeader.DOFax Style="width: 100%;" />
+                                            </RadzenFormField>
+                                        </RadzenColumn>
+
+                                        <RadzenColumn Size="12" SizeMD="5">
+                                            <RadzenFormField Style="width:100%" Text="Registration No." AllowFloatingLabel="false">
+                                                <RadzenTextBox class="@redtext" @bind-Value=@salesOrdersHeader.DORegistationNo Style="width: 100%;" />
+                                            </RadzenFormField>
+                                        </RadzenColumn>
+                                    </RadzenRow>
+
+                                </RadzenStack>
+                            </RadzenColumn>
+                        </RadzenRow>
+                    </RadzenTabsItem>
+                    <RadzenTabsItem Text="Others">
+                        <RadzenRow>
+                            <RadzenColumn Size="12" SizeMD="4">
+                                <RadzenStack Gap="0.2rem">
+                                    <RadzenRow AlignItems="@alignItems">
+                                        <RadzenColumn Size="12" SizeMD="12">
+                                            <RadzenFormField Style="width:100%" Text="Title" AllowFloatingLabel="false">
+                                                <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0rem;" Wrap="FlexWrap.Wrap">
+                                                    <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Style="width: 90%;" Gap="0.5rem;">
+                                                        <RadzenDropDown class="@redtext" @bind-Value=@salesOrdersHeader.Title
+                                                                        Data=@descriptionsList
+                                                                        TextProperty="@nameof(Descriptions.Description)" SelectedItem="0"
+                                                                        ValueProperty="@nameof(Descriptions.Description)" Style="width: 100%;" />
+                                                    </RadzenStack>
+                                                    @* <RadzenButton Click="() => OpenDialog(1)" Icon="more_horiz"></RadzenButton> *@
+                                                </RadzenStack>
+                                            </RadzenFormField>
+                                        </RadzenColumn>
+                                    </RadzenRow>
+
+                                    <RadzenRow AlignItems="@alignItems">
+                                        <RadzenColumn Size="12" SizeMD="12">
+                                            <RadzenFormField Style="width:100%" Text="Transfer To" AllowFloatingLabel="false">
+                                                <RadzenTextBox Disabled=true class="@redtext" @bind-Value=@salesOrdersHeader.TransferToInfo Style="width: 100%;" />
+                                            </RadzenFormField>
+                                        </RadzenColumn>
+                                        <RadzenColumn Size="12" SizeMD="12">
+                                            <RadzenFormField Style="width:100%" Text="Transfer From" AllowFloatingLabel="false">
+                                                <RadzenTextBox Disabled=true class="@redtext" @bind-Value=@salesOrdersHeader.TransferFromInfo Style="width: 100%;" />
+                                            </RadzenFormField>
+                                        </RadzenColumn>
+                                    </RadzenRow>
+                                </RadzenStack>
+                            </RadzenColumn>
+
+                            <RadzenColumn Size="12" SizeMD="4">
+                                <RadzenStack Gap="0.2rem">
+                                    <RadzenRow AlignItems="@alignItems">
+                                        <RadzenColumn Size="12" SizeMD="12">
+                                            <RadzenFormField Style="width:100%" Text="Reference 1" AllowFloatingLabel="false">
+                                                <RadzenTextBox class="@redtext" @bind-Value=@salesOrdersHeader.Ref1 Style="width: 100%;" />
+                                            </RadzenFormField>
+                                        </RadzenColumn>
+                                    </RadzenRow>
+
+                                    <RadzenRow AlignItems="@alignItems">
+                                        <RadzenColumn Size="12" SizeMD="12">
+                                            <RadzenFormField Style="width:100%" Text="Reference 2" AllowFloatingLabel="false">
+                                                <RadzenTextBox class="@redtext" @bind-Value=@salesOrdersHeader.Ref2 Style="width: 100%;" />
+                                            </RadzenFormField>
+                                        </RadzenColumn>
+                                    </RadzenRow>
+                                    <RadzenRow AlignItems="@alignItems">
+                                        <RadzenColumn Size="12" SizeMD="12">
+                                            <RadzenFormField Style="width:100%" Text="Reference 3" AllowFloatingLabel="false">
+                                                <RadzenTextBox class="@redtext" @bind-Value=@salesOrdersHeader.Ref3 Style="width: 100%;" />
+                                            </RadzenFormField>
+                                        </RadzenColumn>
+                                    </RadzenRow>
+                                    <RadzenRow AlignItems="@alignItems">
+                                        <RadzenColumn Size="12" SizeMD="12">
+                                            <RadzenFormField Style="width:100%" Text="Reference 4" AllowFloatingLabel="false">
+                                                <RadzenTextBox class="@redtext" @bind-Value=@salesOrdersHeader.Ref4 Style="width: 100%;" />
+                                            </RadzenFormField>
+                                        </RadzenColumn>
+                                    </RadzenRow>
+                                    <RadzenRow AlignItems="@alignItems">
+                                        <RadzenColumn Size="12" SizeMD="12">
+                                            <RadzenFormField Style="width:100%" Text="Reference 5" AllowFloatingLabel="false">
+                                                <RadzenTextBox class="@redtext" @bind-Value=@salesOrdersHeader.Ref5 Style="width: 100%;" />
+                                            </RadzenFormField>
+                                        </RadzenColumn>
+                                    </RadzenRow>
+                                </RadzenStack>
+                            </RadzenColumn>
+
+
+                            <RadzenColumn Size="12" SizeMD="4">
+                                <RadzenStack Gap="0.2rem">
+                                    <RadzenRow AlignItems="@alignItems">
+                                        <RadzenColumn Size="12" SizeMD="12">
+                                            <RadzenFormField Style="width:100%" Text="Remark 1" AllowFloatingLabel="false">
+                                                <RadzenTextBox class="@redtext" @bind-Value=@salesOrdersHeader.Remark1 Style="width: 100%;" />
+                                            </RadzenFormField>
+                                        </RadzenColumn>
+                                    </RadzenRow>
+
+                                    <RadzenRow AlignItems="@alignItems">
+                                        <RadzenColumn Size="12" SizeMD="12">
+                                            <RadzenFormField Style="width:100%" Text="Remark 2" AllowFloatingLabel="false">
+                                                <RadzenTextBox class="@redtext" @bind-Value=@salesOrdersHeader.Remark2 Style="width: 100%;" />
+                                            </RadzenFormField>
+                                        </RadzenColumn>
+                                    </RadzenRow>
+                                    <RadzenRow AlignItems="@alignItems">
+                                        <RadzenColumn Size="12" SizeMD="12">
+                                            <RadzenFormField Style="width:100%" Text="Remark 3" AllowFloatingLabel="false">
+                                                <RadzenTextBox class="@redtext" @bind-Value=@salesOrdersHeader.Remark3 Style="width: 100%;" />
+                                            </RadzenFormField>
+                                        </RadzenColumn>
+                                    </RadzenRow>
+                                    <RadzenRow AlignItems="@alignItems">
+                                        <RadzenColumn Size="12" SizeMD="12">
+                                            <RadzenFormField Style="width:100%" Text="Remark 4" AllowFloatingLabel="false">
+                                                <RadzenTextBox class="@redtext" @bind-Value=@salesOrdersHeader.Remark4 Style="width: 100%;" />
+                                            </RadzenFormField>
+                                        </RadzenColumn>
+                                    </RadzenRow>
+                                    <RadzenRow AlignItems="@alignItems">
+                                        <RadzenColumn Size="12" SizeMD="12">
+                                            <RadzenFormField Style="width:100%" Text="Remark 5" AllowFloatingLabel="false">
+                                                <RadzenTextBox class="@redtext" @bind-Value=@salesOrdersHeader.Remark5 Style="width: 100%;" />
+                                            </RadzenFormField>
+                                        </RadzenColumn>
+                                    </RadzenRow>
+                                </RadzenStack>
+                            </RadzenColumn>
+
+                        </RadzenRow>
+                    </RadzenTabsItem>
+                    <RadzenTabsItem Text="Notes">
+                        <RadzenRow>
+                            <RadzenColumn Size="12" SizeMD="12">
+                                <RadzenStack Gap="0.2rem">
+                                    <RadzenRow AlignItems="@alignItems">
+                                        <RadzenColumn Size="12" SizeMD="12">
+                                            <RadzenTextArea @bind-Value=@salesOrdersHeader.Notes Rows="10" Style="width:100%" class="@redtext" aria-label="TextArea" />
+                                        </RadzenColumn>
+                                    </RadzenRow>
+                                </RadzenStack>
+                            </RadzenColumn>
+                        </RadzenRow>
+                    </RadzenTabsItem>
+                    <RadzenTabsItem Text="Info">
+                        @* <RadzenDropDownDataGrid class="@redtext" @bind-Value=@salesOrdersHeader.RequestByUserId
+                                                    ValueProperty="@nameof(SecuritySystemUser.OiddAsString)" TextProperty="@nameof(SecuritySystemUser.UserName)"
+                                                    Data="@requestedList" AllowClear="true" FilterCaseSensitivity="@filter" AllowFilteringByAllStringColumns="true" Density="@density"
+                                                    AllowSorting="false" Style="width: 100%;" PageSize=10 AllowVirtualization="true" AllowColumnResize="true">
+                                <Columns>
+                                    <RadzenDropDownDataGridColumn Property="@nameof(SecuritySystemUser.UserName)" Title="User Name"></RadzenDropDownDataGridColumn>
+                                    <RadzenDropDownDataGridColumn Property="@nameof(SecuritySystemUser.FullName)" Title="Full Name"></RadzenDropDownDataGridColumn>
+                                </Columns>
+                            </RadzenDropDownDataGrid> *@
+                    </RadzenTabsItem>
+                </Tabs>
+            </RadzenTabs>
+
+            @* TABLE DETAILS*@
+            <br />
+           
+            <RadzenDataGrid EditMode="@editMode" @ref="salesOrderDetailsGrid" Style="width: 100%; font-size:12px"
+                            Data="@salesOrderDetails" AllowColumnResize=true RowCreate="@OnCreateRow"
+                            TItem="SalesOrderDetails" Density="@density" RowUpdate="@OnUpdateRow" RowRender="@RowRender">
+                @*   <HeaderTemplate>
+                        <RadzenButton ButtonStyle="ButtonStyle.Success" Icon="add" Text="Add New Order" Size="ButtonSize.ExtraSmall" Click="@InsertRow" Disabled="@(editMode == DataGridEditMode.Single && quotationsDetailsToInsert.Count() > 0)" />
+                    </HeaderTemplate> *@
+
+                <HeaderTemplate>
+                    <RadzenButton ButtonStyle="ButtonStyle.Success" Icon="add" Text="Add New" Size="ButtonSize.ExtraSmall" Click="@(() => InsertAfterRow(salesOrderDetails.LastOrDefault()))" title="Add new row after this row" Disabled="@(salesOrderDetailsToInsert.Any() || salesOrderDetailsToUpdate.Any() || salesOrdersHeader.IsCancelled is true || !string.IsNullOrWhiteSpace(salesOrdersHeader.TransferToInfo))" />
+                </HeaderTemplate>
+
+                <Columns>
+
+                    <RadzenDataGridColumn Width="45px" TextAlign="TextAlign.Center" Property="Action" Frozen="true" FrozenPosition="FrozenColumnPosition.Left">
+                        <Template Context="salesorderdetails">
+                            <RadzenButton Icon="edit" ButtonStyle="ButtonStyle.Secondary" Variant="Variant.Text" Size="ButtonSize.ExtraSmall" Click="@(args => EditRow(salesorderdetails))" title="Edit this row" Disabled="@(salesOrdersHeader.IsCancelled is true || salesOrdersHeader.IsClosed is true || !string.IsNullOrWhiteSpace(salesOrdersHeader.TransferToInfo))" />
+
+                        </Template>
+                        <EditTemplate Context="salesorderdetails">
+                            <RadzenButton Icon="check" ButtonStyle="ButtonStyle.Success" Variant="Variant.Text" Size="ButtonSize.ExtraSmall" Click="@((args) => SaveRow(salesorderdetails))" title="Save" />
+                        </EditTemplate>
+                    </RadzenDataGridColumn>
+
+
+                    <RadzenDataGridColumn Visible=false Width="100px" TItem="SalesOrderDetails" Property="@nameof(SalesOrderDetails.PackingUOM1)" Title="Packing UOM 1" FormatString="{0:N2}" TextAlign="TextAlign.Center" />
+                    <RadzenDataGridColumn Visible=false Width="100px" TItem="SalesOrderDetails" Property="@nameof(SalesOrderDetails.PackingUOM2)" Title="Packing UOM 2" FormatString="{0:N2}" TextAlign="TextAlign.Center" />
+                    <RadzenDataGridColumn Visible=false Width="2rem" TItem="SalesOrderDetails" Property="@nameof(SalesOrderDetails.Id)" Title="Id" TextAlign="TextAlign.Center" />
+                    <RadzenDataGridColumn Visible=false Width="2rem" TItem="SalesOrderDetails" Property="@nameof(SalesOrderDetails.SalesOrderId)" Title="SalesOrder Id" TextAlign="TextAlign.Center" />
+                    <RadzenDataGridColumn Visible=false Width="2rem" TItem="SalesOrderDetails" Property="@nameof(SalesOrderDetails.Pos)" Title="Post" TextAlign="TextAlign.Center" />
+                    <RadzenDataGridColumn Width="160px" TItem="SalesOrderDetails" Property="@nameof(SalesOrderDetails.StockId)" Title="Stock Code" TextAlign="TextAlign.Center">
+                        <Template Context="salesorderdetails">
+                            @{
+                                var stock = stockList?.FirstOrDefault(s => s.Id == salesorderdetails.StockId);
+                             }
+                            @stock?.StockCode
+                        </Template>
+                        <EditTemplate Context="salesorderdetails">
+
+                            <RadzenDropDownDataGrid @bind-Value="salesorderdetails.StockId" Style="width: 150px; font-size:12px" PageSize="10" Data="@stockList" AllowVirtualization="true" AllowColumnResize="true"
+                                                    Change="@(args => OnStockChanged(args, salesorderdetails))"
+                                                    AllowClear="true" AllowSorting="false" FilterCaseSensitivity="@filter" AllowFilteringByAllStringColumns="true"
+                                                    TextProperty="StockCode" Density="@density" ValueProperty="Id">
+                                <Columns>
+                                    <RadzenDropDownDataGridColumn Width="6%" Property="StockCode" Title="Stock #" />
+                                    <RadzenDropDownDataGridColumn Width="10%" Property="StockName" Title="StockName" />
+                                </Columns>
+                            </RadzenDropDownDataGrid>
+                        </EditTemplate>
+
+                    </RadzenDataGridColumn>
+                    <RadzenDataGridColumn Width="290px" TItem="SalesOrderDetails" Property="@nameof(SalesOrderDetails.Description)" Title="Description" TextAlign="TextAlign.Center">
+                        <EditTemplate Context="salesorderdetails">
+                            <RadzenTextBox Style="width: 100%; font-size:12px" @bind-Value="salesorderdetails.Description"></RadzenTextBox>
+                        </EditTemplate>
+                    </RadzenDataGridColumn>
+                
+
+                    <RadzenDataGridColumn Width="100px" TItem="SalesOrderDetails" Property="@nameof(SalesOrderDetails.Qty)" Title="Qty" TextAlign="TextAlign.Center">
+                        <Template Context="salesorderdetails">
+                            @(salesorderdetails.Qty == 0 ? "" : salesorderdetails.Qty.ToString("N4"))
+                        </Template>
+                        <EditTemplate Context="salesorderdetails">
+                            <RadzenNumeric Disabled="@IsDisable" Change="@(args => TransactionHelper(salesorderdetails))" Style="width: 100%; font-size:12px" TValue="decimal" @bind-Value="salesorderdetails.Qty" Format="#.0000" />
+                        </EditTemplate>
+                    </RadzenDataGridColumn>
+                    <RadzenDataGridColumn Width="100px" TItem="SalesOrderDetails" Property="@nameof(SalesOrderDetails.UOMId)" Title="UOM" TextAlign="TextAlign.Center">
+                        <Template Context="salesorderdetails">
+                            @{
+                                var uoms = uomsList?.FirstOrDefault(u => u.Id == salesorderdetails.UOMId);
+                            }
+                            @uoms?.UOMCode
+                        </Template>
+                        <EditTemplate Context="salesorderdetails">
+
+                            <RadzenDropDownDataGrid Disabled="@IsDisable" @bind-Value="salesorderdetails.UOMId" Style="width: 100%; font-size:12px" PageSize="10"
+                                                    Data="@GetUOMsForStock(salesorderdetails.StockId)" AllowVirtualization="true" AllowColumnResize="true"
+                                                    AllowClear="true" AllowSorting="false" FilterCaseSensitivity="@filter" AllowFilteringByAllStringColumns="true"
+                                                    TextProperty="UOMCode" Density="@density" ValueProperty="Id"
+                                                    Change="@(args => ConvertPackUOM(salesorderdetails))">
+                                <Columns>
+                                    <RadzenDropDownDataGridColumn Width="6%" Property="UOMCode" Title="UOM #" />
+                                    <RadzenDropDownDataGridColumn Width="10%" Property="Description" Title="Description" />
+                                </Columns>
+                            </RadzenDropDownDataGrid>
+                        </EditTemplate>
+                    </RadzenDataGridColumn>
+
+                    <RadzenDataGridColumn Width="100px" TItem="SalesOrderDetails" Property="@nameof(SalesOrderDetails.UnitPrice)" Title="Unit Price" TextAlign="TextAlign.Center">
+                        <Template Context="salesorderdetails">
+                            @(salesorderdetails.UnitPrice == 0 ? "" : salesorderdetails.UnitPrice.ToString("N4"))
+                        </Template>
+                        <EditTemplate Context="salesorderdetails">
+                            <RadzenNumeric Change="@(args => TransactionHelper(salesorderdetails))" Disabled="@IsDisable" Style="width: 100%; font-size:12px" TValue="decimal" @bind-Value="salesorderdetails.UnitPrice" Format="#.0000" />
+                        </EditTemplate>
+                    </RadzenDataGridColumn>
+
+                    <RadzenDataGridColumn Width="100px" TItem="SalesOrderDetails" Property="Discount" Title="Disc" TextAlign="TextAlign.Center">
+                        <Template Context="salesorderdetails">
+                            @(salesorderdetails.Discount == string.Empty ? string.Empty : salesorderdetails.Discount)
+                        </Template>
+                        <EditTemplate Context="salesorderdetails">
+                            <RadzenTextBox Style="width: 100%; font-size:12px"
+                                           Disabled="@IsDisable"
+                                           @bind-Value="salesorderdetails.Discount"
+                                           Change="@(args => OnDiscountChanged(salesorderdetails))">
+                            </RadzenTextBox>
+                        </EditTemplate>
+                    </RadzenDataGridColumn>
+
+                    <RadzenDataGridColumn Width="100px" Visible=false TItem="SalesOrderDetails" Property="@nameof(SalesOrderDetails.DiscountAmount)" Title="Disc Amt" TextAlign="TextAlign.Center">
+                        <Template Context="salesorderdetails">
+                            @(salesorderdetails.DiscountAmount == 0 ? "" : salesorderdetails.DiscountAmount.ToString("N2"))
+                        </Template>
+                    </RadzenDataGridColumn>
+                    <RadzenDataGridColumn Width="100px" Visible=false TItem="SalesOrderDetails" Property="@nameof(SalesOrderDetails.DiscountAmountLocal)" Title="Disc AmtL" TextAlign="TextAlign.Center">
+                        <Template Context="salesorderdetails">
+                            @(salesorderdetails.DiscountAmountLocal == 0 ? "" : salesorderdetails.DiscountAmountLocal.ToString("N2"))
+                        </Template>
+                    </RadzenDataGridColumn>
+
+                    <RadzenDataGridColumn Width="100px" TItem="SalesOrderDetails" Property="@nameof(SalesOrderDetails.Amount)" Title="Amount" TextAlign="TextAlign.Center">
+                        <Template Context="salesorderdetails">
+
+                            @(salesorderdetails.Amount == 0 ? "" : salesorderdetails.Amount.ToString("N2"))
+                        </Template>
+                    </RadzenDataGridColumn>
+
+                    <RadzenDataGridColumn Width="100px" Visible=false TItem="SalesOrderDetails" Property="@nameof(SalesOrderDetails.IsTaxInclusive)" Title="Tax Inclusive" TextAlign="TextAlign.Center">
+                        <Template Context="salesorderdetails">
+                            <RadzenCheckBox @bind-Value="salesorderdetails.IsTaxInclusive" TValue="bool" Change="@(args => TransactionHelper(salesorderdetails))"></RadzenCheckBox>
+                        </Template>
+                    </RadzenDataGridColumn>
+
+                    <RadzenDataGridColumn Width="100px" TItem="SalesOrderDetails" Property="@nameof(SalesOrderDetails.TaxCodeId)" Title="Tax Code" TextAlign="TextAlign.Center">
+                        <Template Context="salesorderdetails">
+                            @{
+                                var taxcode = taxCodesList?.FirstOrDefault(t => t.Id == salesorderdetails.TaxCodeId);
+                            }
+                            @taxcode?.TaxCode
+                        </Template>
+                        <EditTemplate Context="salesorderdetails">
+                            <RadzenDropDownDataGrid Change="@(args => TransactionHelper(salesorderdetails))" Disabled="@IsDisable" @bind-Value="salesorderdetails.TaxCodeId" AllowSorting="false" Style="font-size:12px" PageSize="10" Data="@taxCodesList"
+                                                    AllowClear="true" FilterCaseSensitivity="@filter" AllowFilteringByAllStringColumns="true"
+                                                    TextProperty="TaxCode" Density="@density" ValueProperty="Id">
+                                <Columns>
+                                    <RadzenDropDownDataGridColumn Width="100px" Property="TaxCode" Title="Vat #" />
+                                    <RadzenDropDownDataGridColumn Width="100px" Property="Rate" Title="Rate" />
+                                    <RadzenDropDownDataGridColumn Width="100px" Property="VatType" Title="VatType" />
+                                    <RadzenDropDownDataGridColumn Width="250px" Property="Description" Title="Description" />
+                                </Columns>
+                            </RadzenDropDownDataGrid>
+                        </EditTemplate>
+                    </RadzenDataGridColumn>
+
+                    <RadzenDataGridColumn Width="100px" Visible=false TItem="SalesOrderDetails" Property="@nameof(SalesOrderDetails.TaxExclusiveAmount)" FormatString="{0:N4}" Title="Tax ExcL" TextAlign="TextAlign.Center">
+                        <Template Context="salesorderdetails">
+                            @(salesorderdetails.TaxExclusiveAmount == 0 ? "" : salesorderdetails.TaxExclusiveAmount?.ToString("N4"))
+                        </Template>
+                    </RadzenDataGridColumn>
+
+                    <RadzenDataGridColumn Width="100px" TItem="SalesOrderDetails" Property="@nameof(SalesOrderDetails.TaxAmount)" Title="Tax" TextAlign="TextAlign.Center">
+                        <Template Context="salesorderdetails">
+                            @(salesorderdetails.TaxAmount == 0 ? "" : salesorderdetails.TaxAmount.ToString("N4"))
+                        </Template>
+                    </RadzenDataGridColumn>
+
+                    <RadzenDataGridColumn Width="100px" TItem="SalesOrderDetails" Property="@nameof(SalesOrderDetails.WTaxCode)" Title="WTax Code" TextAlign="TextAlign.Center">
+                        <Template Context="salesorderdetails">
+                            @{
+                                var wtaxcode = wTaxCodesList?.FirstOrDefault(w => w.Id == salesorderdetails.WTaxCode);
+                            }
+                            @wtaxcode?.Code
+                        </Template>
+
+                        @* WTAXCODE DROPDOWN *@
+                        <EditTemplate Context="salesorderdetails">
+                            <RadzenDropDownDataGrid Disabled="@IsDisable" @bind-Value="salesorderdetails.WTaxCode" AllowSorting="false" Style="font-size:12px" PageSize="10" Data="@FilteredWTaxCodesList"
+                                                    AllowClear="true" FilterCaseSensitivity="@filter" AllowFilteringByAllStringColumns="true"
+                                                    TextProperty="Code" Density="@density" ValueProperty="Id" Change="@(args => TransactionHelper(salesorderdetails))">
+                                <Columns>
+                                    <RadzenDropDownDataGridColumn Width="100px" Property="Code" Title="Code" />
+                                    <RadzenDropDownDataGridColumn Width="100px" Property="Rate" Title="Rate">
+                                        <Template Context="wtaxcode">
+                                            @((wtaxcode.Rate * 100).ToString("0.00") + "%")
+                                        </Template>
+                                    </RadzenDropDownDataGridColumn>
+                                    <RadzenDropDownDataGridColumn Width="250px" Property="Description" Title="Description" />
+                                </Columns>
+                            </RadzenDropDownDataGrid>
+                        </EditTemplate>
+                    </RadzenDataGridColumn>
+
+                    <RadzenDataGridColumn Width="100px" TItem="SalesOrderDetails" Property="@nameof(SalesOrderDetails.WTaxAmount)" Title="WTax" TextAlign="TextAlign.Center">
+                        <Template Context="salesorderdetails">
+                            @(salesorderdetails.WTaxAmount == 0 ? "" : salesorderdetails.WTaxAmount.ToString("N4"))
+                        </Template>
+                    </RadzenDataGridColumn>
+
+                    <RadzenDataGridColumn Width="100px" TItem="SalesOrderDetails" Property="@nameof(SalesOrderDetails.NetAmount)" Title="Net" TextAlign="TextAlign.Center">
+                        <Template Context="salesorderdetails">
+                            @(salesorderdetails.NetAmount == 0 ? "" : salesorderdetails.NetAmount.ToString("N2"))
+                        </Template>
+                    </RadzenDataGridColumn>
+
+                    <RadzenDataGridColumn Width="100px" Visible=false TItem="SalesOrderDetails" Property="@nameof(SalesOrderDetails.StockLocationId)" Title="Stocklocationid" TextAlign="TextAlign.Center">
+                    </RadzenDataGridColumn>
+                   
+                    <RadzenDataGridColumn Width="100px" Visible=false TItem="SalesOrderDetails" Property="@nameof(SalesOrderDetails.SubAmount)" Title="Sub" TextAlign="TextAlign.Center">
+                        <Template Context="salesorderdetails">
+                            @(salesorderdetails.SubAmount == 0 ? "" : salesorderdetails.SubAmount.ToString("N2"))
+                        </Template>
+                    </RadzenDataGridColumn>
+
+                    <RadzenDataGridColumn Width="45px" TextAlign="TextAlign.Center" Property="Action" Frozen="true" FrozenPosition="FrozenColumnPosition.Right">
+                        <Template Context="salesorderdetails">
+                            <RadzenButton Icon="delete" ButtonStyle="ButtonStyle.Danger" title="Delete" Variant="Variant.Text" Size="ButtonSize.ExtraSmall" Click="@(args => DeleteRow(salesorderdetails))" Disabled="@(salesOrderDetails.Count == 1 || salesOrdersHeader.IsClosed is true || salesOrdersHeader.IsCancelled is true || !string.IsNullOrWhiteSpace(salesOrdersHeader.TransferToInfo))" />
+                        </Template>
+                    </RadzenDataGridColumn>
+
+                </Columns>
+            </RadzenDataGrid>
+            @* END OF TABLE DETAILS*@
+
+
+
+        </RadzenCard>
+
+
+        <RadzenCard Style="Padding: 0.5rem">
+            <RadzenRow JustifyContent="JustifyContent.Right" AlignItems="AlignItems.Center" Gap="0.5rem">
+                <RadzenColumn Size="12" SizeSM="5">
+                    <RadzenStack AlignItems="AlignItems.Center" Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End">
+                        <RadzenFormField Style="width:100%" Text="Taxable" AllowFloatingLabel="false">
+                            <RadzenNumeric Disabled=true Value="@salesOrdersHeader.TaxExclusiveTotalAmountLocal" Format="#,0.00" ShowUpDown="false" TextAlign="TextAlign.Right" Style="width: 100%;" Placeholder="" />
+                        </RadzenFormField>
+
+
+                        <RadzenFormField Style="width:100%" Text="Tax" AllowFloatingLabel="false">
+                            <RadzenNumeric Disabled=true Value="@salesOrdersHeader.TaxTotalAmountLocal" Format="#,0.00" ShowUpDown="false" TextAlign="TextAlign.Right" Style="width: 100%;" Placeholder="" />
+                        </RadzenFormField>
+
+
+                        <RadzenFormField Style="width:100%" Text="Due Amount" AllowFloatingLabel="false">
+                            <RadzenNumeric Disabled=true Value="@DueAmount" Format="#,0.00" ShowUpDown="false" TextAlign="TextAlign.Right" Style="width: 100%;" Placeholder="" />
+                        </RadzenFormField>
+                    </RadzenStack>
+                </RadzenColumn>
+            </RadzenRow>
+        </RadzenCard>
+
+
+    </RadzenStack>
+    <RadzenPopup @ref=popup Lazy=true class="my-popup">
+        @*  <RadzenDropDown Change="SetQuotationNo" SelectedItemsText="" Placeholder="@salesOrdersHeader.QuotationCode" class="@redtext" @bind-Value=@salesOrdersHeader.QuotationCode Data=@transactionCodesList TextProperty="@nameof(TransactionsCode.Format)" SelectedItem="0" ValueProperty="@nameof(TransactionsCode.Format)" Style="width: 2rem;" /> *@
+        <RadzenDataGrid RowDoubleClick="() => SetSalesOrderNoPopup(selectedtransactionCodesList.FirstOrDefault().Id)"
+                        TItem="TransactionsCode"
+                        @ref=transactionsCodeGrid
+                        @bind-Value="@selectedtransactionCodesList"
+                        Data=@transactionCodesList>
+            <Columns>
+                <RadzenDataGridColumn TItem="TransactionsCode" Property="@nameof(TransactionsCode.Format)" Title="Format" TextAlign="TextAlign.Center" Width="300px">
+                    <Template Context="transactionCode">
+                        @transactionCode.Format
+                    </Template>
+                </RadzenDataGridColumn>
+            </Columns>
+        </RadzenDataGrid>
+
+    </RadzenPopup>
+
+</RadzenTemplateForm>
+
+
+@* //FOR POP UP DIALOG *@
+<style type="text/css">
+    .my-popup {
+        display: none;
+        position: absolute;
+        overflow: hidden;
+        height: 160px;
+        width: 300px;
+        border: var(--rz-panel-border);
+        background-color: var(--rz-panel-background-color);
+        box-shadow: var(--rz-panel-shadow);
+        border-radius: var(--rz-border-radius)
+    }
+</style>
+
+@code {
+    [Parameter]
+    public Guid? Id { get; set; }
+
+    [CascadingParameter]
+    public Task<AuthenticationState> authenticationState { get; set; }
+    bool rightSidebarExpanded = false;
+
+    AlignItems alignItems = AlignItems.Center;
+    Density density = Density.Compact;
+    TextStyle textStyle = TextStyle.Body2;
+    FilterCaseSensitivity filter = FilterCaseSensitivity.CaseInsensitive;
+    Variant btnVariantText = Variant.Text;
+    ButtonSize smallbtn = ButtonSize.Small;
+
+
+    //FOR POP UP DIALOG
+    RadzenButton button;
+    RadzenPopup popup;
+    RadzenDataGrid<TransactionsCode> transactionsCodeGrid;
+    protected IList<TransactionsCode> selectedtransactionCodesList { get; set; }
+
+    //FOR PROPERTY SET VALUE OF OBJECT
+    string btnText = "Save";
+    bool busy = false;
+    string status = string.Empty;
+    string redtext;
+
+    //for diseabled quotatuion details table
+    protected bool IsDisable = true;
+
+    //for loading data
+    bool isLoading = true;
+    bool btnDiseabled = false;
+
+
+    protected SalesOrdersHeader salesOrdersHeader { get; set; } = new SalesOrdersHeader();
+
+    //FOR QUOTATION DETAILS GRID
+    // Add this after initializing quotationsDetailsList to ensure a first row is loaded by default
+    RadzenDataGrid<SalesOrderDetails> salesOrderDetailsGrid;
+    protected List<SalesOrderDetails> salesOrderDetails;
+    DataGridEditMode editMode = DataGridEditMode.Single;
+    List<SalesOrderDetails> salesOrderDetailsToInsert = new List<SalesOrderDetails>();
+    List<SalesOrderDetails> salesOrderDetailsToUpdate = new List<SalesOrderDetails>();
+    //protected List<SalesOrderDetails> salesOrderDetailsList { get; set; }
+
+    //ALL LIST FOR DROPDOWN BOX INPUT
+    protected IEnumerable<Projects> projectList { get; set; }
+    protected IEnumerable<Currencies> currencyList { get; set; }
+    protected IEnumerable<Debtors> debtorsaccountList { get; set; }
+    protected IEnumerable<Terms> termList { get; set; }
+    protected IEnumerable<StockLocations> stocklocationList { get; set; }
+    protected IEnumerable<SalesPersons> salespersonList { get; set; }
+    protected IEnumerable<Stocks> stockList { get; set; }
+    protected IEnumerable<UOMs> uomsList { get; set; }
+    protected IEnumerable<WTaxCodes> wTaxCodesList { get; set; }
+    protected IEnumerable<TaxCodes> taxCodesList { get; set; }
+
+
+    protected IEnumerable<Descriptions> descriptionsList { get; set; }
+    protected IEnumerable<TransactionsCode> transactionCodesList { get; set; }
+
+
+    protected DescriptionFilter descriptionFilter { get; set; } = new DescriptionFilter();
+    protected TransactionCodesFilter transactionCodesFilter = new TransactionCodesFilter();
+    protected TaxCodeFilter taxCodeFilter = new TaxCodeFilter();
+
+    //private RunningNumbers runningNumbers;
+
+
+    protected async override Task OnInitializedAsync()
+    {
+
+        var authState = (await authenticationState).User;
+        if (authState.Identity.IsAuthenticated)
+        {
+            var RoleId = authState.FindFirst("RoleId").Value;
+            GetLoadMenuPermission(RoleId);
+        }
+
+
+    }
+
+
+    private SystemMenuObjectPermission? permission;
+
+    protected async void GetLoadMenuPermission(string RoleId)
+    {
+        permission = await permissionService.GetPermissionAsync(
+         RoleId,
+         "Sales Orders");
+
+        if (permission is null)
+            return;
+
+        SetTransactionCodeData();
+        InitializeSalesOrderDetailsRows();
+        await loadAllData();
+        if (Id is not null)
+        {
+            await loadAllDataById();
+        }
+        StateHasChanged();
+
+        StateHasChanged();
+    }
+
+
+    protected void LoadSalesOrderStatus()
+    {
+        //status = salesOrdersHeader.IsCancelled == true ? "(Cancelled)" : salesOrdersHeader.TransferToInfo != null ? ("Tranferred") : "";
+
+        var statusList = new List<string>();
+        if (salesOrdersHeader.IsClosed)
+            statusList.Add("Closed");
+
+        if (salesOrdersHeader.IsCancelled)
+            statusList.Add("Cancelled");
+
+        if (statusList.Any())
+        {
+            status = $"({string.Join(", ", statusList)})";
+        }
+        else if (!string.IsNullOrWhiteSpace(salesOrdersHeader.TransferToInfo))
+        {
+            status = "(Transferred)";
+        }
+
+        StateHasChanged();
+    }
+    protected async Task OnSubmit()
+    {
+        busy = true;
+        if (salesOrderDetailsToInsert.Any() || salesOrderDetailsToUpdate.Any())
+        {
+            NotificationHelper.ShowWarning(notificationService, "Unsaved Details", "Please click the 'Save' (checkmark) button for any active or newly added detail rows in the grid before saving.");
+            busy = false;
+            return;
+        }
+        var data = await salesOrdersService.SaveSalesOrdersWithTransferAsync(salesOrdersHeader, salesOrderDetails, forTransferHeader, forTransferDetails);
+        if (data is not null)
+        {
+            if (data.Contains("Success"))
+            {
+                await DialogService.Alert(data);
+                //var datadetails = await purchaseOrdersService.SavePurchaseOrderDetails(purchaseorderDetails);
+                btnDiseabled = true;
+                busy = false;
+            }
+            else
+
+            {
+                await DialogService.Alert(data);
+            }
+        }
+
+    }
+
+    protected void SetTransactionCodeData()
+    {
+        descriptionFilter.OwnerCode = "SalesOrders.Title";
+        //For Generating Quotations Code Getting Format from db.TransactionCodes
+        transactionCodesFilter.TableId = 63;
+    }
+
+    protected async Task loadAllData()
+    {
+
+        await GetTransactionNo();
+        await GetCustomertList();
+        await GetTermList();
+        await GetCurrencyList();
+        SetDefaultCurrency();
+        await GetStockList();
+        await GetStocksPriceList();
+        await GetUOMSList();
+        await GetTaxCodesList();
+        await GetWTaxCodesList();
+        await GetLocationList();
+        await GetSalesPersonList();
+        await GetDescriptions();
+        await GetProjectList();
+        await SetSalesOrderNo();
+
+
+        isLoading = false;
+    }
+    protected async Task loadAllDataById()
+    {
+        await GetSalesOrderHeaderById();
+        await GetSalesOrderDetailsById();
+        LoadSalesOrderStatus();
+        isLoading = false;
+    }
+
+    protected async Task GetStockList()
+    {
+        // stockList = await http.GetFromJsonAsync<List<Stocks>>("api/Stocks/GetStockLists?companyCode=" + CompCode);
+        var data = await stockItemsService.GetStockList();
+        stockList = data is not null ? data : new List<Stocks>();
+
+    }
+
+    protected IEnumerable<StockUnitPrice> lastSellingPrice { get; set; }
+    protected async Task GetStocksPriceList()
+    {
+        var data = await stockItemsService.GetStocksPriceList("SO");
+        lastSellingPrice = data is not null ? data : new List<StockUnitPrice>();
+
+    }
+    //Get Currencies From db.Currencies
+    protected async Task GetCurrencyList()
+    {
+        //currencyList = await http.GetFromJsonAsync<List<Currencies>>("api/Currency/GetCurrencies?companyCode=" + CompCode);
+        var data = await currenciesService.GetCurrencies();
+        currencyList = data is not null ? data : new List<Currencies>();
+
+    }
+    protected void SetDefaultCurrency()
+    {
+        var selectedcurrency = currencyList.FirstOrDefault(c => c.Id == 1);
+        salesOrdersHeader.CurrencyId = selectedcurrency.Id;
+        salesOrdersHeader.CurrencyRate = selectedcurrency.DefaultPurchaseRate;
+    }
+
+    //GET ALL UOMLIST PER STOCK
+    protected async Task GetUOMSList()
+    {
+        // uomsList = await http.GetFromJsonAsync<List<UOMs>>("api/Stocks/GetUOMsList?companyCode=" + CompCode);
+        var data = await stockItemsService.GetUOMsList();
+        uomsList = data is not null ? data : new List<UOMs>();
+
+    }
+
+    //LOAD DIFFERENT UOMS PER STOCK ON QUOTATION DETAILS
+    private IEnumerable<UOMs> GetUOMsForStock(Guid? stockId)
+    {
+        if (stockId == null || uomsList == null)
+            return Enumerable.Empty<UOMs>();
+        return uomsList
+            .Where(u => u.StockId == stockId)
+            .OrderByDescending(u => u.IsBaseUOM);
+    }
+
+    protected async Task GetCustomertList()
+    {
+        // debtorsaccountList = await http.GetFromJsonAsync<List<Debtors>>("api/Customers/GetCustomersList?companyCode=" + CompCode);
+        var data = await customersServices.GetCustomersList();
+        debtorsaccountList = data is not null ? data : new List<Debtors>();
+    }
+    protected async Task GetTermList()
+    {
+        // termList = await http.GetFromJsonAsync<List<Terms>>("api/Quotations/GetTermsLists?companyCode=" + CompCode);
+        var data = await termService.GetTermsLists();
+        termList = data is not null ? data : new List<Terms>();
+    }
+
+    protected async Task GetProjectList()
+    {
+        // projectList = await http.GetFromJsonAsync<List<Projects>>("api/Quotations/GetProjectsList?companyCode=" + CompCode);
+        var data = await projectService.GetProjectsLists();
+        projectList = data is not null ? data : new List<Projects>();
+    }
+
+    protected async Task GetLocationList()
+    {
+        //stocklocationList = await http.GetFromJsonAsync<List<StockLocations>>("api/Quotations/GetLocationLists?companyCode=" + CompCode);
+        var data = await stockItemsService.GetStockLocationList();
+        stocklocationList = data is not null ? data : new List<StockLocations>();
+    }
+
+    protected async Task GetSalesPersonList()
+    {
+        // salespersonList = await http.GetFromJsonAsync<List<SalesPersons>>("api/Quotations/GetSalesPersonsList?companyCode=" + CompCode);
+        var data = await salesService.GetSalesPersonsLists();
+        salespersonList = data is not null ? data : new List<SalesPersons>();
+    }
+
+    protected async Task GetDescriptions()
+    {
+        // var result = await http.PostAsJsonAsync($"api/Quotations/GetDescriptions?companyCode={CompCode}", descriptionFilter);
+        var data = await descriptionsService.GetDescriptions(descriptionFilter);
+
+        // descriptionsList = await result.Content.ReadFromJsonAsync<List<Descriptions>>();
+        descriptionsList = data is not null ? data : new List<Descriptions>();
+        var selected = descriptionsList.FirstOrDefault(sa => sa.IsDefault == true);
+        salesOrdersHeader.Title = selected.Description; // Select first item
+    }
+
+
+    private void OnStockLocationChanged(object stockLocationId)
+    {
+        Guid? selectedId = stockLocationId as Guid?;
+
+        foreach (var detail in salesOrderDetails)
+        {
+            detail.StockLocationId = selectedId;
+        }
+
+        StateHasChanged();
+    }
+
+
+    private void OnStockChanged(object stockId, SalesOrderDetails salesOrderDetails)
+    {
+        if (stockId != null && stockId is Guid selectedStockId)
+        {
+            var selectedStock = stockList?.FirstOrDefault(s => s.Id == selectedStockId);
+            if (selectedStock != null)
+            {
+                // Description?.Split(' ')[0] == "SUBTOTAL"
+                //if (selectedStock.StockName?.Split(' ')[0] is ("DISCOUNT" or "SUBTOTAL"))
+                if (selectedStock.ItemTypeCode is ("T" or "D"))
+                {
+
+                    ///INSERT TOTAL OF EACH COLUMN
+                    //quotationDetails.Amount = quotationsDetailsList?.Where(x => x.ItemTypeCode != "T").Sum(x => x.Amount) ?? 0.00m;
+
+                    salesOrderDetails.Qty = 0.00000000M;
+                    salesOrderDetails.UOMId = null;
+                    salesOrderDetails.UnitPrice = 0.00000000M;
+                    salesOrderDetails.SalesOrderId = salesOrdersHeader.Id;
+                    salesOrderDetails.StockId = selectedStock.Id;
+                    salesOrderDetails.StockLocationId = salesOrdersHeader.StockLocationId;
+                    salesOrderDetails.Discount = string.Join("/", Regex.Matches(selectedStock.StockName, @"\d+%").Select(m => m.Value));
+                    salesOrderDetails.Description = selectedStock.StockName;
+                    salesOrderDetails.ItemTypeCode = selectedStock.ItemTypeCode;
+                    salesOrderDetails.TaxCodeId = null;
+                    salesOrderDetails.WTaxCode = null;
+
+                    salesOrderDetails.PackingUOM1 = 0.00M;
+                    salesOrderDetails.PackingUOM2 = 0.00M;
+                    salesOrderDetails.HighestUOM = null;
+                   
+                    salesOrderDetails.Amount = Amount;
+                    salesOrderDetails.AmountLocal = AmountLocal;
+                    salesOrderDetails.DiscountAmount = DiscountAmount;
+                    salesOrderDetails.DiscountAmountLocal = DiscountAmountLocal;
+                    salesOrderDetails.NetAmount = NetAmount;
+                    salesOrderDetails.NetAmountLocal = NetAmountLocal;
+                    salesOrderDetails.TaxAmount = TaxAmount;
+                    salesOrderDetails.TaxAmountLocal = TaxAmountLocal;
+                    salesOrderDetails.SubAmount = SubAmount;
+                    salesOrderDetails.SubAmountLocal = SubAmountLocal;
+                    salesOrderDetails.TaxExclusiveAmount = TaxExclusiveAmount;
+                    salesOrderDetails.TaxExclusiveAmountLocal = TaxExclusiveAmountLocal;
+                    salesOrderDetails.WTaxAmount = WTaxAmount;
+                    salesOrderDetails.WTaxAmountLocal = WTaxAmountLocal;
+
+                    /// TransactionNumberHelper.Compute(salesOrderDetails);
+                    if (selectedStock.ItemTypeCode is ("D"))
+                    {
+                        //LoadSubtotalRow();
+                        DiscountAndSubtotalHelper.Compute(salesOrderDetails);
+                        ///TransactionNumberHelper.Compute(salesOrderDetails);
+                    }
+
+
+
+                }
+                else
+                {
+
+                    if (selectedStock.StockName is ("SALES DISCOUNT"))
+                    {
+                        salesOrderDetails.Qty = 1.00000000M;
+                        salesOrderDetails.UOMId = null;
+                        //UnitPrice = added.NetAmount,
+                        salesOrderDetails.UnitPrice = DiscountAmount;//SUM OF DISCOUNT AMOUNT
+                        //Discount = discountDesrciption,
+                        salesOrderDetails.SalesOrderId = salesOrdersHeader.Id;
+                        salesOrderDetails.StockId = selectedStock.Id;
+                        salesOrderDetails.StockLocationId = salesOrdersHeader.StockLocationId;
+                        salesOrderDetails.Description = selectedStock.StockName;
+                        salesOrderDetails.ItemTypeCode = selectedStock.ItemTypeCode;
+
+                        salesOrderDetails.TaxCodeId = null;
+                        salesOrderDetails.WTaxCode = null;
+
+                        salesOrderDetails.PackingUOM1 = 0.00M;
+                        salesOrderDetails.PackingUOM2 = 0.00M;
+                        salesOrderDetails.HighestUOM = null;
+
+                        salesOrderDetails.Amount = DiscountAmount;
+                        salesOrderDetails.AmountLocal = DiscountAmount;
+                        //DiscountAmount = DiscountAmount,
+                        //DiscountAmountLocal = DiscountAmountLocal,
+                        salesOrderDetails.NetAmount = DiscountAmount;
+                        salesOrderDetails.NetAmountLocal = DiscountAmount;
+                        //TaxAmount = TaxAmount,
+                        //TaxAmountLocal = TaxAmountLocal,
+                        salesOrderDetails.SubAmount = DiscountAmount;
+                        salesOrderDetails.SubAmountLocal = DiscountAmount;
+                        salesOrderDetails.TaxExclusiveAmount = DiscountAmount;
+                        salesOrderDetails.TaxExclusiveAmountLocal = DiscountAmount;
+                    }
+
+                    else
+                    {
+                        var selectedDebtor = debtorsaccountList.FirstOrDefault(c => c.Id == salesOrdersHeader.DebtorId);
+                        IsDisable = false;
+                        salesOrderDetails.SalesOrderId = salesOrdersHeader.Id;
+                        salesOrderDetails.StockLocationId = salesOrdersHeader.StockLocationId;
+                        // Populate Description
+                        salesOrderDetails.Description = selectedStock.StockName;
+                        //RESET Discount string
+                        salesOrderDetails.Discount = string.Empty;
+                        //Set Tax Code Id
+                        salesOrderDetails.TaxCodeId = selectedDebtor?.DefaultTaxCodeId;
+                        salesOrderDetails.WTaxCode = selectedDebtor?.DefaultWTaxCodeId;
+                        // Default Quantity
+                        salesOrderDetails.ItemTypeCode = selectedStock.ItemTypeCode;
+
+                        salesOrderDetails.Qty = 1.0000M;
+
+                        salesOrderDetails.PackingUOM2 = salesOrderDetails.Qty;
+                        // Set the base UOM
+                        var baseUOM = uomsList?.FirstOrDefault(u => u.StockId == selectedStockId && u.UOMCode == selectedStock.BaseUOM);
+                        if (baseUOM != null)
+                        {
+                            salesOrderDetails.UOMId = baseUOM.Id;
+                        }
+                        // Set the Highest UOM
+                        var highestUOM = uomsList?.Where(u => u.StockId == selectedStockId).OrderByDescending(u => u.Rate).FirstOrDefault();
+                        if (highestUOM != null)
+                        {
+                            salesOrderDetails.HighestUOM = highestUOM.UOMCode;
+                        }
+                        // Load Last Price
+                        var data = lastSellingPrice.Where(x => x.StockId == selectedStockId).FirstOrDefault();
+                        if (data != null)
+                        {
+                            salesOrderDetails.UnitPrice = data.UnitPrice;
+                            TransactionHelper(salesOrderDetails);
+                        }
+                        else
+                        {
+                            salesOrderDetails.UnitPrice = 0.00000000M;
+                        }
+                    }
+
+                  
+                }
+
+
+                // Just trigger state change, don't reload grid
+                StateHasChanged();
+            }
+        }
+        else
+        {
+            // Clear fields if no stock is selected
+            salesOrderDetails.UnitPrice = 0.00000000M;
+            salesOrderDetails.StockId = null;
+            salesOrderDetails.StockLocationId = null;
+            salesOrderDetails.Description = string.Empty;
+            salesOrderDetails.Qty = 0.00m;
+            salesOrderDetails.UOMId = null;
+            salesOrderDetails.Discount = null;
+            salesOrderDetails.TaxCodeId = null;
+            salesOrderDetails.WTaxCode = null;
+
+            salesOrderDetails.PackingUOM1 = 0.00M;
+            salesOrderDetails.PackingUOM2 = 0.00M;
+            salesOrderDetails.HighestUOM = null;
+
+            salesOrderDetails.Amount = 0.00M;
+            salesOrderDetails.AmountLocal = 0.00M;
+            salesOrderDetails.DiscountAmount = 0.00M;
+            salesOrderDetails.DiscountAmountLocal = 0.00M;
+            salesOrderDetails.NetAmount = 0.00M;
+            salesOrderDetails.NetAmountLocal = 0.00M;
+            salesOrderDetails.TaxAmount = 0.00M;
+            salesOrderDetails.TaxAmountLocal = 0.00M;
+            salesOrderDetails.SubAmount = 0.00M;
+            salesOrderDetails.SubAmountLocal = 0.00M;
+            salesOrderDetails.TaxExclusiveAmount = 0.00M;
+            salesOrderDetails.TaxExclusiveAmountLocal = 0.00M;
+            salesOrderDetails.WTaxAmount = 0.00M;
+            salesOrderDetails.WTaxAmountLocal = 0.00M;
+
+            LoadAllTaxTotalDiscNetAmount();
+            IsDisable = true;
+            StateHasChanged();
+        }
+    }
+
+    //GETTING REQUISITION NUMBER FORMAT FROM db.TransactionCodes
+    protected async Task GetTransactionNo()
+    {
+        var data = await transactionCodeService.GetTransactionNo(transactionCodesFilter);
+        transactionCodesList = data is not null ? data : new List<TransactionsCode>();
+
+    }
+
+
+    //FOR RUNNING NUMBERS
+    protected TransactionsCode selectedTransacCode => transactionCodesList.FirstOrDefault(sa => sa.IsDefault == true);
+    protected RunningNumbers runningNumbers { get; set; } = new RunningNumbers();
+
+
+
+    protected async Task SetSalesOrderNoPopup(int Id)
+    {
+        await SetSalesOrderNo();
+
+    }
+    protected async Task SetSalesOrderNo()
+    {
+        runningNumbers.DocDate = salesOrdersHeader.SalesOrderDate;
+        runningNumbers.Format = selectedTransacCode?.Format;
+        runningNumbers.ColumnName = "SalesOrderCode";
+        runningNumbers.TableName = "SalesOrders";
+
+        await GetNextQuotationCodeAsync();
+        await popup.CloseAsync();
+
+    }
+    private async Task GetNextQuotationCodeAsync()
+    {
+
+        var data = await runningNumberService.GetNextRunningNumber(runningNumbers);
+        salesOrdersHeader.SalesOrderCode = data is not null ? data : string.Empty;
+
+    }
+
+
+
+    //Get GLAccount From db.GLAccounts By Id
+    protected async Task GetSalesOrderHeaderById()
+    {
+        var data = await salesOrdersService.GetSalesOrderHeaderById(Id.ToString());
+        salesOrdersHeader = data is not null ? data : new SalesOrdersHeader();
+        SetRedText();
+    }
+
+
+    protected async Task GetSalesOrderDetailsById()
+    {
+        // var data = await quotationServices.GetQuotationsDetailById(Id.ToString());
+        // quotationsDetailsList = data is not null ? data.ToList() : new List<QuotationDetails>();
+        var data = await salesOrdersService.GetSalesOrderDetailsById(Id.ToString());
+        salesOrderDetails = data is not null ? data.ToList() : new List<SalesOrderDetails>();
+    }
+
+
+
+    //Tax Code List
+    //FOR TAXCODE DROPDOWN
+    protected async Task GetTaxCodesList()
+    {
+        taxCodeFilter.IsOutOrIn = true;// true for Output Tax Codes
+        taxCodeFilter.IsActive = true; // true for Active Tax Codes
+
+        var data = await allTaxCodeService.GetTaxCodes(taxCodeFilter);
+        taxCodesList = data is not null ? data : new List<TaxCodes>();
+    }
+
+    //FOR WTAXCODE DROPDOWN
+    //CreditableAccount != null IS REFERRING TO CREDIABLE ACCOUNT WHICH IS CREDITABLE WTAX ON GLACCOUNT
+    protected IEnumerable<WTaxCodes> FilteredWTaxCodesList => wTaxCodesList?.Where(w => w.CreditableAccount != null) ?? Enumerable.Empty<WTaxCodes>();
+    protected async Task GetWTaxCodesList()
+    {
+        // wTaxCodesList = await http.GetFromJsonAsync<List<WTaxCodes>>("api/AllTaxCodes/GetWTaxCodesList?companyCode=" + CompCode);
+        var data = await allTaxCodeService.GetWTaxCodes();
+        wTaxCodesList = data is not null ? data : new List<WTaxCodes>();
+    }
+
+
+    protected void OnDebtorChanged(object Id)
+    {
+        if (Id is not null)
+        {
+            if (debtorsaccountList.FirstOrDefault(sa => sa.Id == (Guid)Id) is var selectedcustomer && selectedcustomer != null)
+            {
+                LoadSalesOrderHeader(selectedcustomer);
+            }
+        }
+        else
+        {
+            ClearSalesOrderHeader();
+        }
+
+    }
+
+
+
+    protected void SetRedText()
+    {
+        redtext = salesOrdersHeader.IsCancelled == true || salesOrdersHeader.IsClosed == true ? "rz-color-danger-darker" : "";
+    }
+
+
+    private async Task OnSwitchChanged(string switchName)
+    {
+
+     
+        if (Id is null)
+        {
+            salesOrdersHeader.IsCancelled = salesOrdersHeader.IsClosed = false;
+            NotificationHelper.ShowWarning(
+                notificationService,
+                "",
+                "Please click the 'Save' (checkmark) button for any active or newly added detail rows in the grid before saving."
+            );
+            return;
+        }
+
+        await SetSwitchValue(switchName);
+        SetRedText();
+    }
+
+    private ForCloseCancelledDocumentsModel forCloseCancelledDocumentsModel = new ForCloseCancelledDocumentsModel();
+    private async Task SetSwitchValue(string switchName)
+    {
+
+        forCloseCancelledDocumentsModel = new()
+        {
+            Id = Id,
+            TableName = "SalesOrders",
+            SwitchName = switchName,
+            IsClosed = salesOrdersHeader.IsClosed,
+            IsCancelled = salesOrdersHeader.IsCancelled
+        };
+
+        await headerSwitchServices.UpdateForCloseOrCancelled(forCloseCancelledDocumentsModel);
+
+
+    }
+
+    protected void IsTaxInclusiveChanged()
+    {
+        foreach (var row in salesOrderDetails)
+        {
+            row.IsTaxInclusive = salesOrdersHeader.IsTaxInclusive;
+
+            // if (row.ItemTypeCode is not ("T" or "D"))
+            // TransactionNumberHelper.Compute(row);
+
+
+            if (row.Description?.Split(' ')[0] is not ("DISCOUNT" or "SUBTOTAL"))
+                TransactionNumberHelper.Compute(row);
+
+
+
+        }
+        LoadSubtotalRow();
+        LoadAllTaxTotalDiscNetAmount();
+    }
+
+
+    protected void LoadSalesOrderHeader(Debtors selectedcustomer)
+    {
+        salesOrdersHeader.DebtorId = selectedcustomer.Id;
+        salesOrdersHeader.CurrencyId = selectedcustomer.CurrencyId;
+        salesOrdersHeader.DebtorName = selectedcustomer.CompanyName;
+        salesOrdersHeader.TermId = selectedcustomer.TermId;
+        //set currency rate
+        salesOrdersHeader.CurrencyRate = currencyList.FirstOrDefault(c => c.Id == selectedcustomer.CurrencyId)?.DefaultPurchaseRate ?? 0;
+
+
+        salesOrdersHeader.Attention = selectedcustomer.ContactPerson;
+        salesOrdersHeader.SalesPersonId = selectedcustomer.SalesPersonId;
+
+        salesOrdersHeader.Address1 = selectedcustomer.Address1;
+        salesOrdersHeader.Address2 = selectedcustomer.Address2;
+        salesOrdersHeader.Address3 = selectedcustomer.Address3;
+        salesOrdersHeader.Address4 = selectedcustomer.Address4;
+        salesOrdersHeader.CustomerTIN = string.Empty;
+        salesOrdersHeader.Phone = selectedcustomer.PhoneNo1;
+        salesOrdersHeader.Fax = selectedcustomer.FaxNo1;
+        salesOrdersHeader.Notes = selectedcustomer.Notes;
+        salesOrdersHeader.DOContact = selectedcustomer.ContactPerson;
+
+        salesOrdersHeader.DOAddress1 = selectedcustomer.Address1;
+        salesOrdersHeader.DOAddress2 = selectedcustomer.Address2;
+        salesOrdersHeader.DOAddress3 = selectedcustomer.Address3;
+        salesOrdersHeader.DOAddress4 = selectedcustomer.Address4;
+        salesOrdersHeader.DOContact = selectedcustomer.ContactPerson;
+        salesOrdersHeader.DOPhone = selectedcustomer.PhoneNo1;
+        salesOrdersHeader.DOPhone2 = selectedcustomer.PhoneNo2;
+        salesOrdersHeader.DORegistationNo = selectedcustomer.RegistrationNo;
+        salesOrdersHeader.DOEmail = selectedcustomer.Email;
+
+        //FOR TRANSFER LIST
+        GetSalesTransferListing(selectedcustomer.Id.ToString());
+        StateHasChanged();
+
+    }
+
+    protected void ClearSalesOrderHeader()
+    {
+        SetDefaultCurrency();
+        salesOrdersHeader.DebtorId = null;
+        salesOrdersHeader.DebtorName = string.Empty;
+        salesOrdersHeader.TermId = null;
+        salesOrdersHeader.Attention = null;
+        salesOrdersHeader.SalesPersonId = null;
+        salesOrdersHeader.Notes = null;
+    }
+
+
+
+    protected void Navigate()
+    {
+        navManager.NavigateTo("/SalesOrderList");
+    }
+
+
+    protected void InitializeSalesOrderDetailsRows()
+    {
+        // Initialize with 5 rows and set default Pos index
+        salesOrderDetails = Enumerable.Range(1, 5)
+            .Select(i => new SalesOrderDetails
+            {
+                Pos = i,
+                SalesOrderId = Id ?? salesOrdersHeader.Id,
+                IsTaxInclusive = salesOrdersHeader.IsTaxInclusive
+            })
+            .ToList();
+    }
+
+
+    // Helper to reset Pos index after any add/delete
+    private void ResetPosIndexes()
+    {
+        for (int i = 0; i < salesOrderDetails.Count; i++)
+        {
+            salesOrderDetails[i].Pos = i + 1;
+        }
+    }
+
+
+    //insert after row
+    async Task InsertAfterRow(SalesOrderDetails salesOrdersDetails)
+    {
+        // If there's an active edit, prevent adding another row until it's saved.
+        if (salesOrderDetailsToInsert.Any() || salesOrderDetailsToUpdate.Any())
+        {
+            NotificationHelper.ShowWarning(notificationService, "Unsaved Details", "Please click the 'Save' (checkmark) button for any active or newly added detail rows in the grid before saving.");
+            return;
+        }
+
+        if (!salesOrderDetailsGrid.IsValid) return;
+        if (editMode == DataGridEditMode.Single)
+        {
+            Reset();
+        }
+        var salesorderdetails = new SalesOrderDetails();
+
+        //Set QuotationId to new inserted row
+        salesorderdetails.SalesOrderId = Id ?? salesOrdersHeader.Id;
+        salesorderdetails.IsTaxInclusive = salesOrdersHeader.IsTaxInclusive;
+        // Assign a sequential Pos for new rows, inserting after the current row's Pos
+        salesOrderDetailsToInsert.Add(salesorderdetails);
+        var index = salesOrderDetails.IndexOf(salesOrdersDetails);
+        if (index >= 0)
+        {
+            salesOrderDetails.Insert(index + 1, salesorderdetails); // Insert after selected row
+        }
+        else
+        {
+            salesOrderDetails.Add(salesorderdetails);
+        }
+
+        ResetPosIndexes();
+      
+        if (salesOrdersDetails is not null)
+        {
+            await salesOrderDetailsGrid.InsertAfterRow(salesorderdetails, salesOrdersDetails);
+        }
+        else
+        {
+            await salesOrderDetailsGrid.InsertRow(salesorderdetails);
+        }
+
+        await salesOrderDetailsGrid.Reload();
+        StateHasChanged();
+    }
+
+    async Task EditRow(SalesOrderDetails salesOrderDetails)
+    {
+        if (salesOrderDetailsToInsert.Any() || salesOrderDetailsToUpdate.Any())
+        {
+            NotificationHelper.ShowWarning(notificationService, "Unsaved Details", "Please click the 'Save' (checkmark) button for any active or newly added detail rows in the grid before saving.");
+
+            return;
+        }
+
+        if (!salesOrderDetailsGrid.IsValid) return;
+        if (editMode == DataGridEditMode.Single)
+        {
+            Reset();
+        }
+
+        salesOrderDetailsToUpdate.Add(salesOrderDetails);
+        await salesOrderDetailsGrid.EditRow(salesOrderDetails);
+        StateHasChanged(); // Ensure UI updates and list is reflected
+    }
+
+    async Task SaveRow(SalesOrderDetails salesOrderDetail)
+    {
+        // LoadAllTaxTotalDiscNetAmount();
+
+        await salesOrderDetailsGrid.UpdateRow(salesOrderDetail);
+        await salesOrderDetailsGrid.Reload();
+        StateHasChanged();
+        // If not already in the main list, add it
+        // if (!salesOrderDetails.Contains(salesOrderDetail))
+        // {
+        //     salesOrderDetails.Add(salesOrderDetail);
+        // }
+    }
+
+    void OnUpdateRow(SalesOrderDetails salesOrderDetails)
+    {
+
+        Reset(salesOrderDetails);
+
+
+    }
+
+    void OnCreateRow(SalesOrderDetails salesOrderDetails)
+    {
+        salesOrderDetailsToInsert.Remove(salesOrderDetails);
+    }
+
+
+    async Task DeleteRow(SalesOrderDetails salesOrderDetail)
+    {
+        if (salesOrderDetailsToInsert.Any() || salesOrderDetailsToUpdate.Any())
+        {
+            NotificationHelper.ShowWarning(notificationService, "Unsaved Details", "Please click the 'Save' (checkmark) button for any active or newly added detail rows in the grid before saving.");
+
+            return;
+        }
+
+        if (await DialogService.Confirm("You are about to delete record(s). Do you want to proceed?", "Delete") == true)
+        {
+            var data = await salesOrdersService.DeleteDetailRows(salesOrderDetail.Id.ToString());
+            Reset(salesOrderDetail);
+            salesOrderDetails.Remove(salesOrderDetail); // Remove from main list
+            ResetPosIndexes();
+            await salesOrderDetailsGrid.Reload();
+            StateHasChanged();
+        }
+
+
+    }
+
+
+    void Reset(SalesOrderDetails salesOrderDetails)
+    {
+
+        salesOrderDetailsToInsert.Remove(salesOrderDetails);
+        salesOrderDetailsToUpdate.Remove(salesOrderDetails);
+    }
+
+    void Reset()
+    {
+        salesOrderDetailsToInsert.Clear();
+        salesOrderDetailsToUpdate.Clear();
+    }
+
+
+    //CONTINUE ON THIS PART
+    private void OnDiscountChanged(SalesOrderDetails row)
+    {
+        // TransactionNumberHelper.Compute(row);
+        // DiscountAndSubtotalHelper.Compute(row);
+
+        DiscountAndSubtotalHelper.Compute(row);
+        TransactionHelper(row);
+        LoadAllTaxTotalDiscNetAmount();
+        StateHasChanged();
+    }
+
+
+    private void TransactionHelper(SalesOrderDetails row)
+    {
+        row.TaxRate = taxCodesList.FirstOrDefault(tax => tax.Id == row.TaxCodeId)?.TaxRate ?? 0;
+        row.WTaxRate = wTaxCodesList.FirstOrDefault(tax => tax.Id == row.WTaxCode)?.Rate ?? 0;
+        TransactionNumberHelper.Compute(row);
+        ConvertPackUOM(row);
+    }
+
+    
+    private void ConvertPackUOM(SalesOrderDetails row)
+    {
+        // 1. Get the full list of UOMs for this stock item
+        var uoms = GetUOMsForStock(row.StockId)?.ToList();
+
+        if (uoms == null || !uoms.Any())
+            return;
+
+        // 2. Find the rate of the UOM currently selected by the user
+        var selectedUom = uoms.FirstOrDefault(x => x.Id == row.UOMId);
+
+        if (selectedUom == null)
+            return;
+
+        // 3. Call the service to get the split values
+        var result = UomService.ComputePackingSalesUOM(
+            row.Qty,
+            selectedUom.Rate,
+            uoms
+        );
+
+        // 4. Update the UI bound properties
+        row.PackingUOM1 = result.uom1;
+        row.PackingUOM2 = result.uom2;
+    
+        // Note: If you are using an EditForm, you might need to call StateHasChanged()
+        // if the update happens inside a custom event.
+    }
+
+    //Has Condition Here cause IF ITEMTYPECODE IS "T" OR "D" IT WILL NOT BE INCLUDED IN TAXABLE AMOUNT
+    public decimal Amount => salesOrderDetails?.Where(x => x.Description?.Split(' ')[0] is not ("DISCOUNT" or "SUBTOTAL")).Sum(x => x.Amount) ?? 0.00m;
+    public decimal AmountLocal => salesOrderDetails?.Where(x => x.Description?.Split(' ')[0] is not ("DISCOUNT" or "SUBTOTAL")).Sum(x => x.AmountLocal) ?? 0.00m;
+    public decimal DiscountAmount => salesOrderDetails?.Where(x => x.Description?.Split(' ')[0] is not ("DISCOUNT" or "SUBTOTAL")).Sum(p => p.DiscountAmount) ?? 0.00m;
+    public decimal DiscountAmountLocal => salesOrderDetails?.Where(x => x.Description?.Split(' ')[0] is not ("DISCOUNT" or "SUBTOTAL")).Sum(p => p.DiscountAmountLocal) ?? 0.00m;
+    public decimal NetAmount => salesOrderDetails?.Where(x => x.Description?.Split(' ')[0] is not ("DISCOUNT" or "SUBTOTAL")).Sum(p => p.NetAmount) ?? 0.00m;
+    public decimal NetAmountLocal => salesOrderDetails?.Where(x => x.Description?.Split(' ')[0] is not ("DISCOUNT" or "SUBTOTAL")).Sum(p => p.NetAmountLocal) ?? 0.00m;
+    public decimal TaxAmount => salesOrderDetails?.Where(x => x.Description?.Split(' ')[0] is not ("DISCOUNT" or "SUBTOTAL")).Sum(p => p.TaxAmount) ?? 0.00m;
+    public decimal TaxAmountLocal => salesOrderDetails?.Where(x => x.Description?.Split(' ')[0] is not ("DISCOUNT" or "SUBTOTAL")).Sum(p => p.TaxAmountLocal) ?? 0.00m;
+    public decimal SubAmount => salesOrderDetails?.Where(x => x.Description?.Split(' ')[0] is not ("DISCOUNT" or "SUBTOTAL")).Sum(p => p.SubAmount) ?? 0.00m;
+    public decimal SubAmountLocal => salesOrderDetails?.Where(x => x.Description?.Split(' ')[0] is not ("DISCOUNT" or "SUBTOTAL")).Sum(p => p.SubAmountLocal) ?? 0.00m;
+    public decimal TaxExclusiveAmount => salesOrderDetails?.Where(x => x.Description?.Split(' ')[0] is not ("DISCOUNT" or "SUBTOTAL")).Sum(p => p.TaxExclusiveAmount) ?? 0.00m;
+    public decimal TaxExclusiveAmountLocal => salesOrderDetails?.Where(x => x.Description?.Split(' ')[0] is not ("DISCOUNT" or "SUBTOTAL")).Sum(p => p.TaxExclusiveAmountLocal) ?? 0.00m;
+    public decimal WTaxAmount => salesOrderDetails?.Where(x => x.Description?.Split(' ')[0] is not ("DISCOUNT" or "SUBTOTAL")).Sum(p => p.WTaxAmount) ?? 0.00m;
+    public decimal WTaxAmountLocal => salesOrderDetails?.Where(x => x.Description?.Split(' ')[0] is not ("DISCOUNT" or "SUBTOTAL")).Sum(p => p.WTaxAmountLocal) ?? 0.00m;
+
+    public decimal DueAmount => (salesOrdersHeader?.NetTotalAmountLocal ?? 0m) - (salesOrdersHeader?.WTaxTotalAmountLocal ?? 0m);
+
+    // protected decimal? TaxableLocal => quotationsDetailsList?.Where(p => p.ItemTypeCode != "T").Sum(p => p.TaxExclusiveAmountLocal) ?? 0.00m;
+    // protected decimal? TaxLocal => quotationsDetailsList?.Where(p => p.ItemTypeCode != "T").Sum(p => p.TaxAmountLocal) ?? 0.00m;
+    // protected decimal? DueAmountLocal => quotationsDetailsList?.Where(p => p.ItemTypeCode != "T").Sum(p => p.NetAmountLocal) ?? 0.00m;
+
+
+    private void LoadAllTaxTotalDiscNetAmount()
+    {
+        ///INCLUDE HERE THE TAX, DISCOUNT, WTAX, AMOUT, ALL QUOTATION DETAILS AMOUNT
+
+
+        var filteredList = salesOrderDetails?.Where(x => (x.Description?.Split(' ')[0] != "SUBTOTAL"));
+
+
+        salesOrdersHeader.TotalAmount = filteredList?.Sum(x => x.Amount) ?? 0.00m;
+        salesOrdersHeader.TotalAmountLocal = filteredList?.Sum(x => x.AmountLocal) ?? 0.00m;
+
+        salesOrdersHeader.DiscountAmount = filteredList?.Sum(x => x.DiscountAmount) ?? 0.00m;
+        salesOrdersHeader.DiscountAmountLocal = filteredList?.Sum(x => x.DiscountAmountLocal) ?? 0.00m;
+
+        salesOrdersHeader.NetTotalAmount = filteredList?.Sum(x => x.NetAmount) ?? 0.00m;
+        salesOrdersHeader.NetTotalAmountLocal = filteredList?.Sum(x => x.NetAmountLocal) ?? 0.00m;
+
+        salesOrdersHeader.TaxTotalAmount = filteredList?.Sum(x => x.TaxAmount) ?? 0.00m;
+        salesOrdersHeader.TaxTotalAmountLocal = filteredList?.Sum(x => x.TaxAmountLocal) ?? 0.00m;
+
+        salesOrdersHeader.SubtotalAmount = filteredList?.Sum(x => x.SubAmount) ?? 0.00m;
+        salesOrdersHeader.SubtotalAmountLocal = filteredList?.Sum(x => x.SubAmountLocal) ?? 0.00m;
+
+        salesOrdersHeader.TaxExclusiveTotalAmount = filteredList?.Sum(x => x.TaxExclusiveAmount) ?? 0.00m;
+        salesOrdersHeader.TaxExclusiveTotalAmountLocal = filteredList?.Sum(x => x.TaxExclusiveAmountLocal) ?? 0.00m;
+
+        salesOrdersHeader.WTaxTotalAmount = filteredList?.Sum(x => x.WTaxAmount) ?? 0.00m;
+        salesOrdersHeader.WTaxTotalAmountLocal = filteredList?.Sum(x => x.WTaxAmountLocal) ?? 0.00m;
+    }
+
+    protected void RowRender(RowRenderEventArgs<SalesOrderDetails> args)
+    {
+        if (args?.Data.StockId == null)
+            return;
+        args.Attributes["style"] = $"font-weight: {(args.Data.Description?.Split(' ')[0] is ("SALES" or "DISCOUNT" or "SUBTOTAL") ? "bold" : "normal")};";
+
+        LoadAllTaxTotalDiscNetAmount();
+
+    }
+
+
+    private void LoadSubtotalRow()
+    {
+        ///
+
+        if (salesOrderDetails == null || !salesOrderDetails.Any())
+            return;
+
+        var subtotalRow = salesOrderDetails
+           .FirstOrDefault(x => x.Description?.StartsWith("SUBTOTAL") == true);
+
+        if (subtotalRow == null)
+            return;
+
+        var rows = salesOrderDetails
+            .Where(x => x.Description?.Split(' ')[0] is not ("SUBTOTAL" or "DISCOUNT" or "SALES DISCOUNT"))
+            .ToList();
+
+        subtotalRow.Amount = rows.Sum(x => x.Amount);
+        subtotalRow.AmountLocal = rows.Sum(x => x.AmountLocal);
+
+        subtotalRow.DiscountAmount = rows.Sum(x => x.DiscountAmount);
+        subtotalRow.DiscountAmountLocal = rows.Sum(x => x.DiscountAmountLocal);
+
+        subtotalRow.NetAmount = rows.Sum(x => x.NetAmount);
+        subtotalRow.NetAmountLocal = rows.Sum(x => x.NetAmountLocal);
+
+        subtotalRow.TaxAmount = rows.Sum(x => x.TaxAmount);
+        subtotalRow.TaxAmountLocal = rows.Sum(x => x.TaxAmountLocal);
+
+        subtotalRow.SubAmount = rows.Sum(x => x.SubAmount);
+        subtotalRow.SubAmountLocal = rows.Sum(x => x.SubAmountLocal);
+
+        subtotalRow.TaxExclusiveAmount = rows.Sum(x => x.TaxExclusiveAmount);
+        subtotalRow.TaxExclusiveAmountLocal = rows.Sum(x => x.TaxExclusiveAmountLocal);
+
+        subtotalRow.WTaxAmount = rows.Sum(x => x.WTaxAmount);
+        subtotalRow.WTaxAmountLocal = rows.Sum(x => x.WTaxAmountLocal);
+
+    }
+}
+
+
+@* FOR TRANSFER MODAL *@
+<RadzenPopup @ref=popuptransfer Lazy=true class="popuptransfer">
+
+    <RadzenCard>
+        <RadzenStack Gap="0.2rem">
+            <RadzenRow JustifyContent="JustifyContent.Start" AlignItems="AlignItems.Center" Gap="0.5rem">
+                <RadzenColumn Size="12" SizeSM="7">
+                    <RadzenStack AlignItems="AlignItems.Center" Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.Normal">
+                        <RadzenTextBox Disabled=@(filteredSalesTransferList == null) @bind-Value="@searchText"
+                                       Placeholder="Search..."
+                                       Style="font-size:smaller; width:30rem;"
+                                       Change="@(args => ApplyFilter())" />
+                        <RadzenButton Disabled=@(filteredSalesTransferList == null) Icon="search" Click="@ApplyFilter" Text="Find" />
+                        <RadzenButton Disabled=@(filteredSalesTransferList == null) Icon="delete" Click="@ClearFilter" Text="Clear" />
+                    </RadzenStack>
+                </RadzenColumn>
+
+            </RadzenRow>
+
+
+
+            <RadzenDataGrid @ref="grids" @bind-Value=@selectedSalesTransferList SelectionMode="DataGridSelectionMode.Multiple" TItem="SalesTransferList"
+                            IsLoading=@isLoading Sort="@ShowLoading" Page="@ShowLoading" Group="@ShowLoading" Filter="@ShowLoading"
+                            AllowColumnReorder="true" AllowAlternatingRows="false" ColumnWidth="200px"
+                            Data="@filteredSalesTransferList" AllowColumnPicking="true" Style="height: 60vh"
+                            KeyProperty="Id" PagerHorizontalAlign="HorizontalAlign.Center" AllowColumnResize="true" Density="@density"
+                            AllowVirtualization="true"
+                            AllowSorting="true" AllowFiltering="true"
+                            FilterMode="FilterMode.CheckBoxList" FilterCaseSensitivity="@filter" LogicalFilterOperator="LogicalFilterOperator.Or">
+                <HeaderTemplate>
+                    <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="1rem" Wrap="FlexWrap.Wrap">
+                        <span>
+                            For Transfer <RadzenBadge Visible="@(status != string.Empty)" Shade="Shade.Dark" BadgeStyle="BadgeStyle.Danger" Text="@status" class="rz-ms-2" />
+                        </span>
+                    </RadzenStack>
+
+                </HeaderTemplate>
+                <Columns>
+                    <RadzenDataGridColumn Width="60px" Sortable="false" Filterable="false">
+                        <HeaderTemplate>
+                            <RadzenCheckBox TriState="false" TValue="bool?" InputAttributes="@(new Dictionary<string, object>() { { "aria-label", "Select all items" } })"
+                                            Value="@(selectedSalesTransferList == null || selectedSalesTransferList?.Any() != true ? false : !filteredSalesTransferList.All(i => selectedSalesTransferList.Select(e => e.Id).Contains(i.Id)) ? null : filteredSalesTransferList.Any(i => selectedSalesTransferList.Select(e => e.Id).Contains(i.Id)))"
+                                            Change="@(args => selectedSalesTransferList = args == true ? (selectedSalesTransferList ?? Enumerable.Empty<SalesTransferList>()).Union(filteredSalesTransferList.Where(i => !(selectedSalesTransferList ?? Enumerable.Empty<SalesTransferList>()).Select(e => e.Id).Contains(i.Id))).ToList() : null)" />
+                        </HeaderTemplate>
+                        <Template Context="data">
+                            <RadzenCheckBox TriState="false" Value="@(selectedSalesTransferList != null && selectedSalesTransferList.Select(e => e.Id).Contains(data.Id))" TValue="bool" />
+                        </Template>
+                    </RadzenDataGridColumn>
+
+
+
+                    <RadzenDataGridColumn Visible=true Width="8rem" Property="@nameof(SalesTransferList.DocCode)" Title="PR #" />
+                    <RadzenDataGridColumn Visible=true Width="8rem" Property="@nameof(SalesTransferList.DocDate)" FormatString="{0:MM/dd/yyyy}" Title="Date" />
+                    <RadzenDataGridColumn Visible=true Property="@nameof(SalesTransferList.DebtorName)" Title="Account Name" />
+                    <RadzenDataGridColumn Visible=true Width="8rem" Property="@nameof(SalesTransferList.Agent)" Title="Agent" />
+                    <RadzenDataGridColumn Visible=true Width="8rem" Property="@nameof(SalesTransferList.RequestBy)" Title="Request By" />
+                    <RadzenDataGridColumn Visible=true Width="6rem" Property="@nameof(SalesTransferList.Term)" Title="Term"></RadzenDataGridColumn>
+                    <RadzenDataGridColumn Visible=true Width="10rem" TextAlign="TextAlign.Right" Property="@nameof(SalesTransferList.TaxTotalAmount)" Title="Tax Total Amount">
+                        <Template Context="data">
+                            <span>@(data.TaxTotalAmount == 0 ? "" : data.TaxTotalAmount.ToString("#,0.00"))</span>
+                        </Template>
+                    </RadzenDataGridColumn>
+
+                    <RadzenDataGridColumn Visible=true Width="10rem" TextAlign="TextAlign.Right" Property="@nameof(SalesTransferList.NetTotalAmount)" Title="Due Amount">
+                        <Template Context="data">
+                            <span>@(data.NetTotalAmount == 0 ? "" : data.NetTotalAmount.ToString("#,0.00"))</span>
+                        </Template>
+                    </RadzenDataGridColumn>
+                </Columns>
+            </RadzenDataGrid>
+
+            <RadzenRow JustifyContent="JustifyContent.Start" AlignItems="AlignItems.Center" Gap="0.5rem">
+                <RadzenColumn Size="12" SizeSM="7">
+                    <RadzenStack AlignItems="AlignItems.Center" Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.Normal">
+                        Test Data:
+                    </RadzenStack>
+                </RadzenColumn>
+                <RadzenColumn Size="12" SizeSM="5">
+                    <RadzenStack AlignItems="AlignItems.Center" Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.Right">
+
+                        <RadzenButton Icon="check" Click=@OnOkClicked Text="Ok" /> @* dito is magrereturn sya ng mga naselect na check na data papunt dito NavManager.NavigateTo($"/PurchaseOrders/Transfer/{PRId}"); *@
+                        <RadzenButton Icon="cancel" Text="Cancel" Click="async args => { await popuptransfer.CloseAsync(); }" /> @* then dito magcclose yung dialog *@
+                    </RadzenStack>
+                </RadzenColumn>
+
+            </RadzenRow>
+        </RadzenStack>
+    </RadzenCard>
+
+</RadzenPopup>
+
+@* //FOR POP UP TRANSFER DIALOG *@
+<style type="text/css">
+   
+    .popuptransfer {
+        display: none;
+        position: absolute;
+        overflow: hidden;
+        height: auto;
+        width: auto;
+        max-height: 90vh; /* optional para di lumagpas sa screen */
+        max-width: 90vw; /* optional din, para responsive */
+        border: var(--rz-panel-border);
+        background-color: #f0f0f0; /* light grey */
+        box-shadow: 0 4px 20px rgba(0,0,0,0.3); /* mas malalim na shadow */
+        border-radius: var(--rz-border-radius);
+    }
+
+</style>
+
+
+@code {
+    RadzenButton transferbutton;
+    RadzenPopup popuptransfer;
+    //TRANSFER FUNCTION
+    //bool IsForTransfer = false;
+
+    protected ForTransferHeader forTransferHeader { get; set; } = new ForTransferHeader();
+    protected List<ForTransferDetails> forTransferDetails { get; set; }
+
+    //FOR TRANSFER LIST
+    private RadzenDataGrid<SalesTransferList> grids;
+    private IList<SalesTransferList> selectedSalesTransferList { get; set; }
+    private IEnumerable<SalesTransferList> salesTransferList { get; set; }
+
+    //FOR GETTING QUOTATION HEADER AND DETAILS
+    private QuotationsModel quotationsHeader { get; set; }
+    protected List<QuotationDetails> quotationDetails { get; set; }
+    Variant variant = Variant.Flat;
+    int totalQuotation = 0;
+
+    public List<Guid> selectedIds = new();
+    private string searchText = string.Empty;
+    private IEnumerable<SalesTransferList> filteredSalesTransferList;
+
+    private async Task LoadfilteredSalesTranfer()
+    {
+        filteredSalesTransferList = salesTransferList;
+    }
+    private async Task GetSalesTransferListing(string DebtorId)
+    {
+
+        var data = await salesTransferLinkServices.GetSalesTransferList(DebtorId, "QT");
+        salesTransferList = data is not null ? data : new List<SalesTransferList>();
+        totalQuotation = salesTransferList.Count();
+
+        await LoadfilteredSalesTranfer();
+    }
+
+
+    private void ApplyFilter()
+    {
+        if (string.IsNullOrWhiteSpace(searchText))
+        {
+            filteredSalesTransferList = salesTransferList;
+        }
+        else
+        {
+            filteredSalesTransferList = salesTransferList.Where(x =>
+                (!string.IsNullOrEmpty(x.DocDate.ToString()) && x.DocDate.ToString().Contains(searchText, StringComparison.OrdinalIgnoreCase)) ||
+                (!string.IsNullOrEmpty(x.DocCode) && x.DocCode.Contains(searchText, StringComparison.OrdinalIgnoreCase)) ||
+                (!string.IsNullOrEmpty(x.DebtorName) && x.DebtorName.Contains(searchText, StringComparison.OrdinalIgnoreCase)) ||
+                (!string.IsNullOrEmpty(x.Agent) && x.Agent.Contains(searchText, StringComparison.OrdinalIgnoreCase)) ||
+                (!string.IsNullOrEmpty(x.RequestBy) && x.RequestBy.Contains(searchText, StringComparison.OrdinalIgnoreCase))
+            );
+        }
+        StateHasChanged();
+    }
+    private void ClearFilter()
+    {
+        searchText = string.Empty;
+        filteredSalesTransferList = salesTransferList;
+        StateHasChanged();
+    }
+
+    async Task ShowLoading()
+    {
+        isLoading = true;
+
+        await Task.Yield();
+    }
+
+
+    private async void OnOkClicked()
+    {
+        //DAGDAG TRANSFER DIN PALA YUN HEADER
+        if (selectedSalesTransferList != null && selectedSalesTransferList.Any())
+        {
+
+            // collect all Ids as comma-separated
+            var PRDetailsId = string.Join(",", selectedSalesTransferList.Select(x => x.Id));
+
+
+            if (!string.IsNullOrWhiteSpace(PRDetailsId))
+            {
+                selectedIds = PRDetailsId.Split(',', StringSplitOptions.RemoveEmptyEntries)
+                                  .Select(Guid.Parse)
+                                  .ToList();
+
+                //SET FIRST ROW DATA OF HIGHEST TAX AMOUNT
+                var highestTaxItem = selectedSalesTransferList.OrderByDescending(x => x.TaxTotalAmount).FirstOrDefault();
+                await GetQuotaionHeaderById(highestTaxItem.Id.ToString());
+                await GetQuotaionDetailsById();
+
+            }
+
+        }
+        else
+        {
+            status = "Please select at least one";
+            StateHasChanged();
+        }
+
+    }
+
+    protected async Task GetQuotaionHeaderById(string QTId)
+    {
+        await ShowLoading();
+
+        var header = await quotationsService.GetQuotationsById(QTId);
+        quotationsHeader = header is not null ? header : new QuotationsModel();
+    }
+
+
+    protected async Task GetQuotaionDetailsById()
+    {
+        await ShowLoading();
+        var details = new List<QuotationDetails>();
+
+        //purchaseRequisitionHeader
+        foreach (var QTDetailsId in selectedIds)
+        {
+            var fortransferDetails = await salesTransferLinkServices.GetQuotationDetailsByIdFortransfer(QTDetailsId.ToString());
+            if (fortransferDetails != null)
+                details.AddRange(fortransferDetails);
+        }
+
+        quotationDetails = details;
+        //forTransferHeader.IsForTransfer = true;
+        LoadForTransferDetails();
+
+
+    }
+
+    async void LoadForTransferDetails()
+    {
+        //TRANSFER HEADER
+        salesOrdersHeader.TermId = quotationsHeader.TermId;
+        salesOrdersHeader.IsTaxInclusive = quotationsHeader.IsTaxInclusive;
+        salesOrdersHeader.DeliveryTerm = quotationsHeader.DeliveryTerm;
+        salesOrdersHeader.StockLocationId = quotationsHeader.StockLocationId;
+        salesOrdersHeader.ProjectId = quotationsHeader.ProjectId;
+        salesOrdersHeader.Attention = quotationsHeader.Attention;
+        salesOrdersHeader.Attention = quotationsHeader.Attention;
+        salesOrdersHeader.ReferenceNo = quotationsHeader.ReferenceNo;
+        salesOrdersHeader.Notes = quotationsHeader.Notes;
+
+        //SET TRANSFER HEADER FROM INFO
+        salesOrdersHeader.TransferFromInfo = quotationsHeader.QuotationCode;
+
+        forTransferHeader.QuotationsHeaderId = quotationsHeader.Id;
+        forTransferHeader.TransferToInfo = salesOrdersHeader.SalesOrderCode;
+
+
+
+        //SET TRANSFER DETAILS
+
+        forTransferDetails = quotationDetails
+        .Select(item =>
+          {
+              //GET UOM RATE FOR TRANSFER DETAILS
+              var uoms = uomsList?.FirstOrDefault(u => u.Id == item.UOMId);
+              return new ForTransferDetails
+              {
+                  QuotationDetailId = item.Id,
+                  TransferredBaseUnit = item.Qty,
+                  Transferred = item.Qty * (uoms?.Rate ?? 1),
+                  SourceKey = item.Id,
+              };
+          }).ToList();
+
+
+
+        //TRANSFER DETAILS
+        salesOrderDetails = quotationDetails
+            .Select((item, index) => new SalesOrderDetails
+            {
+                //Map fields from PurchaseRequisitionDetails to PurchaseOrdersDetails
+                QuotationDetailsId = item.Id, ///QuotationDetails Id To SalesOrderDetails
+
+
+                Pos = index + 1,
+                SalesOrderId = salesOrdersHeader.Id,
+                StockId = item.StockId,
+                Description = item.Description,
+                ProjectId = item.ProjectId,
+                DepartmentId = item.DepartmentId,
+                StockLocationId = item.StockLocationId,
+                Qty = item.Qty, // Adjust quantity based on received qty
+                UOMId = item.UOMId,
+                UnitPrice = item.UnitPrice,
+                Discount = item.Discount,
+                Amount = item.Amount,
+                // RequireDate = item.RequireDate,
+                DebtorItemId = item.DebtorItemId,
+                ReferenceNo = item.ReferenceNo,
+                CancelledQty = item.CancelledQty,
+                CostCentreId = item.CostCentreId,
+                AmountLocal = item.AmountLocal,
+                DiscountAmount = item.DiscountAmount,
+                DiscountAmountLocal = item.DiscountAmountLocal,
+                NetAmount = item.NetAmount,
+                NetAmountLocal = item.NetAmountLocal,
+                Note = item.Note,
+                ItemTypeCode = item.ItemTypeCode,
+                IsBundled = item.IsBundled,
+                IsSubItem = item.IsSubItem,
+                BundledTransactionId = item.BundledTransactionId,
+                TaxCodeId = item.TaxCodeId,
+                //IsTaxInclusive = salesOrdersHeader.IsTaxInclusive,
+                IsTaxInclusive = item.IsTaxInclusive,
+                TaxRate = item.TaxRate,
+                TaxClass = item.TaxClass,
+                TaxAmount = item.TaxAmount,
+                TaxAmountLocal = item.TaxAmountLocal,
+                SubAmount = item.SubAmount,
+                SubAmountLocal = item.SubAmountLocal,
+                TaxExclusiveAmount = item.TaxExclusiveAmount,
+                TaxExclusiveAmountLocal = item.TaxExclusiveAmountLocal,
+
+                //  RefTransferFrom = item.RefTransferFrom,
+                WTaxCode = item.WTaxCode,
+                WTaxRate = item.WTaxRate,
+                WTaxAmount = item.WTaxAmount,
+                WTaxAmountLocal = item.WTaxAmountLocal,
+                SgstAmount = item.SgstAmount,
+                CgstAmount = item.CgstAmount,
+                IgstAmount = item.IgstAmount,
+                SgstAmountLocal = item.SgstAmountLocal,
+                CgstAmountLocal = item.CgstAmountLocal,
+                IgstAmountLocal = item.IgstAmountLocal,
+                
+                // CreditorItemId = item.CreditorItemId,
+                Ref = item.Ref,
+                Ref2 = item.Ref2,
+                Ref3 = item.Ref3,
+                Ref4 = item.Ref4,
+                Ref5 = item.Ref5,
+                DateRef1 = item.DateRef1,
+                DateRef2 = item.DateRef2,
+                NumRef1 = item.NumRef1,
+                NumRef2 = item.NumRef2,
+                //TariffCodeId = item.TariffCodeId,
+                LocalOneCentsDiff = item.LocalOneCentsDiff,
+                ServiceAmount = item.ServiceAmount,
+                ServiceAmountLocal = item.ServiceAmountLocal,
+                SubcodeId = item.SubcodeId,
+                CommissionGroupId = item.CommissionGroupId,
+                PackingUOMId = item.PackingUOMId,
+                Packing = item.Packing,
+                PackingQty = item.PackingQty,
+                PackingUOM1 = item.PackingUOM1,
+                PackingUOM2 = item.PackingUOM2,
+                HighestUOM = item.HighestUOM,
+                DimensionId = item.DimensionId,
+                TaxExemptNo = item.TaxExemptNo,
+                TaxExemptDetails = item.TaxExemptDetails,
+                MarkupDiscountAmount = item.MarkupDiscountAmount,
+                MarkupDiscountAmountLocal = item.MarkupDiscountAmountLocal,
+                AmountTaxExempted = item.AmountTaxExempted,
+                AmountTaxExemptedLocal = item.AmountTaxExemptedLocal,
+                MarkupDiscountPrice = item.MarkupDiscountPrice
+
+
+            })
+            .ToList();
+
+        await popuptransfer.CloseAsync();
+        isLoading = false;
+        StateHasChanged();
+    }
+
+
+}

@@ -1,0 +1,202 @@
+﻿@page "/BillList"
+@attribute [Authorize(Roles = "Admin,User")]
+
+<RadzenStack Gap="0.2rem">
+    <RadzenDataGrid @ref="grid" Visible="true" @bind-Value=@selectedvwBill
+                    IsLoading=@isLoading Sort="@ShowLoading" Page="@ShowLoading" Group="@ShowLoading" Filter="@ShowLoading"
+                    Data="@GetBills()"
+                    TItem="VW_Bills"
+                    RowDoubleClick="() => Edit(selectedvwBill.FirstOrDefault().Id)"
+                    AllowVirtualization="true"
+                    ColumnWidth="200px"
+                    AllowSorting="true"
+                    AllowFiltering="true"
+                    ShowPagingSummary="true"
+                    ShowMultiColumnSortingIndex="true"
+                    FilterMode="FilterMode.CheckBoxList"
+                    Style="height: 84vh"
+                    AllowColumnPicking="true"
+                    FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive">
+        <HeaderTemplate>
+
+            <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.Center"
+                         Style="width: 100%;">
+                <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem;">
+                    <RadzenButton Size="ButtonSize.Small" Text="New"
+                                  ButtonStyle="ButtonStyle.Primary"
+                                  Icon="add"
+                                  Click="@Add" />
+
+                    <!-- DIVIDER -->
+                    <div style="border-left: 2px solid #ccc; height: 2rem; margin: 0 0.5rem;"></div>
+
+                    <RadzenTextBox InputSize="InputSize.Medium" @bind-Value="@searchText"
+                                   @ref="textBox"
+                                   @oninput="@(args => OnInput(args))"
+                                   Placeholder="Search..."
+                                   Style="width:30rem;" />
+
+                    <RadzenButton Size="ButtonSize.Small" Icon="delete"
+                                  Click="@ClearFilter"
+                                  Text="Clear" />
+                </RadzenStack>
+            </RadzenStack>
+        </HeaderTemplate>
+        <Columns>
+
+            <RadzenDataGridColumn Filterable="false" Width="120px" Visible=true Title="Status">
+
+                <Template Context="data">
+                    @if (data.IsCancelled)
+                    {
+                        <RadzenBadge Text="Cancelled" BadgeStyle="BadgeStyle.Danger" />
+                    }
+                  @*   @{
+                        var (text, style) = StatusHelper.Get(
+                        false,
+                        data.IsCancelled,
+                       null);
+                    } *@
+
+                    @* <RadzenBadge IsPill="true" Text="@text" BadgeStyle="@style" /> *@
+                </Template>
+            </RadzenDataGridColumn>
+       @*      <RadzenDataGridColumn>
+                <Template Context="data">
+                      @if (data.FromDocId != Guid.Empty)
+                            {
+                                <RadzenBadge Text="Posted From Purchase" Style="width: 150px" BadgeStyle="BadgeStyle.Primary"></RadzenBadge>}
+                </Template>
+            </RadzenDataGridColumn> *@
+            <RadzenDataGridColumn Visible=false TItem="VW_Bills" Property="@nameof(VW_Bills.Id)" Title="Id" />
+            <RadzenDataGridColumn Width="110px" TItem="VW_Bills" Property="@nameof(VW_Bills.BillDate)" FormatString="{0:d}" Title="Date" />
+            <RadzenDataGridColumn Width="180px" TItem="VW_Bills" Property="@nameof(VW_Bills.BillCode)" Title="Bill #">
+                <Template Context="data">
+                    <RadzenText TextStyle="TextStyle.Subtitle2" class="rz-mb-0 rz-text-wrap">@data.BillCode</RadzenText>
+                    @if (data.FromDocId != Guid.Empty)
+                    {
+                        <RadzenBadge Text="Posted From Purchase" Style="width: 150px" BadgeStyle="BadgeStyle.Primary"></RadzenBadge>
+
+                    }
+                </Template>
+            </RadzenDataGridColumn>
+            <RadzenDataGridColumn Width="150px" TItem="VW_Bills" Property="@nameof(VW_Bills.SupplierINV)" Title="SupplierINV #" />
+            <RadzenDataGridColumn Width="350px" TItem="VW_Bills" Title="From">
+                <Template Context="data">
+                    <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem" AlignItems="AlignItems.Center">
+                        <RadzenStack Gap="0">
+                           
+                            <RadzenText TextStyle="TextStyle.Subtitle2" class="rz-mb-0 rz-text-wrap">@data.SupplierCode - @data.BillFrom</RadzenText>
+                           @*  <RadzenText TextStyle="TextStyle.Caption" class="rz-mb-0 rz-text-wrap">@data.Address</RadzenText> *@
+                            <RadzenText TextStyle="TextStyle.Caption" class="rz-mb-0 rz-text-wrap">@data.Note</RadzenText>
+                        </RadzenStack>
+                    </RadzenStack>
+                </Template>
+                <FooterTemplate>
+                    Total: <b>@totalData</b>
+                </FooterTemplate>
+            </RadzenDataGridColumn>
+            <RadzenDataGridColumn TItem="VW_Bills" Property="@nameof(VW_Bills.ReferenceNo)" Title="Reference No" />
+            <RadzenDataGridColumn Width="120px" TItem="VW_Bills" Property="@nameof(VW_Bills.CurrencyCode)" Title="Currency" />
+            <RadzenDataGridColumn Width="120px" TItem="VW_Bills" Property="@nameof(VW_Bills.Term)" Title="Term" />
+            <RadzenDataGridColumn TItem="VW_Bills" Property="@nameof(VW_Bills.PurchaserName)" Title="Purchaser" />
+            <RadzenDataGridColumn Width="120px" TItem="VW_Bills" Property="@nameof(VW_Bills.DueDate)" Title="Due Date" FormatString="{0:MM/dd/yyyy}" />
+            <RadzenDataGridColumn TItem="VW_Bills" Property="@nameof(VW_Bills.TaxTotalAmount)" Title="Tax Amount" FormatString="{0:N2}" />
+            <RadzenDataGridColumn TItem="VW_Bills" Property="@nameof(VW_Bills.NetTotalAmount)" Title="Net Amount" FormatString="{0:N2}" />
+            <RadzenDataGridColumn Visible=false TItem="VW_Bills" Property="@nameof(VW_Bills.IsCancelled)" Title="IsCancelled" />
+
+        </Columns>
+    </RadzenDataGrid>
+</RadzenStack>
+
+@code {
+    [CascadingParameter]
+    public Task<AuthenticationState> authenticationState { get; set; }
+
+    RadzenTextBox textBox;
+    RadzenDataGrid<VW_Bills> grid;
+    IEnumerable<VW_Bills> vwBillList;
+    protected IList<VW_Bills> selectedvwBill { get; set; }
+
+    int totalData = 0;
+    bool isLoading;
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = (await authenticationState).User;
+        if (authState.Identity.IsAuthenticated)
+        {
+            var RoleId = authState.FindFirst("RoleId").Value;
+            GetLoadMenuPermission(RoleId);
+        }
+    }
+    private SystemMenuObjectPermission? permission;
+    protected async void GetLoadMenuPermission(string RoleId)
+    {
+        isLoading = true;
+        permission = await permissionService.GetPermissionAsync(
+            RoleId,
+            "Bills");
+
+        if (permission is null)
+            return;
+        await ShowLoading();
+        await GetBillsListing();
+        StateHasChanged();
+    }
+
+  
+    private async Task GetBillsListing()
+    {
+        var data = await billServices.GetVWBillList();
+        vwBillList = data is not null ? data : new List<VW_Bills>();
+        totalData = vwBillList.Count();
+    }
+    private string searchText = "";
+    private IEnumerable<VW_Bills> GetBills()
+    {
+        if (vwBillList == null)
+            return Enumerable.Empty<VW_Bills>();
+
+
+        return vwBillList
+       .Where(x => string.IsNullOrEmpty(searchText) ||
+               (x.BillCode?.Contains(searchText, StringComparison.OrdinalIgnoreCase) ?? false) ||
+               (x.BillFrom?.Contains(searchText, StringComparison.OrdinalIgnoreCase) ?? false) ||
+               (x.PurchaserCode?.Contains(searchText, StringComparison.OrdinalIgnoreCase) ?? false) ||
+               (x.PurchaserName?.Contains(searchText, StringComparison.OrdinalIgnoreCase) ?? false) ||
+               (x.SupplierINV?.Contains(searchText, StringComparison.OrdinalIgnoreCase) ?? false) ||
+               (x.ReferenceNo?.Contains(searchText, StringComparison.OrdinalIgnoreCase) ?? false));
+    }
+
+    async Task OnInput(ChangeEventArgs args)
+    {
+        searchText = args.Value?.ToString() ?? string.Empty;
+        await grid.Reload();
+    }
+
+    private async Task ClearFilter()
+    {
+        searchText = string.Empty;
+        await grid.Reload();
+        StateHasChanged();
+    }
+
+    protected void Edit(Guid Id)
+    {
+        navManager.NavigateTo($"/Bills/Edit/{Id}");
+    }
+
+    private void Add()
+    {
+        navManager.NavigateTo("/Bills");
+    }
+
+
+    async Task ShowLoading()
+    {
+        await Task.Yield();
+
+        isLoading = false;
+    }
+
+}

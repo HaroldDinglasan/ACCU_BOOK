@@ -1,0 +1,273 @@
+﻿@page "/StockInsList"
+@inject StockItemsService stockItemsService
+@attribute [Authorize(Roles = "Admin,User")]
+@inject HttpClient http
+@inject NavigationManager navManager
+@inject ContextMenuService contextMenuService
+@inject IJSRuntime JSRuntime
+
+<RadzenStack Gap="0.2rem">
+
+    <RadzenDataGrid @ref="grids" @bind-Value=@selectedStockIns
+                    RowDoubleClick="() => Edit(selectedStockIns.FirstOrDefault().Id)"
+                    TItem="StockInsModel"
+                    IsLoading=@isLoading Sort="@ShowLoading" Page="@ShowLoading" Group="@ShowLoading" Filter="@ShowLoading"
+                    Data="@filteredStockItemsList"
+                    AllowVirtualization="true"
+                    ColumnWidth="200px"
+                    AllowSorting="true"
+                    AllowFiltering="true"
+                    ShowPagingSummary="true"
+                    ShowMultiColumnSortingIndex="true"
+                    RowClick="OnRowClick"
+                    CellRender="OnRowRender"
+                    FilterMode="FilterMode.CheckBoxList"
+                    Style="height: 84vh"
+                    AllowColumnPicking="true"
+                    FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive">
+
+        <HeaderTemplate>
+            <RadzenStack Orientation="Orientation.Horizontal"
+                         AlignItems="AlignItems.Center"
+                         Style="width: 100%;">
+                <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem;">
+                    <RadzenButton Text="New"
+                                  Click="@navigate"
+                                  ButtonStyle="ButtonStyle.Primary"
+                                  Icon="add" />
+
+                    <!-- DIVIDER -->
+                    <div style="border-left: 2px solid #ccc; height: 2rem; margin: 0 0.5rem;"></div>
+
+                    <RadzenTextBox Disabled=@(filteredStockItemsList == null)
+                                   @bind-Value="@searchText"
+                                   Placeholder="Search..."
+                                   Style="width:30rem;"
+                                   Change="@(args => ApplyFilter())" />
+
+                    <RadzenButton Disabled=@(filteredStockItemsList == null)
+                                  Icon="search"
+                                  Click="@ApplyFilter"
+                                  Text="Find" />
+
+                    <RadzenButton Disabled=@(filteredStockItemsList == null)
+                                  Icon="delete"
+                                  Click="@ClearFilter"
+                                  Text="Clear" />
+
+                    <RadzenBadge Visible="@(status != string.Empty)" Shade="Shade.Dark" BadgeStyle="BadgeStyle.Danger" Text="@status" class="rz-ms-2" />
+
+                </RadzenStack>
+            </RadzenStack>
+
+        </HeaderTemplate>
+
+        <Columns>
+
+            @* ADDED 10/01/2026*@
+            <RadzenDataGridColumn Filterable="false" Width="120px" Visible=true Title="Status">
+                <Template Context="data">
+                    @if (data.IsCancelled == true)
+                    {
+                        <RadzenBadge IsPill="true" Text="Cancelled" BadgeStyle="BadgeStyle.Danger" />
+                    }
+                </Template>
+            </RadzenDataGridColumn>
+
+            <RadzenDataGridColumn Visible=true Width="90px" TItem="StockInsModel"
+                                  Property="@nameof(StockInsModel.StockInDate)" FormatString="{0:d}" Title="Date"></RadzenDataGridColumn>
+
+            <RadzenDataGridColumn Visible=true Width="120px" TItem="StockInsModel"
+                                  Property="@nameof(StockInsModel.StockInCode)" Title="Stock In #"></RadzenDataGridColumn>
+
+            <RadzenDataGridColumn Visible=true Width="200px" TItem="StockInsModel"
+                                  Property="@nameof(StockInsModel.Description)" Title="Description"></RadzenDataGridColumn>
+
+            <RadzenDataGridColumn Visible=true Width="120px" TItem="StockInsModel"
+                                  Property="@nameof(StockInsModel.ReferenceNo)" Title="Ref #"></RadzenDataGridColumn>
+
+            <RadzenDataGridColumn Visible=true Width="130px" TItem="StockInsModel"
+                                  Property="@nameof(StockInsModel.TotalAmount)" Title="Total Amount">
+                <Template Context="data">
+                    @(data.TotalAmount < 0
+                                        ? $"({Math.Abs(data.TotalAmount):N2})"
+                                        : data.TotalAmount.ToString("N2"))
+                </Template>
+            </RadzenDataGridColumn>
+
+            <RadzenDataGridColumn Visible=true Width="130px" TItem="StockInsModel"
+                                  Property="@nameof(StockInsModel.FirstCreatedUser)" Title="First Created User" />
+
+            <RadzenDataGridColumn Visible=true Width="130px"
+                                  TItem="StockInsModel"
+                                  Property="@nameof(StockInsModel.FirstCreatedDate)"
+                                  Title="First Created Date"
+                                  FormatString="{0:MM/dd/yyyy}" />
+
+            <RadzenDataGridColumn Visible=true Width="130px" TItem="StockInsModel"
+                                  Property="@nameof(StockInsModel.LastModifiedUser)" Title="Last Modified User" />
+
+            <RadzenDataGridColumn Visible=true Width="130px"
+                                  TItem="StockInsModel"
+                                  Property="@nameof(StockInsModel.LastModifiedDate)"
+                                  Title="Last Modified Date"
+                                  FormatString="{0:MM/dd/yyyy}" />
+
+            <RadzenDataGridColumn Visible=true Width="120px" TItem="StockInsModel"
+                                  Property="@nameof(StockInsModel.PrintCount)" Title="Doc Info Print Count" />
+
+            <RadzenDataGridColumn Visible=false Width="100px" TItem="StockInsModel"
+                                  Property="@nameof(StockInsModel.IsCancelled)" Title="Is Cancelled">
+                <Template Context="data">
+                    <RadzenCheckBox Disabled="true" TValue="bool" @bind-Value="@data.IsCancelled"></RadzenCheckBox>
+                </Template>
+            </RadzenDataGridColumn>
+
+        </Columns>
+
+    </RadzenDataGrid>
+</RadzenStack>
+
+
+@code {
+    string status = string.Empty;
+    private RadzenDataGrid<StockInsModel> grids;
+    private IList<StockInsModel> selectedStockIns { get; set; }
+
+    private IEnumerable<StockInsModel> stockInsList { get; set; }
+
+    FilterCaseSensitivity filter = FilterCaseSensitivity.CaseInsensitive;
+    Density density = Density.Compact;
+    AlignItems alignItems = AlignItems.Center;
+    Variant variant = Variant.Flat;
+
+    bool isLoading;
+
+    protected async override Task OnInitializedAsync()
+    {
+        await ShowLoading();
+        await loadAllData();
+    }
+
+    private async Task loadAllData()
+    {
+        await GetStockInList();
+    }
+
+    private async Task GetStockInList()
+    {
+        var data = await stockItemsService.GetStockInList();
+
+        stockInsList = data is not null
+            ? data
+            : new List<StockInsModel>();
+
+        filteredStockItemsList = stockInsList; // enable search filter
+    }
+
+    protected void Edit(Guid Id)
+    {
+        navManager.NavigateTo($"/StockInsList/Edit/{Id}");
+    }
+
+    private void OnRowClick(DataGridRowMouseEventArgs<StockInsModel> args)
+    {
+        // set condition for Cancelled
+        status = args.Data.IsCancelled ? "(Cancelled)"
+        : String.Empty;
+    }
+
+    private void OnRowRender(DataGridCellRenderEventArgs<StockInsModel> args)
+    {
+        args.Attributes.Add("style", $"background-color: {(args.Data.IsCancelled == true ? "var(--rz-danger-lighter)" : "")};");
+    }
+
+    // DoubleClick Cell Event
+    protected void OnCellContextMenu(DataGridCellMouseEventArgs<StockInsModel> stockItems)
+    {
+        selectedStockIns = new List<StockInsModel>() { stockItems.Data };
+
+        var contextMenuItems = new List<ContextMenuItem>
+        {
+            new ContextMenuItem() { Text = "New", Value = 1, Icon = "add" },
+            new ContextMenuItem() { Text = "Edit", Value = 2, Icon = "edit" },
+            new ContextMenuItem() { Text = "Delete", Value = 3, Icon = "delete" }
+        };
+
+        contextMenuService.Open(stockItems, contextMenuItems, (e) =>
+        {
+            switch (e.Value)
+            {
+                case 1:
+                    navigate();
+                    break;
+                case 2:
+                    Edit(stockItems.Data.Id);
+                    break;
+                case 3:
+                    // Delete(stockItems.Data.Id);
+                    break;
+
+            }
+            contextMenuService.Close();
+
+        });
+    }
+
+    private void navigate()
+    {
+        navManager.NavigateTo("/StockIns");
+    }
+
+    private string searchText = string.Empty;
+
+    private IEnumerable<StockInsModel> filteredStockItemsList;
+
+    private void ApplyFilter()
+    {
+        if (string.IsNullOrWhiteSpace(searchText))
+        {
+            filteredStockItemsList = stockInsList;
+        }
+        else
+        {
+            string search = searchText.Trim();
+
+            filteredStockItemsList = stockInsList.Where(x =>
+                // Date search
+                x.StockInDate.ToString("MM/dd/yyyy")
+                    .Contains(search, StringComparison.OrdinalIgnoreCase) ||
+
+                x.StockInDate.ToString("M/d/yyyy")
+                    .Contains(search, StringComparison.OrdinalIgnoreCase) ||
+
+                x.StockInDate.ToString("MM/yyyy")
+                    .Contains(search, StringComparison.OrdinalIgnoreCase) ||
+
+                x.StockInDate.ToString("M/yyyy")
+                    .Contains(search, StringComparison.OrdinalIgnoreCase) ||
+
+                (!string.IsNullOrEmpty(x.StockInCode) && x.StockInCode.Contains(searchText, StringComparison.OrdinalIgnoreCase)) ||
+
+                (!string.IsNullOrEmpty(x.Description) && x.Description.Contains(searchText, StringComparison.OrdinalIgnoreCase))
+
+            );
+        }
+        StateHasChanged();
+    }
+
+    private void ClearFilter()
+    {
+        searchText = string.Empty;
+        filteredStockItemsList = stockInsList;
+        StateHasChanged();
+    }
+
+    async Task ShowLoading()
+    {
+        await Task.Yield();
+
+        isLoading = false;
+    }
+
+}

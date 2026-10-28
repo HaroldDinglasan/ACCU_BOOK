@@ -1,0 +1,586 @@
+﻿@page "/ABSystemUser"
+@page "/ABSystemUser/Edit/{id:guid}"
+
+
+@attribute [Authorize(Roles = "Admin")]
+@inject RowDragDropService<SystemRole> RowDragDropService
+
+<RadzenTemplateForm TItem="SystemUser" Data="systemUser" Submit="@OnSubmit">
+    <RadzenStack Gap="1rem" class="sr">
+
+        <!-- TOOLBAR ACTION CARD (hindi ginalaw) -->
+        <CrudToolbar Title="@(Id.HasValue ? "Edit System User" : "Create System User")"
+                     Subtitle="Manage system user information"
+                     Icon="badge"
+                     ButtonSize="@smallbtn"
+                     SaveText="Save"
+                     SaveBusy="@busy"
+                     SaveDisabled="@btnDiseabled"
+                     BackText="Back to Search"
+                     OnBackSearch="@Navigate">
+
+     
+        </CrudToolbar>
+
+
+     
+
+        <RadzenRow Gap="1rem">
+
+            <!-- User information -->
+            <RadzenColumn Size="12" SizeLG="7">
+                <RadzenCard class="sr-card">
+                    <div class="sr-card-head">
+                        <div class="sr-card-icon"><RadzenIcon Icon="person" /></div>
+                        <div class="sr-card-title">
+                            <h3>User information</h3>
+                            <p>Who this account belongs to.</p>
+                        </div>
+                        @if (systemUser.IsActive == false)
+                        {
+                            <RadzenBadge Shade="Shade.Dark" BadgeStyle="BadgeStyle.Danger" Text="@(string.IsNullOrEmpty(status) ? "Inactive" : status)" IsPill="true" />
+                        }
+                    </div>
+
+                    <RadzenStack Gap="1rem">
+                        <RadzenRow Gap="1rem">
+                            <RadzenColumn Size="12" SizeMD="6">
+                                <RadzenFormField Text="UserName" AllowFloatingLabel="false" Style="width: 100%;">
+                                    <ChildContent>
+                                        <RadzenTextBox Name="UserName" Placeholder="e.g. jdelacruz" @bind-Value="@systemUser.UserName" Style="width: 100%;" />
+                                    </ChildContent>
+                                    <Helper>
+                                        <RadzenRequiredValidator Component="UserName" Text="*UserName Required." />
+                                    </Helper>
+                                </RadzenFormField>
+                            </RadzenColumn>
+
+                            <RadzenColumn Size="12" SizeMD="6">
+                                <RadzenFormField Text="FullName" AllowFloatingLabel="false" Style="width: 100%;">
+                                    <ChildContent>
+                                        <RadzenTextBox Name="FullName" Placeholder="e.g. Juan Dela Cruz" @bind-Value="@systemUser.FullName" Style="width: 100%;" />
+                                    </ChildContent>
+                                    <Helper>
+                                        <RadzenRequiredValidator Component="FullName" Text="*FullName Required." />
+                                    </Helper>
+                                </RadzenFormField>
+                            </RadzenColumn>
+                        </RadzenRow>
+
+                        <RadzenFormField Text="Email" AllowFloatingLabel="false" Style="width: 100%;">
+                            <ChildContent>
+                                <RadzenTextBox Name="Email" Placeholder="name@company.com" @bind-Value="@systemUser.Email" Style="width: 100%;" />
+                            </ChildContent>
+                        </RadzenFormField>
+
+                        <!-- NEW: RoleType dropdown + DateCreated -->
+                        <RadzenRow Gap="1rem">
+                            <RadzenColumn Size="12" SizeMD="6">
+                                <RadzenFormField Text="Role Type" AllowFloatingLabel="false" Style="width: 100%;">
+                                    <ChildContent>
+                                        <RadzenDropDown Name="RoleType" @bind-Value="@systemUser.RoleType"
+                                                        Data="@roleTypeOptions" TextProperty="Text" ValueProperty="Text"
+                                                        AllowClear="true" Placeholder="Select role type" Style="width: 100%;" />
+                                    </ChildContent>
+                                </RadzenFormField>
+                            </RadzenColumn>
+
+                       
+                        </RadzenRow>
+
+                        <RadzenFormField Text="Remarks" AllowFloatingLabel="false" Style="width: 100%;">
+                            <ChildContent>
+                                <RadzenTextArea Name="Remarks" Rows="3" Placeholder="Notes about this user" @bind-Value="@systemUser.Remarks" Style="width: 100%;" />
+                            </ChildContent>
+                        </RadzenFormField>
+                    </RadzenStack>
+                </RadzenCard>
+            </RadzenColumn>
+
+            <!-- Account settings -->
+            <RadzenColumn Size="12" SizeLG="5">
+                <RadzenCard class="sr-card">
+                    <div class="sr-card-head">
+                        <div class="sr-card-icon"><RadzenIcon Icon="manage_accounts" /></div>
+                        <div class="sr-card-title">
+                            <h3>Account settings</h3>
+                            <p>Sign-in status and password rules.</p>
+                        </div>
+                    </div>
+
+                    <RadzenStack Gap="0.75rem">
+                        <div class="sr-option @(systemUser.IsActive == true ? "is-on" : null)">
+                            <RadzenSwitch Name="IsActive" Change=@IsActiveChange @bind-Value="@systemUser.IsActive" />
+                            <div>
+                                <RadzenLabel Text="Active" Component="IsActive" class="sr-option-title" />
+                                <div class="sr-option-hint">Inactive users cannot sign in.</div>
+                            </div>
+                        </div>
+
+                        <div class="sr-option @(systemUser.ChangePasswordOnFirstLogon == true ? "is-on" : null)">
+                            <RadzenSwitch Name="ChangePasswordOnFirstLogon" @bind-Value="@systemUser.ChangePasswordOnFirstLogon" />
+                            <div>
+                                <RadzenLabel Text="Change password on first logon" Component="ChangePasswordOnFirstLogon" class="sr-option-title" />
+                                <div class="sr-option-hint">The user must set a new password the first time they sign in.</div>
+                            </div>
+                        </div>
+
+
+                        <RadzenButton Size="ButtonSize.Small"
+                                      Icon="lock_reset"
+                                      Text="Change My Password"
+                                      Variant="Variant.Outlined"
+                                      ButtonType="ButtonType.Button"
+                                      Style="white-space:nowrap" />
+                    </RadzenStack>
+
+
+                </RadzenCard>
+            </RadzenColumn>
+        </RadzenRow>
+
+        <!-- Assigned roles -->
+        <RadzenCard class="sr-card">
+            <div class="sr-card-head">
+                <div class="sr-card-icon"><RadzenIcon Icon="admin_panel_settings" /></div>
+                <div class="sr-card-title">
+                    <h3>Assigned roles</h3>
+                    <p>Roles decide what this user can access. Double-click a role to open it.</p>
+                </div>
+                <RadzenButton ButtonStyle="ButtonStyle.Success" Icon="add" Text="New Role"
+                              Click="@(() => OpenRoleDialog(systemRoleList.LastOrDefault()))" title="Add new role"
+                              Disabled="@(systemRoleToInsert.Any() || systemRoleToUpdate.Any() || systemRoleList.Count() >= 1)" />
+            </div>
+
+            <RadzenDataGrid EditMode="@editMode" @ref="grid" Style="width: 100%;" @bind-Value=@selectedSystemRole
+                            Data="@systemRoleList" AllowColumnResize=true RowCreate="@OnCreateRow"
+                            RowDoubleClick="@(args => Edit(args.Data.Oid))"
+                            AllowAlternatingRows="false"
+                            TItem="SystemRole" RowUpdate="@OnUpdateRow" RowRender="@RowRender">
+                <EmptyTemplate>
+                    <div class="sr-empty">
+                        <RadzenIcon Icon="group_off" />
+                        <span>No roles assigned yet. Use “New Role” to add one.</span>
+                    </div>
+                </EmptyTemplate>
+                <Columns>
+                    <RadzenDataGridColumn TItem="SystemRole" Property="@nameof(SystemRole.Name)" Title="Name" />
+                    <RadzenDataGridColumn TItem="SystemRole" Property="@nameof(SystemRole.IsAdministrative)" Title="Administrative" Width="180px">
+                        <Template Context="data">
+                            @if (data.IsAdministrative)
+                            {
+                                <RadzenBadge BadgeStyle="BadgeStyle.Success" Text="Yes" IsPill="true" />
+                            }
+                            else
+                            {
+                                <RadzenBadge BadgeStyle="BadgeStyle.Light" Text="No" IsPill="true" />
+                            }
+                        </Template>
+                    </RadzenDataGridColumn>
+
+                    <RadzenDataGridColumn TItem="SystemRole"
+                                          Title="Action"
+                                          Width="100px">
+                        <Template Context="data">
+
+                            <RadzenButton Icon="delete"
+                                          ButtonStyle="ButtonStyle.Danger"
+                                          Size="ButtonSize.Small"
+                                          Click="@(() => RemoveRole(data))" />
+
+                        </Template>
+                    </RadzenDataGridColumn>
+                </Columns>
+            </RadzenDataGrid>
+        </RadzenCard>
+
+    </RadzenStack>
+</RadzenTemplateForm>
+
+@if (isloading)
+{
+    <Spinner Message="Loading user..." />
+}
+
+<style>
+    .sr {
+        --sr-line: var(--rz-base-300, rgba(128, 128, 128, 0.3));
+        --sr-muted: var(--rz-text-secondary-color);
+        --sr-surface: var(--rz-base-background-color, #fff);
+    }
+
+        .sr .sr-card {
+            padding: 1.25rem 1.4rem;
+            border: 1px solid var(--sr-line);
+            border-radius: 10px;
+            box-shadow: none;
+        }
+
+    .sr-card-head {
+        display: flex;
+        align-items: center;
+        gap: 0.85rem;
+        margin-bottom: 1.1rem;
+    }
+
+    .sr-card-icon {
+        width: 40px;
+        height: 40px;
+        flex: none;
+        display: grid;
+        place-items: center;
+        border-radius: 10px;
+        color: var(--rz-primary);
+        background: color-mix(in srgb, var(--rz-primary) 14%, transparent);
+    }
+
+    .sr-card-title {
+        flex: 1;
+        min-width: 0;
+    }
+
+        .sr-card-title h3 {
+            margin: 0;
+            font-size: 1.1rem;
+            font-weight: 700;
+        }
+
+        .sr-card-title p {
+            margin: 0.1rem 0 0;
+            color: var(--sr-muted);
+            font-size: 0.9rem;
+        }
+
+    .sr-option {
+        display: flex;
+        align-items: flex-start;
+        gap: 0.85rem;
+        padding: 0.9rem 1rem;
+        border: 1px solid var(--sr-line);
+        border-radius: 8px;
+        background: var(--sr-surface);
+    }
+
+        .sr-option.is-on {
+            border-color: var(--rz-primary);
+            background: color-mix(in srgb, var(--rz-primary) 6%, var(--sr-surface));
+        }
+
+    .sr-option-title {
+        font-weight: 700;
+        cursor: pointer;
+    }
+
+    .sr-option-hint {
+        color: var(--sr-muted);
+        font-size: 0.88rem;
+    }
+
+    .sr-empty {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.6rem;
+        min-height: 120px;
+        padding: 1.5rem;
+        color: var(--sr-muted);
+    }
+
+    @@media (max-width: 768px) {
+        .sr .sr-card {
+            padding: 1rem;
+        }
+    }
+</style>
+
+@code {
+    [Parameter]
+    public Guid? Id { get; set; }
+    [CascadingParameter] public Task<AuthenticationState> authenticationState { get; set; }
+
+
+    bool busy = false;
+    bool btnDiseabled = false;
+    ButtonSize smallbtn = ButtonSize.Small;
+    InputSize inputSize = InputSize.Small;
+    AlignItems alignItems = AlignItems.Center;
+    string status = string.Empty;
+    string redtext;
+    //for loading data
+    bool isloading = true;
+
+    RadzenDataGrid<SystemRole> grid;
+    DataGridEditMode editMode = DataGridEditMode.Single;
+    List<SystemRole> systemRoleToInsert = new List<SystemRole>();
+    List<SystemRole> systemRoleToUpdate = new List<SystemRole>();
+    // Naka-initialize para hindi mag-null sa bagong user
+    protected List<SystemRole> systemRoleList { get; set; } = new List<SystemRole>();
+    protected IList<SystemRole> selectedSystemRole { get; set; }
+
+    string? userId;//USER GUID
+
+    // ---------- RoleType dropdown options ----------
+    // PALITAN ang laman ayon sa actual na values ng RoleType sa DB mo.
+    // Inassume na int? ang type ng SystemUser.RoleType.
+    class RoleTypeOption
+    {
+        public string Text { get; set; }
+        public int Value { get; set; }
+    }
+
+    List<RoleTypeOption> roleTypeOptions = new()
+    {
+        new RoleTypeOption { Text = "Admin", Value = 0 },
+        new RoleTypeOption { Text = "User",           Value = 1 },
+        // ... i-adjust
+    };
+
+    protected async override Task OnInitializedAsync()
+    {
+        await base.OnInitializedAsync();
+        var authState = (await authenticationState).User;
+        if (authState.Identity.IsAuthenticated)
+        {
+            var RoleId = authState.FindFirst("RoleId").Value;
+
+            //USER GUID
+            var userguid = authState.FindFirst(x => x.Type == System.Security.Claims.ClaimTypes.NameIdentifier);
+            userId = userguid.Value;
+
+            if (Id is not null)
+            {
+                await loadAllDataById();
+            }
+            else
+            {
+                // Bagong user = current date ang DateCreated
+                systemUser.DateCreated = DateTime.Now;
+            }
+
+            StateHasChanged();
+            isloading = false;
+        }
+
+    }
+    protected async Task loadAllDataById()
+    {
+        await GetSecuritySystemUserById();
+        await GetSecuritySystemRoleById();
+        isloading = false;
+    }
+
+    protected SystemUser systemUser { get; set; } = new SystemUser();
+    protected async Task GetSecuritySystemUserById()
+    {
+        var data = await systemUserServices.GetSystemUserById(Id.ToString());
+        systemUser = data is not null ? data : new SystemUser();
+        SetRedText();
+    }
+
+    protected void IsActiveChange(bool value)
+    {
+        systemUser.IsActive = value;
+        SetRedText();
+    }
+    protected void SetRedText()
+    {
+        redtext = systemUser.IsActive == false ? "rz-color-danger-darker" : "";
+        status = systemUser.IsActive == false ? "Inactive" : "";
+    }
+
+
+    protected async Task GetSecuritySystemRoleById()
+    {
+        var data = await systemUserServices.GetSystemRoleById(Id.ToString());
+        systemRoleList = data is not null ? data.ToList() : new List<SystemRole>();
+    }
+
+    protected async Task OnSubmit()
+    {
+        if (busy) return;
+        busy = true;
+
+        try
+        {
+            // Buuin ang mapping mula sa kung ano ang nasa UI ngayon (existing + bago).
+            // Kaya hindi na kailangang i-add ulit ang dating roles.
+            var mappings = systemRoleList
+                .Select(r => new SystemUser_SystemRoles
+                {
+                    RolesId = r.Oid,
+                    Users = systemUser.Oid
+                })
+                .ToList();
+
+            var result = await systemUserServices.SaveSystemUser(systemUser, mappings);
+
+            if (result == null || !result.Contains("successfully"))
+            {
+                await DialogService.Alert(result ?? "Failed to save user.", "Error");
+                return;
+            }
+
+            await DialogService.Alert("System user saved successfully.", "Success");
+        }
+        finally
+        {
+            busy = false;
+        }
+    }
+
+
+    //insert after row
+    RadzenDataGrid<SystemRole> gridDialog;
+    protected IList<SystemRole> selectedSystemRoleDialog { get; set; }
+    IEnumerable<SystemRole> systemRoleDialogList;
+    async Task OpenRoleDialog(SystemRole systemRole)
+    {
+        var data = await systemRoleServices.GetSystemRoleLists();
+
+        // Roles na wala pa sa user lang ang ipapakita, at walang naka-check sa simula.
+        systemRoleDialogList = (data is not null ? data : new List<SystemRole>())
+            .Where(r => !systemRoleList.Any(a => a.Oid == r.Oid))
+            .ToList();
+        selectedSystemRoleDialog = new List<SystemRole>();
+
+        await DialogService.OpenAsync("Add roles", ds =>
+       @<div>
+           <RadzenStack Gap="1rem">
+               <RadzenText TextStyle="TextStyle.Body2" Style="color: var(--rz-text-secondary-color); margin: 0;">
+                   Check the roles you want to assign to this user.
+               </RadzenText>
+
+               <RadzenDataGrid @ref="gridDialog" @bind-Value=@selectedSystemRoleDialog
+                               Data="@systemRoleDialogList" AllowColumnResize=true
+                               SelectionMode="DataGridSelectionMode.Multiple" AllowRowSelectOnRowClick="false"
+                               AllowAlternatingRows="false" AllowVirtualization="true" Style="height: 48vh"
+                               TItem="SystemRole">
+                   <EmptyTemplate>
+                       <div style="padding: 2rem; text-align: center; color: var(--rz-text-secondary-color);">
+                           All available roles are already assigned.
+                       </div>
+                   </EmptyTemplate>
+                   <Columns>
+                       <RadzenDataGridColumn Width="3rem" TItem="SystemRole" Sortable="false" Filterable="false">
+                           <Template Context="data">
+                               <RadzenCheckBox TriState="false" TValue="bool"
+                                               Value="@(selectedSystemRoleDialog != null && selectedSystemRoleDialog.Contains(data))"
+                                               Change="@(args => gridDialog.SelectRow(data))"
+                                               @onclick:stopPropagation="true" />
+                           </Template>
+                       </RadzenDataGridColumn>
+                       <RadzenDataGridColumn TItem="SystemRole" Property="@nameof(SystemRole.Name)" Title="Name" />
+                   </Columns>
+               </RadzenDataGrid>
+
+               <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" Gap="0.5rem">
+                   <RadzenButton Text="Cancel" ButtonStyle="ButtonStyle.Light" Variant="Variant.Outlined" Click="@(() => DialogService.Close())" />
+                   <RadzenButton Text="Add Selected" Icon="check" Click="@(() => ConfirmRoles())" />
+               </RadzenStack>
+           </RadzenStack>
+       </div>
+
+, new DialogOptions()
+{
+    CssClass = "custom-dialog-class",
+    WrapperCssClass = "custom-dialog-wrapper-class",
+    Width = "800px",
+    Height = "700px",
+    Resizable = true
+
+});
+
+        await grid.Reload();
+        StateHasChanged();
+    }
+
+    // Idinadagdag sa user ang mga piniling role (walang duplicate), tapos isasara ang dialog.
+    // systemRoleList na ang source of truth, kaya wala nang hiwalay na mapping list.
+    void ConfirmRoles()
+    {
+        if (selectedSystemRoleDialog is not null)
+        {
+            foreach (var role in selectedSystemRoleDialog)
+            {
+                if (!systemRoleList.Any(r => r.Oid == role.Oid))
+                {
+                    systemRoleList.Add(role);
+                }
+            }
+        }
+
+        DialogService.Close();
+    }
+
+
+    private async Task RemoveRole(SystemRole role)
+    {
+        if (role == null)
+            return;
+
+        var confirmed = await DialogService.Confirm(
+            $"Are you sure you want to remove role '{role.Name}'?",
+            "Remove Role",
+            new ConfirmOptions
+            {
+                OkButtonText = "Yes",
+                CancelButtonText = "No"
+            });
+
+        if (confirmed != true)
+            return;
+
+        // Remove sa UI grid. Made-delete sa DB pagka-save dahil wala na ito sa systemRoleList.
+        systemRoleList.RemoveAll(x => x.Oid == role.Oid);
+
+        await grid.Reload();
+        await InvokeAsync(StateHasChanged);
+    }
+
+
+
+    void OnCreateRow(SystemRole systemRole)
+    {
+        systemRoleToInsert.Remove(systemRole);
+    }
+
+
+    void OnUpdateRow(SystemRole systemRole)
+    {
+        Reset(systemRole);
+    }
+
+    void Reset(SystemRole systemRole)
+    {
+        systemRoleToInsert.Remove(systemRole);
+        systemRoleToUpdate.Remove(systemRole);
+    }
+
+    void Reset()
+    {
+        systemRoleToInsert.Clear();
+        systemRoleToUpdate.Clear();
+    }
+
+
+    protected void RowRender(RowRenderEventArgs<SystemRole> args)
+    {
+        RowDragDropService.ConfigureRow(
+                        args,
+                        systemRoleList,
+                        () => StateHasChanged()
+                    );
+    }
+    protected void Navigate()
+    {
+        navManager.NavigateTo("/ABSystemUserList");
+    }
+
+    protected void Edit(Guid Id)
+    {
+
+        navManager.NavigateTo($"/ABSystemRole/Edit/{Id}");
+
+    }
+
+}

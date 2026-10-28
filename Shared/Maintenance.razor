@@ -1,0 +1,45 @@
+﻿<RadzenMenu>
+    <RadzenMenuItem Text="Maintenance" Icon="build">
+        <RadzenMenuItem Text="Projects" Icon="assignment"></RadzenMenuItem>
+        <RadzenMenuItem Text="Financial Period" Icon="finance"></RadzenMenuItem>
+        <RadzenMenuItem Text="Running Numbers" Path="RunningNumbers" Icon="numbers"></RadzenMenuItem>
+        <RadzenMenuItem Text="Valid Posting Periods" Path="ValidPostingPeriodList" Icon="numbers"></RadzenMenuItem>
+        <RadzenMenuItem Text="Menu Settings" Path="ABMenuSettings" Icon="tune"></RadzenMenuItem>
+
+    </RadzenMenuItem>
+    <RadzenMenuItem Text="Inquiry" Icon="query_stats" Disabled="@false">
+        <RadzenMenuItem Text="Account Inquiry" Icon="check_circle"></RadzenMenuItem>
+        <RadzenMenuItem Text="TextBox" Path="textbox" Icon="input"></RadzenMenuItem>
+    </RadzenMenuItem>
+
+    <RadzenMenuItem Text="User Account" Icon="person">
+        <RadzenMenuItem Text="User Roles" Click=@( () => navManager.NavigateTo("/ABSystemRoleList")) Icon="check_circle"></RadzenMenuItem>
+        <RadzenMenuItem Text="Users" Click=@( () => navManager.NavigateTo("/ABSystemUserList")) Icon="input"></RadzenMenuItem>
+    </RadzenMenuItem>
+</RadzenMenu>
+
+
+@code {
+    bool isTrue = true;
+}
+
+@* <RadzenPanelMenuItem Text="Maintenance" Icon="build">
+    <RadzenPanelMenuItem Text="Sample Item"></RadzenPanelMenuItem>
+    <RadzenPanelMenuItem Text="Projects"></RadzenPanelMenuItem>
+    <RadzenPanelMenuItem Text="Financial Period"></RadzenPanelMenuItem>
+    <RadzenPanelMenuItem Text="Valid Posting Periods"></RadzenPanelMenuItem>
+    <RadzenPanelMenuItem Text="Default Interface Accounts"></RadzenPanelMenuItem>
+    <RadzenPanelMenuItem Text="Currencies"></RadzenPanelMenuItem>
+    <RadzenPanelMenuItem Text="Terms"></RadzenPanelMenuItem>
+    <RadzenPanelMenuItem Text="Areas"></RadzenPanelMenuItem>
+    <RadzenPanelMenuItem Text="System Options"></RadzenPanelMenuItem>
+    <RadzenPanelMenuItem Text="Running Numbers"></RadzenPanelMenuItem>
+    <RadzenPanelMenuItem Text="User Default Format"></RadzenPanelMenuItem>
+    <RadzenPanelMenuItem Text="Posting Account Groups"></RadzenPanelMenuItem>
+</RadzenPanelMenuItem>
+
+
+<RadzenPanelMenuItem Text="User Account" Icon="person">
+    <RadzenPanelMenuItem Text="User Roles"></RadzenPanelMenuItem>
+    <RadzenPanelMenuItem Text="Users"></RadzenPanelMenuItem>
+</RadzenPanelMenuItem> *@

@@ -1,0 +1,95 @@
+﻿@using Accounting_V4.Services.DialogServices
+@inject SidePanelService SidePanelService
+@implements IDisposable
+
+@if (SidePanelService.IsVisible)
+{
+
+    <div class="side-panel-backdrop"></div>
+    <div class="side-panel-container" style="width: @SidePanelService.Width;">
+        <div class="side-panel-header">
+            <h3>@SidePanelService.Title</h3>
+            <button type="button" class="close-button" @onclick="() => SidePanelService.Close()">&times;</button>
+        </div>
+        <div class="side-panel-body">
+            @* Ipinapasa ang SidePanelService instance (context) sa Content fragment *@
+            @SidePanelService.Content(SidePanelService)
+        </div>
+    </div>
+}
+
+<style>
+    /* CSS para sa Side Panel */
+    .side-panel-backdrop {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100vw;
+        height: 100vh;
+        background-color: rgba(0, 0, 0, 0.2);
+        z-index: 1000;
+        transition: opacity 0.3s ease;
+    }
+
+    .side-panel-container {
+        position: fixed;
+        top: 0;
+        right: 0;
+        height: 100vh;
+        background-color: white;
+        box-shadow: -2px 0 10px rgba(0, 0, 0, 0.2);
+        z-index: 1001;
+        display: flex;
+        flex-direction: column;
+        animation: slideIn 0.3s ease-out;
+    }
+
+    .side-panel-header {
+        padding: 1rem;
+        border-bottom: 1px solid #dee2e6;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+        .side-panel-header h3 {
+            margin: 0;
+            font-size: 1.25rem;
+        }
+
+    .side-panel-body {
+        padding: 1.5rem;
+        flex-grow: 1;
+        overflow-y: auto;
+    }
+
+    .close-button {
+        background: none;
+        border: none;
+        font-size: 1.5rem;
+        cursor: pointer;
+        color: #6c757d;
+    }
+
+    @@keyframes slideIn {
+        from {
+            transform: translateX(100%);
+        }
+
+        to {
+            transform: translateX(0);
+        }
+    }
+</style>
+
+@code {
+    protected override void OnInitialized()
+    {
+        SidePanelService.OnChange += StateHasChanged;
+    }
+
+    public void Dispose()
+    {
+        SidePanelService.OnChange -= StateHasChanged;
+    }
+}
